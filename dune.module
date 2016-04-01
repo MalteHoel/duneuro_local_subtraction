@@ -1,0 +1,11 @@
+################################
+# Dune module information file #
+################################
+
+#Name of the module
+Module: dubio
+Version: 0.1
+Maintainer: andreas.nuessing@uni-muenster.de
+#depending on
+Depends: dune-common dune-grid dune-istl dune-pdelab
+Suggests: dune-udg dune-subgrid dune-mc
