@@ -3,6 +3,7 @@
 
 #include <dune/common/ftraits.hh>
 #include <dune/common/parametertree.hh>
+#include <dune/common/timer.hh>
 
 #include <dune/grid/common/rangegenerators.hh>
 
@@ -17,6 +18,8 @@
 #include <dune/pdelab/gridfunctionspace/interpolate.hh>
 #include <dune/pdelab/gridfunctionspace/lfsindexcache.hh>
 #include <dune/pdelab/gridfunctionspace/localfunctionspace.hh>
+
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -80,24 +83,28 @@ namespace duneuro
 
   template <class GFS, class X>
   void subtract_mean_impl(const GFS& gfs, X& x,
-                          const Dune::ParameterTree& config = Dune::ParameterTree())
+                          const Dune::ParameterTree& config = Dune::ParameterTree(),
+                          DataTree dataTree = DataTree())
   {
+    Dune::Timer timer;
     GridFunctionMean<GFS> gfsMean(gfs, config);
     auto mean = gfsMean.evaluate(x);
-    std::cout << "subtraction mean value: " << mean << std::endl;
+    dataTree.set("mean_before_subtraction", mean);
     Dune::PDELab::ConstGridFunction<typename GFS::Traits::GridViewType, double> constGF(
         gfs.gridView(), mean);
     X mx(gfs, 0.0);
     Dune::PDELab::interpolate(constGF, gfs, mx);
     x -= mx;
-    std::cout << "mean afterwards: " << gfsMean.evaluate(x) << std::endl;
+    dataTree.set("mean_after_subtraction", gfsMean.evaluate(x));
+    dataTree.set("time", timer.elapsed());
   }
 
   template <class Solver>
   void subtract_mean(const Solver& solver, typename Solver::Traits::DomainDOFVector& x,
-                     const Dune::ParameterTree& config = Dune::ParameterTree())
+                     const Dune::ParameterTree& config = Dune::ParameterTree(),
+                     DataTree dataTree = DataTree())
   {
-    subtract_mean_impl(solver.functionSpace().getGFS(), x, config);
+    subtract_mean_impl(solver.functionSpace().getGFS(), x, config, dataTree);
   }
 }
 

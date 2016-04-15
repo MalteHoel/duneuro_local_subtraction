@@ -2,12 +2,16 @@
 #define DUNEURO_PROJECTEDELECTRODES_HH
 
 #include <dune/common/fvector.hh>
+#include <dune/common/timer.hh>
 #include <dune/common/version.hh>
+
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/backend/istl/descriptors.hh>
 #include <dune/pdelab/gridoperator/gridoperator.hh>
+
 #include <ostream>
 #include <vector>
+
 #if HAVE_DUNE_UDG
 //#include <dune/biomag/localoperator/entityprojectionudg.hh>
 #include <dune/udg/pdelab/multiphaseoperator.hh>
@@ -16,6 +20,7 @@
 #endif
 //#include <dune/biomag/localoperator/boundaryprojection.hh>
 #include <duneuro/eeg/projection_utilities.hh>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -30,9 +35,11 @@ namespace duneuro
 
     using Projection = ProjectedPosition<Element, Dune::FieldVector<ctype, dim>>;
 
-    ProjectedElectrodes(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes, const GV& gv)
+    ProjectedElectrodes(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes, const GV& gv,
+                        DataTree dataTree = DataTree())
         : gridView_(gv)
     {
+      Dune::Timer timer;
       std::vector<std::pair<Projection, ctype>> minDistance;
       for (std::size_t i = 0; i < electrodes.size(); ++i) {
         minDistance.push_back(std::make_pair(
@@ -94,7 +101,8 @@ namespace duneuro
         }
         projections_.push_back(minDistance[i].first);
       }
-      std::cout << "max distance for projection is " << maxdiff << std::endl;
+      dataTree.set("max_distance", maxdiff);
+      dataTree.set("time", timer.elapsed());
     }
 
 #if 0 && HAVE_DUNE_UDG

@@ -1,10 +1,14 @@
 #ifndef DUNEURO_VTK_WRITER_HH
 #define DUNEURO_VTK_WRITER_HH
 
+#include <dune/common/timer.hh>
+
 #include <dune/grid/io/file/vtk/subsamplingvtkwriter.hh>
 
 #include <dune/pdelab/common/vtkexport.hh>
 #include <dune/pdelab/gridfunctionspace/gridfunctionspaceutilities.hh>
+
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -39,9 +43,11 @@ namespace duneuro
           std::make_shared<VTKF>(std::make_shared<DGF>(solver.functionSpace().getGFS(), v), name));
     }
 
-    void write(const std::string& filename)
+    void write(const std::string& filename, DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       writer_.write(filename);
+      dataTree.set("time", timer.elapsed());
     }
 
   private:

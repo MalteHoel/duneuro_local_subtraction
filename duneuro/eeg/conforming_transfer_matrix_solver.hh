@@ -2,11 +2,13 @@
 #define DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
+#include <dune/common/timer.hh>
 
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/projection_utilities.hh>
 #include <duneuro/eeg/transfer_matrix_rhs.hh>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -43,15 +45,22 @@ namespace duneuro
 
     void solve(const typename Traits::ProjectedPosition& reference,
                const typename Traits::ProjectedPosition& electrode,
-               typename Traits::DomainDOFVector& solution)
+               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       // assemble right hand side
       *rightHandSideVector_ = 0.0;
       rhsAssembler_.assembleRightHandSide(reference.element, reference.localPosition,
                                           electrode.element, electrode.localPosition,
                                           *rightHandSideVector_);
+      timer.stop();
+      dataTree.set("time_rhs_assembly", timer.lastElapsed());
+      timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution);
+      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      timer.stop();
+      dataTree.set("time_solution", timer.lastElapsed());
+      dataTree.set("time", timer.elapsed());
     }
 
     const typename Traits::FunctionSpace& functionSpace() const

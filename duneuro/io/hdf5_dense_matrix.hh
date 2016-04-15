@@ -5,9 +5,10 @@
 #include <Eigen/Dense>
 #endif
 
-//#include <dune/biomag/linearalgebra/matrixadapter.hh>
 #include <dune/common/dynmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
+
+#include <duneuro/common/matrix_adapter.hh>
 
 #if HAVE_HDF5WRAP
 #include <H5Cpp.h>
@@ -17,19 +18,18 @@ namespace duneuro
 {
   template <class M>
   struct DenseMatrixToHDF5Writer;
-  /*
 
   template <class T>
-  struct DenseMatrixToHDF5Writer<std::shared_ptr<Dune::Biomag::MatrixInterface<T> > > {
-    typedef hdf5wrap::AttributeTraits<typename Dune::Biomag::MatrixInterface<T>::Value> Traits;
+  struct DenseMatrixToHDF5Writer<std::shared_ptr<duneuro::MatrixInterface<T>>> {
+    typedef hdf5wrap::AttributeTraits<typename duneuro::MatrixInterface<T>::Value> Traits;
     static H5::DataSet write(H5::CommonFG& parent,
-        std::shared_ptr<Dune::Biomag::MatrixInterface<T> > matrix,
-        const std::string& name = "matrix")
+                             std::shared_ptr<duneuro::MatrixInterface<T>> matrix,
+                             const std::string& name = "matrix")
     {
       hsize_t rows = matrix->rows();
       hsize_t cols = matrix->cols();
 
-      std::vector<typename Dune::Biomag::MatrixInterface<T>::Value> data;
+      std::vector<typename duneuro::MatrixInterface<T>::Value> data;
       data.reserve(rows * cols);
 
       for (std::size_t row = 0; row < rows; ++row) {
@@ -38,11 +38,11 @@ namespace duneuro
         }
       }
 
-      hsize_t dims[] = { rows, cols };
+      hsize_t dims[] = {rows, cols};
       H5::DataSpace dataSpace(2, dims);
 
       typename Traits::Type dataType(
-          Traits::constructType(typename Dune::Biomag::MatrixInterface<T>::Value(0)));
+          Traits::constructType(typename duneuro::MatrixInterface<T>::Value(0)));
       dataType.setOrder(H5T_ORDER_LE);
 
       H5::DataSet dataSet = parent.createDataSet(name, dataType, dataSpace);
@@ -50,7 +50,6 @@ namespace duneuro
       return dataSet;
     }
   };
-  */
 
   template <class T>
   struct DenseMatrixToHDF5Writer<Dune::DynamicMatrix<T>> {

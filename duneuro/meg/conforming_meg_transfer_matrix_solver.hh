@@ -2,10 +2,12 @@
 #define DUNEURO_CONFORMING_MEG_TRANSFER_MATRIX_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
+#include <dune/common/timer.hh>
 
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/projection_utilities.hh>
+#include <duneuro/io/data_tree.hh>
 #include <duneuro/meg/meg_transfer_matrix_rhs.hh>
 
 namespace duneuro
@@ -42,13 +44,20 @@ namespace duneuro
 
     void solve(const typename Traits::Coordinate& coil,
                const typename Traits::Coordinate& projection,
-               typename Traits::DomainDOFVector& solution)
+               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       // assemble right hand side
       *rightHandSideVector_ = 0.0;
       rhsAssembler_.assembleRightHandSide(coil, projection, *rightHandSideVector_);
+      timer.stop();
+      dataTree.set("time_rhs_assembly", timer.lastElapsed());
+      timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution);
+      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      timer.stop();
+      dataTree.set("time_solution", timer.lastElapsed());
+      dataTree.set("time", timer.elapsed());
     }
 
     const typename Traits::FunctionSpace& functionSpace() const

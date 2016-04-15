@@ -7,6 +7,8 @@
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/io.hh>
 
+#include <dune/pdelab/backend/istl/vector.hh>
+
 #include <duneuro/io/hdf5_dense_matrix.hh>
 
 namespace duneuro
@@ -41,6 +43,13 @@ namespace duneuro
           (*matrix_)[sensorIndex][flatIndex] = vector[block][localIndex];
         }
       }
+    }
+
+    template <class GFS, class C>
+    void setRowOfSensor(std::size_t sensorIndex,
+                        const Dune::PDELab::istl::BlockVector<GFS, C>& vector)
+    {
+      setRowOfSensor(sensorIndex, Dune::PDELab::Backend::native(vector));
     }
 
     const MatrixType& matrix() const
@@ -182,7 +191,7 @@ readTransferMatrixFromMatrixMarket(const std::string &filename)
   {
     typedef typename ISTLTransferMatrix<T>::MatrixType MatrixType;
     return std::make_shared<ISTLTransferMatrix<T>>(
-        DenseMatrixToHDF5Reader<MatrixType>::read(filename, "transfer"));
+        DenseMatrixToHDF5Reader<MatrixType>::read(filename, "transfer_matrix"));
   }
 #endif
 

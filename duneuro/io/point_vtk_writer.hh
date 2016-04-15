@@ -5,8 +5,10 @@
 #include <vector>
 
 #include <dune/common/fvector.hh>
+#include <dune/common/timer.hh>
 
 #include <duneuro/common/dipole.hh>>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -28,8 +30,9 @@ namespace duneuro
       addVectorData("moment", momentData);
     }
 
-    void write(const std::string& name)
+    void write(const std::string& name, DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       std::stringstream filename;
       filename << name << ".vtk";
       std::ofstream stream(filename.str());
@@ -37,6 +40,7 @@ namespace duneuro
       writeHeader(stream);
       writeVertices(stream);
       writeData(stream);
+      dataTree.set("time", timer.elapsed());
     }
 
     void addVectorData(const std::string& name,

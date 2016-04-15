@@ -6,6 +6,8 @@
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
 
+#include <duneuro/io/data_tree.hh>
+
 namespace duneuro
 {
   template <class ctype, int dim>
@@ -15,7 +17,7 @@ namespace duneuro
     using Coordinate = Dune::FieldVector<ctype, dim>;
 
     template <class OutputIterator>
-    static void read(std::istream& stream, OutputIterator out)
+    static void read(std::istream& stream, OutputIterator out, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       std::string line;
@@ -37,28 +39,32 @@ namespace duneuro
 
         *out++ = projections;
       }
+      dataTree.set("time", timer.elapsed());
     }
 
     template <class OutputIterator>
-    static void read(const std::string& filename, OutputIterator out)
+    static void read(const std::string& filename, OutputIterator out,
+                     DataTree dataTree = DataTree())
     {
       std::ifstream stream(filename);
       if (!stream) {
         DUNE_THROW(Dune::IOError, "Could not open projectiosn file \"" << filename << "\"!");
       }
-      read(stream, out);
+      read(stream, out, dataTree);
     }
 
-    static std::vector<std::vector<Coordinate>> read(const std::string& filename)
+    static std::vector<std::vector<Coordinate>> read(const std::string& filename,
+                                                     DataTree dataTree = DataTree())
     {
       std::vector<std::vector<Coordinate>> projections;
-      read(filename, std::back_inserter(projections));
+      read(filename, std::back_inserter(projections), dataTree);
       return projections;
     }
 
-    static std::vector<std::vector<Coordinate>> read(const Dune::ParameterTree& config)
+    static std::vector<std::vector<Coordinate>> read(const Dune::ParameterTree& config,
+                                                     DataTree dataTree = DataTree())
     {
-      return read(config.get<std::string>("filename"));
+      return read(config.get<std::string>("filename"), dataTree);
     }
   };
 }

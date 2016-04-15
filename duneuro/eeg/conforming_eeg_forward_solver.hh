@@ -7,6 +7,7 @@
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/eeg_forward_solver_interface.hh>
+#include <duneuro/eeg/source_model_interface.hh>
 
 namespace duneuro
 {
@@ -41,13 +42,20 @@ namespace duneuro
     }
 
     void solve(const typename Traits::DipoleType& dipole,
-               typename Traits::DomainDOFVector& solution)
+               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
     {
       // assemble right hand side
+      Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
       sourceModel_->assembleRightHandSide(dipole, *rightHandSideVector_);
+      timer.stop();
+      dataTree.set("time_rhs_assembly", timer.lastElapsed());
+      timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution);
+      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      timer.stop();
+      dataTree.set("time_solve", timer.lastElapsed());
+      dataTree.set("time", timer.elapsed());
     }
 
     void postProcessSolution(const typename Traits::DipoleType& dipole,

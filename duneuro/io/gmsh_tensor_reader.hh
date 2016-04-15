@@ -4,8 +4,10 @@
 #include <fstream>
 
 #include <dune/common/exceptions.hh>
-
 #include <dune/common/fmatrix.hh>
+#include <dune/common/timer.hh>
+
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -17,8 +19,10 @@ namespace duneuro
     enum { dim = G::dimension };
     typedef Dune::FieldMatrix<ctype, dim, dim> TensorType;
 
-    static void read(const std::string& filename, std::vector<TensorType>& tensors)
+    static void read(const std::string& filename, std::vector<TensorType>& tensors,
+                     DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       std::ifstream stream(filename);
       if (!stream) {
         DUNE_THROW(Dune::IOError, "tensor file " << filename << " could not be opened");
@@ -34,6 +38,7 @@ namespace duneuro
         }
         tensors.push_back(t);
       }
+      dataTree.set("time", timer.elapsed());
     }
   };
 }

@@ -8,6 +8,7 @@
 #include <dune/pdelab/backend/backendselector.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
+#include <duneuro/io/data_tree.hh>
 #include <duneuro/meg/meg_local_operator.hh>
 #include <duneuro/meg/meg_transfer_matrix_rhs.hh>
 
@@ -28,7 +29,7 @@ namespace duneuro
     MEGSolution(std::shared_ptr<VC> volumeConductor, const FS& fs,
                 const std::vector<Coordinate>& coils,
                 const std::vector<std::vector<Coordinate>>& projections,
-                const Dune::ParameterTree& config)
+                const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : config_(config), smatrix_(coils.size())
     {
       Dune::Timer timer;
@@ -46,11 +47,14 @@ namespace duneuro
         }
       }
       std::cout << "\n";
+      timer.stop();
+      dataTree.set("time", timer.elapsed());
     }
 
     template <class I>
-    void evaluate(const DOF& x, I output) const
+    void evaluate(const DOF& x, I output, DataTree dataTree = DataTree()) const
     {
+      Dune::Timer timer;
       for (unsigned int coilIndex = 0; coilIndex < smatrix_.size(); ++coilIndex) {
         std::vector<typename DOF::field_type> result;
         result.reserve(smatrix_[coilIndex].size());
@@ -59,13 +63,15 @@ namespace duneuro
         }
         *output++ = result;
       }
+      dataTree.set("time", timer.elapsed());
     }
 
-    std::vector<std::vector<typename DOF::field_type>> evaluate(const DOF& x) const
+    std::vector<std::vector<typename DOF::field_type>>
+    evaluate(const DOF& x, DataTree dataTree = DataTree()) const
     {
       std::vector<std::vector<typename DOF::field_type>> out;
       out.reserve(smatrix_.size());
-      evaluate(x, std::back_inserter(out));
+      evaluate(x, std::back_inserter(out), dataTree);
       return out;
     }
 

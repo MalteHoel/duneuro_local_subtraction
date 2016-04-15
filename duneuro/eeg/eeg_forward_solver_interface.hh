@@ -5,6 +5,8 @@
 
 #include <duneuro/common/dipole.hh>
 
+#include <duneuro/io/data_tree.hh>
+
 namespace duneuro
 {
   /**
@@ -28,17 +30,19 @@ namespace duneuro
      *
      * the solution is returned as the coefficients of the basis functions.
      */
-    void solve(const DipoleType& dipole, typename Traits::DomainDOFVector& solution)
+    void solve(const DipoleType& dipole, typename Traits::DomainDOFVector& solution,
+               DataTree dataTree = DataTree())
     {
-      asImpl().solve(dipole, solution);
+      asImpl().solve(dipole, solution, dataTree);
     }
 
     /**
      * \brief post process the eeg forward problem for the given dipole
      */
-    void postProcessSolution(const DipoleType& dipole, typename Traits::DomainDOFVector& solution)
+    void postProcessSolution(const DipoleType& dipole, typename Traits::DomainDOFVector& solution,
+                             DataTree dataTree = DataTree())
     {
-      asImpl().postProcessSolution(dipole, solution);
+      asImpl().postProcessSolution(dipole, solution, DataTree());
     }
 
   protected:

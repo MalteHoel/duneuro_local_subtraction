@@ -17,6 +17,8 @@
 #include <dune/pdelab/constraints/common/constraints.hh>
 #include <dune/pdelab/stationary/linearproblem.hh>
 
+#include <duneuro/io/data_tree.hh>
+
 namespace duneuro
 {
   struct UnsymmetricMatrixException : public Dune::Exception {
@@ -186,22 +188,21 @@ namespace duneuro
     {
     }
 
-    void apply(LS& ls, DV& x, const RV& rightHandSide)
+    void apply(LS& ls, DV& x, const RV& rightHandSide, DataTree dataTree = DataTree())
     {
-      Dune::Timer watch;
-      double timing, assembler_time = 0;
-
+      Dune::Timer timer(false);
       {
         std::unique_lock<std::mutex> lock(_mutex);
         if (!_jacobian) {
           std::cout << "thread with id " << std::this_thread::get_id() << " creates jacobian"
                     << std::endl;
+          timer.start();
           _jacobian = std::unique_ptr<M>(new M(_go));
-          timing = watch.elapsed();
+          timer.stop();
           if (_go.trialGridFunctionSpace().gridView().comm().rank() == 0 && _verbose >= 1)
-            std::cout << "=== matrix setup (max) " << timing << " s" << std::endl;
-          watch.reset();
-          assembler_time += timing;
+            std::cout << "=== matrix setup (max) " << timer.lastElapsed() << " s" << std::endl;
+          dataTree.set("time_matrix_setup", timer.lastElapsed());
+          timer.start();
           (*_jacobian) = typename M::field_type(0.0);
           _go.jacobian(x, *_jacobian);
           if (_fixFirstDOF) {
@@ -219,12 +220,9 @@ namespace duneuro
             }
           }
           std::cout << Dune::PDELab::Backend::native(*_jacobian)[0][0] << "\n";
-          timing = watch.elapsed();
-          std::cout << "=== matrix assembly (max) " << timing << " s" << std::endl;
-          assembler_time += timing;
-          watch.reset();
-        } else if (_go.trialGridFunctionSpace().gridView().comm().rank() == 0 && _verbose >= 1)
-          std::cout << "=== matrix setup skipped (matrix already allocated)" << std::endl;
+          timer.stop();
+          dataTree.set("time_matrix_assembly", timer.lastElapsed());
+        }
       }
 
       // transform rhs to discrete residuum
@@ -233,17 +231,20 @@ namespace duneuro
           .mmv(Dune::PDELab::Backend::native(x), Dune::PDELab::Backend::native(r));
       r *= -1.0;
       // compute correction
-      watch.reset();
+      Dune::Timer solutionTimer;
+      timer.start();
       DV z(_go.trialGridFunctionSpace(), 0.0);
       ls.apply(*_jacobian, z, r, _reduction); // solver makes right hand side consistent
-      timing = watch.elapsed();
-      {
-        std::unique_lock<std::mutex> lock(_mutex);
-        std::cout << timing << " s" << std::endl;
-        std::cout << "linear solver iterations: " << ls.result().iterations << "\n";
-      }
+      timer.stop();
+      dataTree.set("iterations", ls.result().iterations);
+      dataTree.set("reduction", ls.result().reduction);
+      dataTree.set("conv_rate", ls.result().conv_rate);
+      dataTree.set("time_solution", timer.lastElapsed());
       // and update
+      timer.start();
       x -= z;
+      timer.stop();
+      dataTree.set("time", timer.elapsed());
     }
 
     //! Discard the stored Jacobian matrix.

@@ -10,6 +10,7 @@
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/thread_safe_linear_problem_solver.hh>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -62,7 +63,8 @@ namespace duneuro
   public:
     using Traits = DGSolverTraits<VC, elementType, degree, DF, RF, JF>;
 
-    DGSolver(std::shared_ptr<VC> volumeConductor, const Dune::ParameterTree& config)
+    DGSolver(std::shared_ptr<VC> volumeConductor, const Dune::ParameterTree& config,
+             DataTree dataTree = DataTree())
         : volumeConductor_(volumeConductor)
         , problem_(volumeConductor_)
         , boundaryCondition_(volumeConductor_->gridView(), problem_)
@@ -78,18 +80,23 @@ namespace duneuro
         , linearSolverMutex_()
         , linearSolver_(linearSolverMutex_, *assembler_, config.sub("linear_solver"))
     {
+      dataTree.set("degree", degree);
+      dataTree.set("element_type", to_string(elementType));
+      solverBackend_.setReuse(true);
     }
 
     void solve(const typename Traits::RangeDOFVector& rightHandSide,
-               typename Traits::DomainDOFVector& solution)
+               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
     {
+      Dune::Timer timer;
       for (unsigned int r = 0; r < solution.N(); ++r) {
         for (unsigned int j = 0; j < Dune::PDELab::Backend::native(solution)[r].N(); ++j) {
           Dune::PDELab::Backend::native(solution)[r][j] =
               -1. + 2. * static_cast<double>(std::rand()) / RAND_MAX;
         }
       }
-      linearSolver_.apply(solverBackend_, solution, rightHandSide);
+      linearSolver_.apply(solverBackend_, solution, rightHandSide, dataTree.sub("linear_solver"));
+      dataTree.set("time", timer.elapsed());
     }
 
     const typename Traits::FunctionSpace& functionSpace() const

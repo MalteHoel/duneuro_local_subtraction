@@ -1,6 +1,9 @@
 #ifndef DUNEURO_CONFORMING_TRANSFER_MATRIX_USER_HH
 #define DUNEURO_CONFORMING_TRANSFER_MATRIX_USER_HH
 
+#include <dune/common/parametertree.hh>
+#include <dune/common/timer.hh>
+
 #include <duneuro/common/dg_solver.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -9,6 +12,7 @@
 #include <duneuro/common/transfer_matrix.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -46,13 +50,18 @@ namespace duneuro
     {
     }
 
-    std::vector<typename Traits::DomainField> solve(const typename Traits::Dipole& dipole) const
+    std::vector<typename Traits::DomainField> solve(const typename Traits::Dipole& dipole,
+                                                    DataTree dataTree = DataTree()) const
     {
+      Dune::Timer timer;
       if (density_ == VectorDensity::sparse) {
+        dataTree.set("density", "sparse");
         return solveSparse(dipole);
       } else {
+        dataTree.set("density", "dense");
         return solveDense(dipole);
       }
+      dataTree.set("time", timer.elapsed());
     }
 
     std::vector<typename Traits::DomainField>
