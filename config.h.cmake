@@ -1,4 +1,4 @@
-/* begin dubio
+/* begin duneuro
    put the definitions for config.h specific to
    your project here. Everything above will be
    overwritten
@@ -28,18 +28,21 @@
 
 /* end private */
 
-/* Define to the version of dubio */
-#define DUBIO_VERSION "@DUBIO_VERSION@"
+/* Define to the version of duneuro */
+#define DUNEURO_VERSION "@DUNEURO_VERSION@"
 
-/* Define to the major version of dubio */
-#define DUBIO_VERSION_MAJOR @DUBIO_VERSION_MAJOR@
+/* Define to the major version of duneuro */
+#define DUNEURO_VERSION_MAJOR @DUNEURO_VERSION_MAJOR@
 
-/* Define to the minor version of dubio */
-#define DUBIO_VERSION_MINOR @DUBIO_VERSION_MINOR@
+/* Define to the minor version of duneuro */
+#define DUNEURO_VERSION_MINOR @DUNEURO_VERSION_MINOR@
 
-/* Define to the revision of dubio */
-#define DUBIO_VERSION_REVISION @DUBIO_VERSION_REVISION@
+/* Define to the revision of duneuro */
+#define DUNEURO_VERSION_REVISION @DUNEURO_VERSION_REVISION@
 
-/* end dubio
+#cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
+#cmakedefine HAVE_HDF5 ENABLE_HDF5
+
+/* end duneuro
    Everything below here will be overwritten
 */

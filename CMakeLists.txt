@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.6)
-project(dubio CXX)
+project(duneuro CXX)
 
 if(NOT (dune-common_DIR OR dune-common_ROOT OR
       "${CMAKE_PREFIX_PATH}" MATCHES ".*dune-common.*"))
@@ -17,7 +17,7 @@ include(DuneMacros)
 
 # start a dune project with information from dune.module
 dune_project()
-add_subdirectory("dubio")
+add_subdirectory("duneuro")
 add_subdirectory("doc")
 add_subdirectory("cmake/modules")
 

@@ -3,7 +3,7 @@
 ################################
 
 #Name of the module
-Module: dubio
+Module: duneuro
 Version: 0.1
 Maintainer: andreas.nuessing@uni-muenster.de
 #depending on
