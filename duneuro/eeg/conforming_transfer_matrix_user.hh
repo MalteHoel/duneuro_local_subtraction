@@ -25,7 +25,7 @@ namespace duneuro
     using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
                                                   typename DenseRHSVector::ElementType>;
     using CoordinateField = typename VolumeConductor::ctype;
-    using Dipole = Dipole<CoordinateField, dimension>;
+    using DipoleType = Dipole<CoordinateField, dimension>;
     using DomainField = typename EEGForwardSolver::Traits::DomainDOFVector::field_type;
     using TransferMatrix = ISTLTransferMatrix<DomainField>;
   };
@@ -50,7 +50,7 @@ namespace duneuro
     {
     }
 
-    std::vector<typename Traits::DomainField> solve(const typename Traits::Dipole& dipole,
+    std::vector<typename Traits::DomainField> solve(const typename Traits::DipoleType& dipole,
                                                     DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
@@ -65,7 +65,7 @@ namespace duneuro
     }
 
     std::vector<typename Traits::DomainField>
-    solveSparse(const typename Traits::Dipole& dipole) const
+    solveSparse(const typename Traits::DipoleType& dipole) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
@@ -87,7 +87,7 @@ namespace duneuro
     }
 
     std::vector<typename Traits::DomainField>
-    solveDense(const typename Traits::Dipole& dipole) const
+    solveDense(const typename Traits::DipoleType& dipole) const
     {
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
