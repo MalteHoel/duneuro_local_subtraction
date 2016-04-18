@@ -16,6 +16,8 @@ namespace duneuro
   class VTKWriter
   {
   public:
+    using Writer = Dune::SubsamplingVTKWriter<typename VC::GridView>;
+
     explicit VTKWriter(std::shared_ptr<VC> volumeConductor)
         : writer_(volumeConductor->gridView(), degree - 1), volumeConductor_(volumeConductor)
     {
@@ -30,6 +32,11 @@ namespace duneuro
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
       writer_.addCellData(
           std::make_shared<VTKF>(std::make_shared<DGF>(solver.functionSpace().getGFS(), v), name));
+    }
+
+    void addCellData(std::shared_ptr<typename Writer::VTKFunction> vtkf)
+    {
+      writer_.addCellData(vtkf);
     }
 
     template <class Solver>
@@ -51,7 +58,7 @@ namespace duneuro
     }
 
   private:
-    Dune::SubsamplingVTKWriter<typename VC::GridView> writer_;
+    Writer writer_;
     std::shared_ptr<VC> volumeConductor_;
   };
 }
