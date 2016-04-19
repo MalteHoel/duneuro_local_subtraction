@@ -42,6 +42,7 @@
 
 #cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
 #cmakedefine HAVE_HDF5 ENABLE_HDF5
+#cmakedefine HAVE_NIFTI ENABLE_NIFTI
 
 /* end duneuro
    Everything below here will be overwritten
