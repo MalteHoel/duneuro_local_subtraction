@@ -205,7 +205,7 @@ namespace duneuro
           , vertexToElements_(vertexMapper_.size())
       {
         // initialize mapping from vertices to elements
-        for (auto& e : elements(gridView)) {
+        for (const auto& e : elements(gridView)) {
           for (unsigned int i = 0; i < e.subEntities(dim); ++i) {
             unsigned int vertexIndex = vertexMapper_.subIndex(e, i, dim);
             vertexToElements_[vertexIndex].push_back(e.seed());
