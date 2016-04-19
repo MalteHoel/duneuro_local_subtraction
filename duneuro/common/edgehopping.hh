@@ -6,6 +6,8 @@
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
 
+#include <dune/geometry/referenceelements.hh>
+
 #include <dune/grid/common/rangegenerators.hh>
 
 namespace duneuro
@@ -17,8 +19,10 @@ namespace duneuro
     template <class I, class ctype, int dim>
     bool isOutside(const I& intersection, const Dune::FieldVector<ctype, dim>& global)
     {
-      auto normal = intersection.centerUnitOuterNormal();
-      return Dune::FloatCmp::gt(normal * global, normal * intersection.geometry().corner(0));
+      const auto& geo = intersection.geometry();
+      const auto& ref = Dune::ReferenceElements<ctype, dim - 1>::general(geo.type());
+      auto normal = intersection.unitOuterNormal(ref.position(0, 0));
+      return Dune::FloatCmp::gt(normal * global, normal * geo.corner(0));
     }
   }
 
