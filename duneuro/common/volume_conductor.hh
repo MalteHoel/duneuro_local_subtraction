@@ -13,7 +13,7 @@
 
 namespace duneuro
 {
-  template <class GV, class T>
+  template <class GV, class T, class I = std::size_t>
   class IndirectEntityMapping
   {
   public:
@@ -21,7 +21,7 @@ namespace duneuro
     typedef typename GV::template Codim<0>::Entity EntityType;
 
     IndirectEntityMapping(const GV& gridView, const std::vector<T>& tensors,
-                          const std::vector<std::size_t>& indexToTensor)
+                          const std::vector<I>& indexToTensor)
         : gridView_(gridView), mapper_(gridView), tensors_(tensors), indexToTensor_(indexToTensor)
     {
     }
@@ -37,7 +37,7 @@ namespace duneuro
     Dune::SingleCodimSingleGeomTypeMapper<GV, 0> mapper_;
     std::vector<T> tensors_;
     // maps an entity index to the tensor index
-    std::vector<std::size_t> indexToTensor_;
+    std::vector<I> indexToTensor_;
   };
 
   template <class GV, class T>
