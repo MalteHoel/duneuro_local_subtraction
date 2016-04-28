@@ -8,12 +8,13 @@
 
 #include <duneuro/common/image.hh>
 #include <duneuro/io/nifti_image_reader.hh>
+#include <duneuro/udg/domain.hh>
 #include <duneuro/udg/image_levelset.hh>
 
 namespace duneuro
 {
   template <class GV, class LGV = GV>
-  class SimpleTPMCImageDomain
+  class SimpleTPMCImageDomain : public SimpleTPMCDomain<GV, LGV>
   {
   public:
     using ctype = typename GV::ctype;
@@ -40,12 +41,7 @@ namespace duneuro
       }
     }
 
-    DC& getDomainConfiguration()
-    {
-      return domainConfiguration_;
-    }
-
-    const DC& getDomainConfiguration() const
+    virtual const DC& getDomainConfiguration() const override
     {
       return domainConfiguration_;
     }
