@@ -446,7 +446,7 @@ namespace duneuro
       A_n = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::outside);
 
       // tensor times normal
-      const Dune::FieldVector<DF, dim> n_F = ig.centerUnitOuterNormal();
+      const Dune::FieldVector<DF, dim> n_F = ig.unitOuterNormal(localcenter);
       Dune::FieldVector<RF, dim> An_F_s;
       A_s.mv(n_F, An_F_s);
       Dune::FieldVector<RF, dim> An_F_n;
@@ -626,7 +626,7 @@ namespace duneuro
       A_n = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::outside);
 
       // tensor times normal
-      const Dune::FieldVector<DF, dim> n_F = ig.centerUnitOuterNormal();
+      const Dune::FieldVector<DF, dim> n_F = ig.unitOuterNormal(localcenter);
       Dune::FieldVector<RF, dim> An_F_s;
       A_s.mv(n_F, An_F_s);
       Dune::FieldVector<RF, dim> An_F_n;
@@ -841,7 +841,7 @@ namespace duneuro
       A_s = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::inside);
 
       // tensor times normal
-      const Dune::FieldVector<DF, dim> n_F = ig.centerUnitOuterNormal();
+      const Dune::FieldVector<DF, dim> n_F = ig.unitOuterNormal(localcenter);
       Dune::FieldVector<RF, dim> An_F_s;
       A_s.mv(n_F, An_F_s);
 
@@ -1025,7 +1025,7 @@ namespace duneuro
       A_s = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::inside);
 
       // tensor times normal
-      const Dune::FieldVector<DF, dim> n_F = ig.centerUnitOuterNormal();
+      const Dune::FieldVector<DF, dim> n_F = ig.unitOuterNormal(localcenter);
       Dune::FieldVector<RF, dim> An_F_s;
       A_s.mv(n_F, An_F_s);
 
