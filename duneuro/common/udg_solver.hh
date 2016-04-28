@@ -10,6 +10,7 @@
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/common/udg_multi_phase_space.hh>
 
 namespace duneuro
@@ -18,18 +19,21 @@ namespace duneuro
   struct UDGSolverTraits {
     using SubTriangulation = ST;
     using FundamentalGridView = typename ST::BaseT::GridView;
-    static const in dimension = FundamentalGridView::dimension;
+    static const int dimension = FundamentalGridView::dimension;
     using Problem = ConvectionDiffusion_UDG_DefaultParameter<FundamentalGridView>;
     using FunctionSpace = UDGQkMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
+    using DomainField = DF;
+    using RangeField = RF;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
-    using GridOperator = Dune::UDG::UDGGridOperator<
-        typename FS::GFS, typename FS::GFS, MultiPhaseLocalOperatorWrapper,
-        Dune::PDELab::istl::BCRSMatrixBackend<>, DF, RF, JF, UnfittedSubTriangulation>;
+    using GridOperator =
+        Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
+                                   WrappedLocalOperator, Dune::PDELab::ISTLMatrixBackend, DF, RF,
+                                   JF, UnfittedSubTriangulation>;
     using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
     using LinearSolver = ThreadSafeStationaryLinearProblemSolver<GridOperator, SolverBackend,
                                                                  DomainDOFVector, RangeDOFVector>;
@@ -53,10 +57,10 @@ namespace duneuro
                          ConvectionDiffusion_DG_Weights::weightsOn, config.get<RF>("penalty"))
         , wrappedLocalOperator_(localOperator_)
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
-        , gridOperator_(functionSpace_->getGFS(), functionSpace_->getGFS(),
-                        unfittedSubTriangulation_, wrappedLocalOperator_)
-        , solverBackend_(config_.get<unsigned int>("amg.iterations"),
-                         config_.get<unsigned int>("amg.verbose"))
+        , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
+                        wrappedLocalOperator_)
+        , solverBackend_(config.get<unsigned int>("amg.iterations"),
+                         config.get<unsigned int>("amg.verbose"))
         , linearSolver_(linearSolverMutex_, gridOperator_, config.sub("linear_solver"))
     {
     }
@@ -78,6 +82,11 @@ namespace duneuro
     const typename Traits::FunctionSpace& functionSpace() const
     {
       return functionSpace_;
+    }
+
+    const typename Traits::SubTriangulation& subTriangulation() const
+    {
+      return *subTriangulation_;
     }
 
   private:
