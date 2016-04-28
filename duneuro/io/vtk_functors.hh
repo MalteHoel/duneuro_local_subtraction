@@ -3,6 +3,10 @@
 
 #include <dune/grid/io/file/vtk/function.hh>
 
+#if HAVE_DUNE_UDG
+#include <dune/udg/io/vtkfunction.hh>
+#endif
+
 namespace duneuro
 {
   template <class VC>
@@ -34,6 +38,61 @@ namespace duneuro
   private:
     std::shared_ptr<VC> volumeConductor_;
   };
+
+#if HAVE_DUNE_UDG
+  template <typename GV>
+  class TensorUnfittedVTKGridFunction : public Dune::UDG::UnfittedVTKFunction<GV>
+  {
+    typedef typename GV::ctype DF;
+    enum { n = GV::dimension };
+    typedef typename GV::template Codim<0>::Entity Entity;
+    typedef Dune::UDG::UnfittedVTKFunction<GV> Base;
+
+  public:
+    TensorUnfittedVTKGridFunction(const GV& _gv, const std::vector<DF>& conductivities,
+                                  const int layer = 0)
+        : gv_(_gv), conductivities_(conductivities), layer_(layer)
+    {
+    }
+
+    virtual int ncomps() const
+    {
+      return 1;
+    }
+
+    virtual bool evaluateOn(const typename Base::EntityPartPointer& part) const
+    {
+      (part.get())->setLayer(layer_);
+      domainIndex = part->domainIndex();
+      (part.get())->resetLayer();
+      return true;
+    }
+
+    virtual bool evaluateOn(const typename Base::IntersectionPartPointer& part) const
+    {
+      (part.get())->setLayer(layer_);
+      domainIndex = part->insideDomainIndex();
+      (part.get())->resetLayer();
+      return true;
+    }
+
+    virtual double evaluate(int comp, const Entity& e, const Dune::FieldVector<DF, n>& xi) const
+    {
+      return conductivities_[domainIndex];
+    }
+
+    virtual std::string name() const
+    {
+      return "conductivity";
+    }
+
+  private:
+    const GV& gv_;
+    std::vector<DF> conductivities_;
+    const int layer_;
+    mutable int domainIndex;
+  };
+#endif
 }
 
 #endif // DUNEURO_VTK_FUNCTORS_HH
