@@ -23,31 +23,37 @@ namespace duneuro
     {
     }
 
-    template <class Solver>
-    void addCellData(const Solver& solver, const typename Solver::Traits::DomainDOFVector& v,
-                     const std::string& name)
-    {
-      using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS,
-                                                     typename Solver::Traits::DomainDOFVector>;
-      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      writer_.addCellData(
-          std::make_shared<VTKF>(std::make_shared<DGF>(solver.functionSpace().getGFS(), v), name));
-    }
-
     void addCellData(std::shared_ptr<typename Writer::VTKFunction> vtkf)
     {
       writer_.addCellData(vtkf);
     }
 
     template <class Solver>
-    void addVertexData(const Solver& solver, const typename Solver::Traits::DomainDOFVector& v,
+    void addCellData(const Solver& solver,
+                     std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
+                     const std::string& name)
+    {
+      using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS,
+                                                     typename Solver::Traits::DomainDOFVector>;
+      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
+      writer_.addCellData(std::make_shared<VTKF>(
+          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
+                                v),
+          name));
+    }
+
+    template <class Solver>
+    void addVertexData(const Solver& solver,
+                       std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
                        const std::string& name)
     {
       using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS,
                                                      typename Solver::Traits::DomainDOFVector>;
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      writer_.addVertexData(
-          std::make_shared<VTKF>(std::make_shared<DGF>(solver.functionSpace().getGFS(), v), name));
+      writer_.addVertexData(std::make_shared<VTKF>(
+          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
+                                v),
+          name));
     }
 
     void write(const std::string& filename, DataTree dataTree = DataTree())
