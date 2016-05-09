@@ -175,12 +175,11 @@ namespace duneuro
 
     std::size_t size() const
     {
-      return electrodes_.size();
+      return projections_.size();
     }
 
   private:
     GV gridView_;
-    std::vector<Dune::FieldVector<ctype, dim>> electrodes_;
     std::vector<Projection> projections_;
   };
 }
