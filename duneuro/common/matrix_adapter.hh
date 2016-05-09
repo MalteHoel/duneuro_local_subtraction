@@ -37,17 +37,20 @@ namespace duneuro
 
     explicit StdVectorAdapter(std::shared_ptr<std::vector<T>> matrix) : matrix_(matrix)
     {
+      assert(matrix);
     }
 
     virtual const Value& operator()(Index row, Index column) const
     {
-      assert(column == 0);
+      assert(row < matrix_->size());
+      assert(column < k);
       return (*matrix_)[row];
     }
 
     virtual Value& operator()(Index row, Index column)
     {
-      assert(column == 0);
+      assert(row < matrix_->size());
+      assert(column < k);
       return (*matrix_)[row];
     }
 
@@ -76,15 +79,20 @@ namespace duneuro
         std::shared_ptr<std::vector<Dune::FieldVector<Value, k>>> matrix)
         : matrix_(matrix)
     {
+      assert(matrix);
     }
 
     virtual const Value& operator()(Index row, Index column) const
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)[row][column];
     }
 
     virtual Value& operator()(Index row, Index column)
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)[row][column];
     }
 
@@ -112,15 +120,20 @@ namespace duneuro
     explicit DynamicMatrixAdapter(std::shared_ptr<Dune::DynamicMatrix<Value>> matrix)
         : matrix_(matrix)
     {
+      assert(matrix_);
     }
 
     virtual const Value& operator()(Index row, Index column) const
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)[row][column];
     }
 
     virtual Value& operator()(Index row, Index column)
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)[row][column];
     }
 
@@ -150,15 +163,20 @@ namespace duneuro
 
     explicit EigenMatrixAdapter(std::shared_ptr<MatrixType> matrix) : matrix_(matrix)
     {
+      assert(matrix_);
     }
 
     virtual const Value& operator()(Index row, Index column) const
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)(row, column);
     }
 
     virtual Value& operator()(Index row, Index column)
     {
+      assert(row < rows());
+      assert(column < cols());
       return (*matrix_)(row, column);
     }
 
@@ -180,6 +198,7 @@ namespace duneuro
   template <class T>
   std::shared_ptr<MatrixInterface<T>> adapt_matrix(std::shared_ptr<Dune::DynamicMatrix<T>> matrix)
   {
+    assert(matrix);
     return std::make_shared<DynamicMatrixAdapter<T>>(matrix);
   }
 
@@ -192,6 +211,7 @@ namespace duneuro
   template <class T>
   std::shared_ptr<MatrixInterface<T>> adapt_matrix(std::shared_ptr<std::vector<T>> matrix)
   {
+    assert(matrix);
     return std::make_shared<StdVectorAdapter<T>>(matrix);
   }
 
@@ -205,6 +225,7 @@ namespace duneuro
   std::shared_ptr<MatrixInterface<T>>
   adapt_matrix(std::shared_ptr<std::vector<Dune::FieldVector<T, k>>> matrix)
   {
+    assert(matrix);
     return std::make_shared<StdVectorOfFieldVectorAdapter<T, k>>(matrix);
   }
 
@@ -219,6 +240,7 @@ namespace duneuro
   std::shared_ptr<MatrixInterface<T>> adapt_matrix(
       std::shared_ptr<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>> matrix)
   {
+    assert(matrix);
     return std::make_shared<EigenMatrixAdapter<T>>(matrix);
   }
 

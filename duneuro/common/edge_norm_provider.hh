@@ -19,53 +19,24 @@
 namespace duneuro
 {
   /**
-   * \brief Switch for checking whether the PDELab assembler is used, i.e. the
-   *        Dune::PDELab::GridOperator, or the UDG assembler is used, i.e. the
-   *        Dune::UDG::UDGGridOperator.
-   *        As the IntersectionGeometry type used by the UDG assembler is
-   *        supposed to contain a typedef IntersectionPartPointer, the switch
-   *        uses a "substitution failure is not an error (SFINAE)" mechanism
-   *        to determine whether this typedef exists or not.
-   *
-   * \author Sebastian Westerheide.
-   */
-  template <typename IntersectionGeometry, typename Dummy = void>
-  struct UDGAssemblerSwitch {
-    static const bool use_udg_assembler = false;
-  };
-
-  /**
-   * \brief Switch for checking whether the PDELab assembler is used, i.e. the
-   *        Dune::PDELab::GridOperator, or the UDG assembler is used, i.e. the
-   *        Dune::UDG::UDGGridOperator.
-   *        As the IntersectionGeometry type used by the UDG assembler is
-   *        supposed to contain a typedef IntersectionPartPointer, the switch
-   *        uses a "substitution failure is not an error (SFINAE)" mechanism
-   *        to determine whether this typedef exists or not.
-   *
-   * \author Sebastian Westerheide.
-   */
-  template <typename IntersectionGeometry>
-  struct UDGAssemblerSwitch<IntersectionGeometry,
-                            typename IntersectionGeometry::IntersectionPartPointer> {
-    static const bool use_udg_assembler = true;
-  };
-
-  /**
    * \brief Interface for edge norm providers for local operators which
    *        implement interior penalty DG schemes.
    *
    * \author Sebastian Westerheide.
    */
+  template <class Impl>
   class EdgeNormProviderInterface
   {
     template <typename IntersectionGeometry>
     void edgeNorm(const IntersectionGeometry& ig, typename IntersectionGeometry::Geometry::ctype& h,
                   const bool boundary = false) const
     {
-      DUNE_THROW(Dune::Exception,
-                 "EdgeNormProviderInterface::edgeNorm shall never"
-                     << "be called as EdgeNormProviderInterface is just an interface.");
+      asImpl().edgeNorm(ig, h, boundary);
+    }
+
+    const Impl& asImpl() const
+    {
+      return static_cast<const Impl&>(*this);
     }
   };
 
@@ -78,7 +49,8 @@ namespace duneuro
    *
    * \author Sebastian Westerheide.
    */
-  class StructuredGridEdgeNormProvider : public EdgeNormProviderInterface
+  class StructuredGridEdgeNormProvider
+      : public EdgeNormProviderInterface<StructuredGridEdgeNormProvider>
   {
   public:
     StructuredGridEdgeNormProvider(const double gridWidth) : gridWidth_(gridWidth)
@@ -105,60 +77,43 @@ namespace duneuro
    *
    * \author Sebastian Westerheide.
    */
-  class FaceBasedEdgeNormProvider : public EdgeNormProviderInterface
+  class FaceBasedEdgeNormProvider : public EdgeNormProviderInterface<FaceBasedEdgeNormProvider>
   {
   public:
-    template <typename IntersectionGeometry>
-    void edgeNorm(const IntersectionGeometry& ig, typename IntersectionGeometry::Geometry::ctype& h,
-                  const bool boundary = false) const
-    {
-      static const bool use_udg_assembler =
-          UDGAssemblerSwitch<IntersectionGeometry>::use_udg_assembler;
-      FaceBasedEdgeNormProvider::Implementation<use_udg_assembler>::edgeNorm(ig, h, boundary);
-    }
-
-  protected:
     /**
      * \brief Implementation that works together with the PDELab assembler,
      *        i.e. the Dune::PDELab::GridOperator.
      */
-    template <bool use_udg_assembler, typename Dummy = void>
-    struct Implementation {
-      template <typename IntersectionGeometry>
-      static void edgeNorm(const IntersectionGeometry& ig,
-                           typename IntersectionGeometry::Geometry::ctype& h,
-                           const bool boundary = false)
-      {
-        // h = ig.geometry().volume();
-        typedef IntersectionGeometry IG;
-        typedef typename IG::Geometry::ctype ctype;
-        const int dim = IG::dimension;
-        static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
-        assert(dim > 1);
-        h = std::pow(ig.geometry().volume(), 1.0 / ctype(dim - 1));
-      }
-    };
+    template <typename IntersectionGeometry>
+    void edgeNorm(const IntersectionGeometry& ig, typename IntersectionGeometry::Geometry::ctype& h,
+                  const bool boundary = false) const
+    {
+      typedef IntersectionGeometry IG;
+      typedef typename IG::Geometry::ctype ctype;
+      const int dim = IG::dimension;
+      static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
+      assert(dim > 1);
+      h = std::pow(ig.geometry().volume(), 1.0 / ctype(dim - 1));
+    }
 
+#if HAVE_DUNE_UDG
     /**
      * \brief Implementation that works together with the UDG assembler,
      *        i.e. the Dune::UDG::UDGGridOperator.
      */
-    template <typename Dummy>
-    struct Implementation<true, Dummy> {
-      template <typename IntersectionGeometry>
-      static void edgeNorm(const IntersectionGeometry& ig,
-                           typename IntersectionGeometry::Geometry::ctype& h,
-                           const bool boundary = false)
-      {
-        // h = ig.intersection().area();
-        typedef IntersectionGeometry IG;
-        typedef typename IG::Geometry::ctype ctype;
-        const int dim = IG::dimension;
-        static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
-        assert(dim > 1);
-        h = std::pow(ig.intersection().area(), 1.0 / ctype(dim - 1));
-      }
-    };
+    template <typename Impl>
+    void edgeNorm(const Dune::PDELab::UnfittedIntersectionWrapper<Impl>& ig,
+                  typename Dune::PDELab::UnfittedIntersectionWrapper<Impl>::ctype& h,
+                  const bool boundary = false) const
+    {
+      // h = ig.intersection().area();
+      typedef Dune::PDELab::UnfittedIntersectionWrapper<Impl> IG;
+      typedef typename IG::Geometry::ctype ctype;
+      const int dim = IG::dimension;
+      static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
+      h = std::pow(ig.intersection().area(), 1.0 / ctype(dim - 1));
+    }
+#endif
   };
 
   /**
@@ -172,7 +127,7 @@ namespace duneuro
    *
    * \author Sebastian Westerheide.
    */
-  class CellBasedEdgeNormProvider : public EdgeNormProviderInterface
+  class CellBasedEdgeNormProvider : public EdgeNormProviderInterface<CellBasedEdgeNormProvider>
   {
   public:
 #if HAVE_DUNE_UDG
@@ -221,7 +176,7 @@ namespace duneuro
    *
    * \author Sebastian Westerheide.
    */
-  class HoustonEdgeNormProvider : public EdgeNormProviderInterface
+  class HoustonEdgeNormProvider : public EdgeNormProviderInterface<HoustonEdgeNormProvider>
   {
   public:
 #if HAVE_DUNE_UDG
@@ -264,66 +219,12 @@ namespace duneuro
    *        interior penalty DG schemes together with the PDELab assembler,
    *        i.e. the Dune::PDELab::GridOperator, or together with the UDG
    *        assembler, i.e. the Dune::UDG::UDGGridOperator.
-   *        Can only be used for debugging UDGAssemblerSwitch.
-   *
-   * \author Sebastian Westerheide.
-   */
-  class DebugEdgeNormProvider : public EdgeNormProviderInterface
-  {
-  public:
-    template <typename IntersectionGeometry>
-    void edgeNorm(const IntersectionGeometry& ig, typename IntersectionGeometry::Geometry::ctype& h,
-                  const bool boundary = false) const
-    {
-      static const bool use_udg_assembler =
-          UDGAssemblerSwitch<IntersectionGeometry>::use_udg_assembler;
-      DebugEdgeNormProvider::Implementation<use_udg_assembler>::edgeNorm(ig, h, boundary);
-    }
-
-  protected:
-    /**
-     * \brief Implementation that works together with the PDELab assembler,
-     *        i.e. the Dune::PDELab::GridOperator.
-     */
-    template <bool use_udg_assembler, typename Dummy = void>
-    struct Implementation {
-      template <typename IntersectionGeometry>
-      static void edgeNorm(const IntersectionGeometry& ig,
-                           typename IntersectionGeometry::Geometry::ctype& h,
-                           const bool boundary = false)
-      {
-        // dune_static_assert(use_udg_assembler,"EdgeNormProvider assumes PDELab assembler.");
-        DUNE_THROW(Dune::NotImplemented, "DebugEdgeNormProvider: PDELab assembler detected.");
-      }
-    };
-
-    /**
-     * \brief Implementation that works together with the UDG assembler,
-     *        i.e. the Dune::UDG::UDGGridOperator.
-     */
-    template <typename Dummy>
-    struct Implementation<true, Dummy> {
-      template <typename IntersectionGeometry>
-      static void edgeNorm(const IntersectionGeometry& ig,
-                           typename IntersectionGeometry::Geometry::ctype& h,
-                           const bool boundary = false)
-      {
-        DUNE_THROW(Dune::NotImplemented, "DebugEdgeNormProvider: UDG assembler detected.");
-      }
-    };
-  };
-
-  /**
-   * \brief Edge norm provider for using local operators which implement
-   *        interior penalty DG schemes together with the PDELab assembler,
-   *        i.e. the Dune::PDELab::GridOperator, or together with the UDG
-   *        assembler, i.e. the Dune::UDG::UDGGridOperator.
    *        Meta edge norm provider that can be configured using a
    *        Dune::ParameterTree object.
    *
    * \author Sebastian Westerheide.
    */
-  class MultiEdgeNormProvider : public EdgeNormProviderInterface
+  class MultiEdgeNormProvider : public EdgeNormProviderInterface<MultiEdgeNormProvider>
   {
   public:
     MultiEdgeNormProvider(const Dune::ParameterTree& configuration, const double gridWidth)
@@ -333,7 +234,6 @@ namespace duneuro
         , faceBasedENP_()
         , cellBasedENP_()
         , houstonENP_()
-        , debugENP_()
     {
     }
 
@@ -359,10 +259,6 @@ namespace duneuro
         // edge norm provider using Houston's choice
         houstonENP_.edgeNorm(ig, h, boundary);
         break;
-      case 99:
-        // edge norm provider for debugging UDGAssemblerSwitch
-        debugENP_.edgeNorm(ig, h, boundary);
-        break;
       default:
         DUNE_THROW(Dune::RangeError,
                    "Invalid edge norm type: " << (unsigned int) realEdgeNormProviderType_);
@@ -379,7 +275,6 @@ namespace duneuro
     const FaceBasedEdgeNormProvider faceBasedENP_;
     const CellBasedEdgeNormProvider cellBasedENP_;
     const HoustonEdgeNormProvider houstonENP_;
-    const DebugEdgeNormProvider debugENP_;
   };
 
   // #include <algorithm>  // provides std::min, std::max

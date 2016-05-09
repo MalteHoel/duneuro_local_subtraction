@@ -65,8 +65,14 @@ namespace duneuro
         It it = gv.template begin<0>();
         It endit = gv.template end<0>();
         for (; it != endit; ++it) {
-          indexToTensor[mapper.index(*it)] =
-              elementIndexToPhysicalEntity[factory.insertionIndex(*it)];
+          auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(*it)];
+          if (pe >= tensors.size()) {
+            DUNE_THROW(Dune::Exception, "physical entitiy of element "
+                                            << factory.insertionIndex(*it) << " is " << pe
+                                            << " but only " << tensors.size()
+                                            << " tensors have been read");
+          }
+          indexToTensor[mapper.index(*it)] = pe;
         }
         timer.stop();
         dataTree.set("time_reordering_indices", timer.lastElapsed());
@@ -91,7 +97,14 @@ namespace duneuro
         timer.start();
         std::vector<std::size_t> indexToTensor(mapper.size());
         for (const auto& e : elements(gv)) {
-          indexToTensor[mapper.index(e)] = gptr.parameters(e)[0];
+          auto param = gptr.parameters(e)[0];
+          if (param >= tensors.size()) {
+            DUNE_THROW(Dune::Exception, "parameter of element " << gv.indexSet().index(e)
+                                                                << " (dune numbering) is " << param
+                                                                << " but only " << tensors.size()
+                                                                << " tensors have been read");
+          }
+          indexToTensor[mapper.index(e)] = param;
         }
         timer.stop();
         dataTree.set("time_reordering_tensors", timer.lastElapsed());

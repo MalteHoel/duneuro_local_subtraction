@@ -26,6 +26,7 @@ namespace duneuro
 
     explicit ISTLTransferMatrix(std::unique_ptr<MatrixType> matrix) : matrix_(std::move(matrix))
     {
+      assert(matrix_);
     }
 
     ISTLTransferMatrix()
@@ -37,6 +38,16 @@ namespace duneuro
                         const Dune::BlockVector<Dune::FieldVector<T, blockSize>>& vector)
     {
       assert(matrix_);
+      if (sensorIndex >= matrix_->rows()) {
+        DUNE_THROW(Dune::Exception, "tried to set row of sensor " << sensorIndex << " but only "
+                                                                  << matrix_->rows()
+                                                                  << " senosrs are present");
+      }
+      if (vector.dim() != matrix_->cols()) {
+        DUNE_THROW(Dune::Exception, "tried to set row of a sensor with "
+                                        << vector.dim() << " entries, but row has actually "
+                                        << matrix_->cols() << " entries");
+      }
       for (unsigned int block = 0; block < vector.size(); ++block) {
         for (unsigned int localIndex = 0; localIndex < blockSize; ++localIndex) {
           unsigned int flatIndex = block * blockSize + localIndex;
@@ -54,11 +65,13 @@ namespace duneuro
 
     const MatrixType& matrix() const
     {
+      assert(matrix_);
       return *matrix_;
     }
 
     MatrixType& matrix()
     {
+      assert(matrix_);
       return *matrix_;
     }
 

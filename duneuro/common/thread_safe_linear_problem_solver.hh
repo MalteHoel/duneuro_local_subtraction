@@ -149,6 +149,9 @@ namespace duneuro
         , _verbose(verbose)
         , _debug(debug)
     {
+      if (_reduction <= 0.0) {
+        DUNE_THROW(Dune::Exception, "reduction has to be positive");
+      }
     }
 
     //! Construct a StationaryLinearProblemSolver for the given objects and read parameters from
@@ -186,6 +189,9 @@ namespace duneuro
         , _verbose(params.get<int>("verbosity", 1))
         , _debug(params.get<bool>("debug", false))
     {
+      if (_reduction <= 0.0) {
+        DUNE_THROW(Dune::Exception, "reduction has to be positive");
+      }
     }
 
     void apply(LS& ls, DV& x, const RV& rightHandSide, DataTree dataTree = DataTree())
@@ -218,8 +224,8 @@ namespace duneuro
             } catch (TSSLPDetail::IllegalEntryException& ex) {
               std::cout << "Illegal entry found:\n" << ex.what() << "\n";
             }
+            std::cout << Dune::PDELab::Backend::native(*_jacobian)[0][0] << "\n";
           }
-          std::cout << Dune::PDELab::Backend::native(*_jacobian)[0][0] << "\n";
           timer.stop();
           dataTree.set("time_matrix_assembly", timer.lastElapsed());
         }

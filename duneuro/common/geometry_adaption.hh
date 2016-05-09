@@ -41,6 +41,10 @@ namespace duneuro
         std::shared_ptr<std::vector<Dune::FieldVector<ctype, dim>>> deformedPosition)
         : gridView_(gridView), deformedPosition_(deformedPosition)
     {
+      assert(deformedPosition_);
+      if (deformedPosition_->size() != gridView_.indexSet().size(dim)) {
+        DUNE_THROW(Dune::Exception, "every vertex of the grid needs to be deformed");
+      }
     }
 
     void evaluate(const typename GridView::template Codim<dim>::Entity& hostEntity,
@@ -84,6 +88,7 @@ namespace duneuro
 
     const std::vector<std::size_t>& elements(std::size_t vertexIndex) const
     {
+      assert(vertexIndex < vertexToElements_.size());
       return vertexToElements_[vertexIndex];
     }
 
@@ -120,6 +125,7 @@ namespace duneuro
 
     const Dune::FieldVector<ctype, dim>& center(std::size_t elementIndex) const
     {
+      assert(elementIndex < elementToCenter_.size());
       return elementToCenter_[elementIndex];
     }
 
@@ -145,6 +151,8 @@ namespace duneuro
     LabeledElementSet(const std::vector<std::size_t>* elements, const std::vector<L>* labels)
         : elements_(elements), labels_(labels)
     {
+      assert(elements);
+      assert(labels);
       assert(elements_->size() == labels_->size());
     }
 
@@ -279,14 +287,13 @@ namespace duneuro
                                   cells);
       std::array<int, dim> s;
       std::copy(cells.begin(), cells.end(), s.begin());
-      for (unsigned int i = 0; i < dim; ++i)
-        s[i] = cells[i];
       auto ygrid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
           config.get<Dune::FieldVector<double, dim>>("lower_left"),
           config.get<Dune::FieldVector<double, dim>>("upper_right"), s);
       // geometry adaption
       auto geometryGrid = create_geometry_adapted_grid(std::move(ygrid), labels, config);
       auto ggGv = geometryGrid->leafGridView();
+      assert(labels.size() == ggGv.size(0));
       // subgrid creation
       auto grid =
           Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);

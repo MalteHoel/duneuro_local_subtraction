@@ -4,11 +4,21 @@
 #include <cstdlib>
 #include <vector>
 
+#include <dune/common/exceptions.hh>
+
 namespace duneuro
 {
   template <class M, class V>
   void set_matrix_column(M& matrix, std::size_t columnIndex, const V& vector)
   {
+    if (columnIndex >= matrix.cols()) {
+      DUNE_THROW(Dune::Exception, "tried to set column " << columnIndex << " for matrix with "
+                                                         << matrix.cols() << " columns");
+    }
+    if (vector.size() != matrix.rows()) {
+      DUNE_THROW(Dune::Exception, "tried to set matrix column of size "
+                                      << matrix.cols() << " to vector of size " << vector.size());
+    }
     for (unsigned int rowIndex = 0; rowIndex < vector.size(); ++rowIndex) {
       matrix[rowIndex][columnIndex] = vector[rowIndex];
     }
@@ -17,13 +27,13 @@ namespace duneuro
   template <class M>
   void subtract_column_means(M& matrix)
   {
-    for (unsigned int c = 0; c < matrix.M(); ++c) {
+    for (unsigned int c = 0; c < matrix.cols(); ++c) {
       typename M::field_type v = 0;
-      for (unsigned int r = 0; r < matrix.N(); ++r) {
+      for (unsigned int r = 0; r < matrix.rows(); ++r) {
         v += matrix[r][c];
       }
-      v /= matrix.N();
-      for (unsigned int r = 0; r < matrix.N(); ++r) {
+      v /= matrix.rows();
+      for (unsigned int r = 0; r < matrix.rows(); ++r) {
         matrix[r][c] -= v;
       }
     }
@@ -42,6 +52,7 @@ namespace duneuro
   template <class T>
   std::vector<std::vector<T>> transpose(const std::vector<std::vector<T>>& m)
   {
+    assert(m.size() > 0);
     unsigned int N = m[0].size();
     std::vector<std::vector<T>> out(N);
     for (const auto& v : m) {

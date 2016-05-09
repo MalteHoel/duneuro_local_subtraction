@@ -81,6 +81,7 @@ namespace duneuro
         , linearSolverMutex_()
         , linearSolver_(linearSolverMutex_, *assembler_, config.sub("linear_solver"))
     {
+      assert(volumeConductor_);
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));
       solverBackend_.setReuse(true);
