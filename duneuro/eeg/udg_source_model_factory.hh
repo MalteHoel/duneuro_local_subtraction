@@ -38,7 +38,7 @@ namespace duneuro
       if (type == "partial_integration") {
         return std::make_shared<UDGPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment,
-            typename Solver::Traits::SubTriangulation, Vector>>(
+            typename Solver::Traits::UnfittedSubTriangulation, Vector>>(
             solver.functionSpace().getGFS(),
             std::make_shared<typename Solver::Traits::UnfittedSubTriangulation>(
                 solver.subTriangulation().gridView(), solver.subTriangulation()));

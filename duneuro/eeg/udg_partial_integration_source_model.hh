@@ -51,7 +51,6 @@ namespace duneuro
 
       bool foundCompartment = false;
       for (const auto& ep : *subTriangulation_) {
-        std::cout << "compartment: " << ep.domainIndex() << "\n";
         if (ep.domainIndex() != child)
           continue;
         foundCompartment = true;
