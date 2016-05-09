@@ -9,6 +9,7 @@
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/random.hh>
 #include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/io/data_tree.hh>
 
@@ -89,12 +90,7 @@ namespace duneuro
                typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
-      for (unsigned int r = 0; r < solution.N(); ++r) {
-        for (unsigned int j = 0; j < Dune::PDELab::Backend::native(solution)[r].N(); ++j) {
-          Dune::PDELab::Backend::native(solution)[r][j] =
-              -1. + 2. * static_cast<double>(std::rand()) / RAND_MAX;
-        }
-      }
+      randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
       linearSolver_.apply(solverBackend_, solution, rightHandSide, dataTree.sub("linear_solver"));
       dataTree.set("time", timer.elapsed());
     }
