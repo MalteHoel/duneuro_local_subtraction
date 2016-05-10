@@ -24,18 +24,16 @@ namespace duneuro
     static void read(std::istream& stream, OutputIterator out, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
-      std::string line;
-      unsigned int count = 0;
-      for (unsigned int dip = 0; std::getline(stream, line); ++dip, ++count) {
-        std::stringstream lineStream(line);
-        // read dipole position
-        DomainType position;
-        lineStream >> position;
-        // read dipole moment
+      DomainType position;
+      while (stream >> position) {
         DomainType moment;
-        lineStream >> moment;
+        if (!(stream >> moment))
+          DUNE_THROW(Dune::IOError, "error when reading a moment. check the file formatting");
         // append successfully read dipole to vector
         *out++ = DipoleType(position, moment);
+      }
+      if (!stream.eof()) {
+        DUNE_THROW(Dune::IOError, "not all dipoles could be read. check the file formatting");
       }
       dataTree.set("time", timer.elapsed());
     }

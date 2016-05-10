@@ -30,15 +30,25 @@ namespace duneuro
       // assuming isotropic conductivities
       double value;
       while (stream >> value) {
-        TensorType t;
-        for (unsigned int r = 0; r < t.N(); ++r) {
-          for (unsigned int c = 0; c < t.M(); ++c) {
-            t[r][c] = r == c ? value : 0.0;
-          }
-        }
-        tensors.push_back(t);
+        tensors.push_back(isotropicTensor(value));
       }
+      if (!stream.eof()) {
+        DUNE_THROW(Dune::IOError, "not all tensors could be read. check the file formatting");
+      }
+      dataTree.set("tensors", tensors.size());
       dataTree.set("time", timer.elapsed());
+    }
+
+  private:
+    static TensorType isotropicTensor(ctype value)
+    {
+      TensorType t;
+      for (unsigned int r = 0; r < t.N(); ++r) {
+        for (unsigned int c = 0; c < t.M(); ++c) {
+          t[r][c] = r == c ? value : 0.0;
+        }
+      }
+      return t;
     }
   };
 }
