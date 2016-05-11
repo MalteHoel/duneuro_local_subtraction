@@ -29,11 +29,14 @@ namespace duneuro
 
     Value& operator[](const Index& index)
     {
+      assert(values_.count(index) > 0);
       return values_[index];
     }
     const Value& operator[](const Index& index) const
     {
-      return values_.find(index)->second;
+      auto it = values_.find(index);
+      assert(it != values_.end());
+      return it->second;
     }
     const_iterator begin() const
     {

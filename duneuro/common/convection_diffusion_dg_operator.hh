@@ -233,6 +233,9 @@ namespace duneuro
       theta = 1.0;
       if (scheme == ConvectionDiffusion_DG_Scheme::SIPG)
         theta = -1.0;
+      if (alpha < Real(0.0)) {
+        DUNE_THROW(Dune::Exception, "penalty parameter alpha has to be >= 0.0");
+      }
     }
 
     // volume integral depending on test and ansatz functions

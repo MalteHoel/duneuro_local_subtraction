@@ -15,6 +15,7 @@ namespace duneuro
     explicit ConvectionDiffusionCGDefaultParameter(std::shared_ptr<VC> volumeConductor)
         : volumeConductor_(volumeConductor)
     {
+      assert(volumeConductor_);
     }
 
     template <class EG>
@@ -24,7 +25,7 @@ namespace duneuro
     }
 
     typename Traits::PermTensorType A(const typename Traits::ElementType& e,
-                                      const typename Traits::DomainType& x) const
+                                      const typename Traits::DomainType&) const
     {
       return volumeConductor_->tensor(e);
     }

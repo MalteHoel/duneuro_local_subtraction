@@ -23,21 +23,14 @@ namespace duneuro
       Dune::Timer timer;
       std::ifstream stream(filename);
       if (!stream) {
-        DUNE_THROW(Dune::IOError, "Could not open electrode file \"" << filename << "\"!");
+        DUNE_THROW(Dune::IOError, "Could not open file \"" << filename << "\"!");
       }
-      std::string line;
-      unsigned int count = 0;
-      for (unsigned int elec = 0; std::getline(stream, line); ++elec, ++count) {
-        std::stringstream lineStream(line);
-        // read dipole position
-        Dune::FieldVector<ctype, dim> position;
-        for (int i = 0; i < dim; ++i) {
-          if (!(lineStream >> position[i])) {
-            DUNE_THROW(Dune::IOError, "Cound not read position component " << i << " of electrode "
-                                                                           << elec);
-          }
-        }
+      Dune::FieldVector<ctype, dim> position;
+      while (stream >> position) {
         *out++ = position;
+      }
+      if (!stream.eof()) {
+        DUNE_THROW(Dune::IOError, "not all field vectors could be read");
       }
       dataTree.set("time", timer.elapsed());
     }

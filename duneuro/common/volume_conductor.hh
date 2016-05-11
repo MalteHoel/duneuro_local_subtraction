@@ -24,11 +24,17 @@ namespace duneuro
                           const std::vector<I>& indexToTensor)
         : gridView_(gridView), mapper_(gridView), tensors_(tensors), indexToTensor_(indexToTensor)
     {
+      assert(tensors.size() > 0);
+      assert(indexToTensor_.size() == gridView_.size(0));
     }
 
     const T& operator()(const EntityType& e) const
     {
-      return tensors_[indexToTensor_[mapper_.index(e)]];
+      auto index = mapper_.index(e);
+      assert(index < indexToTensor_.size());
+      auto tensorIndex = indexToTensor_[index];
+      assert(tensorIndex < tensors_.size());
+      return tensors_[tensorIndex];
     }
 
   private:
@@ -50,11 +56,14 @@ namespace duneuro
     DirectEntityMapping(const GV& gridView, const std::vector<T>& tensors)
         : gridView_(gridView), mapper_(gridView_), tensors_(tensors)
     {
+      assert(gridView_.size(0) == tensors_.size());
     }
 
     const T& operator()(const EntityType& e) const
     {
-      return tensors_[mapper_.index(e)];
+      auto index = mapper_.index(e);
+      assert(index < tensors_.size());
+      return tensors_[index];
     }
 
   private:

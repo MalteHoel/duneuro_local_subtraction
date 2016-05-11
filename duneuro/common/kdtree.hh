@@ -139,7 +139,7 @@ namespace duneuro
     }
 
   private:
-    const GV& gridView_;
+    GV gridView_;
     std::vector<std::pair<Coordinate, ElementSeed>> seeds_;
     std::unique_ptr<KDTreeDetail::Node> root_;
   };
@@ -172,7 +172,7 @@ namespace duneuro
     }
 
   private:
-    const GV& gridView_;
+    GV gridView_;
     EdgeHopping<GV> edgeHopping_;
     KDTree<GV> tree_;
   };

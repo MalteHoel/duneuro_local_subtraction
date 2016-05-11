@@ -35,14 +35,15 @@ namespace duneuro
     using IndexCache = Dune::PDELab::LFSIndexCache<LFS>;
     using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
 
-    GridFunctionMean(const GFS& gfs, const Dune::ParameterTree& config)
+    GridFunctionMean(std::shared_ptr<GFS> gfs, const Dune::ParameterTree& config)
         : gridFunctionSpace_(gfs), superIntegrationOrder_(config.get("superIntegrationOrder", 0))
     {
+      assert(gridFunctionSpace_);
     }
 
     RangeFieldType evaluate(const DOFVector& x)
     {
-      LFS lfs(gridFunctionSpace_);
+      LFS lfs(*gridFunctionSpace_);
       IndexCache indexCache(lfs);
 
       RangeFieldType integral = 0.0;
@@ -50,7 +51,7 @@ namespace duneuro
 
       std::vector<Dune::FieldVector<RangeFieldType, 1>> phi;
 
-      for (const auto& element : elements(gridFunctionSpace_.gridView())) {
+      for (const auto& element : elements(gridFunctionSpace_->gridView())) {
         lfs.bind(element);
         indexCache.update();
         phi.resize(indexCache.size());
@@ -77,7 +78,7 @@ namespace duneuro
     }
 
   private:
-    const GFS& gridFunctionSpace_;
+    std::shared_ptr<GFS> gridFunctionSpace_;
     const unsigned int superIntegrationOrder_;
   };
 
@@ -87,7 +88,7 @@ namespace duneuro
                           DataTree dataTree = DataTree())
   {
     Dune::Timer timer;
-    GridFunctionMean<GFS> gfsMean(gfs, config);
+    GridFunctionMean<GFS> gfsMean(Dune::stackobject_to_shared_ptr(gfs), config);
     auto mean = gfsMean.evaluate(x);
     dataTree.set("mean_before_subtraction", mean);
     Dune::PDELab::ConstGridFunction<typename GFS::Traits::GridViewType, double> constGF(

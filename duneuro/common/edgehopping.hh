@@ -82,7 +82,8 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
       return current;
     }
-    const GV& gridView_;
+
+    GV gridView_;
   };
 }
 
