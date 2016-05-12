@@ -65,13 +65,15 @@ namespace duneuro
         // look for an intersection for which the point lies on the outside.
         for (const auto& i : Dune::intersections(gridView_, current)) {
           if (EdgeHoppingDetail::isOutside(i, global)) {
-            const auto& out = i.outside();
-            ElementIndex outIndex = gridView_.indexSet().index(out);
-            if (!i.boundary() && (visited.find(outIndex) == visited.end())) {
-              current = out;
-              visited.insert(outIndex);
-              foundNext = true;
-              break;
+            if (!i.boundary()) {
+              const auto& out = i.outside();
+              ElementIndex outIndex = gridView_.indexSet().index(out);
+              if (visited.find(outIndex) == visited.end()) {
+                current = out;
+                visited.insert(outIndex);
+                foundNext = true;
+                break;
+              }
             } else {
               boundaryIntersectionFound = true;
             }
