@@ -13,10 +13,10 @@
 #include <vector>
 
 #if HAVE_DUNE_UDG
-//#include <dune/biomag/localoperator/entityprojectionudg.hh>
 #include <dune/udg/pdelab/multiphaseoperator.hh>
 #include <dune/udg/pdelab/operator.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
+#include <duneuro/common/kdtree.hh>
 #endif
 //#include <dune/biomag/localoperator/boundaryprojection.hh>
 #include <duneuro/eeg/projection_utilities.hh>
@@ -105,28 +105,23 @@ namespace duneuro
       dataTree.set("time", timer.elapsed());
     }
 
-#if 0 && HAVE_DUNE_UDG
+#if HAVE_DUNE_UDG
     template <class GFS, class ST>
     ProjectedElectrodes(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
-                        const GFS& gfs, const ST& subTriangulation)
+                        const GFS& gfs, const ST& subTriangulation, DataTree dataTree = DataTree())
         : gridView_(gfs.gridView())
     {
-      typedef Dune::Biomag::EntityProjectionUDG<GV> LOP;
-      LOP lop(gfs.gridView(), electrodes);
-      typedef Dune::UDG::MultiPhaseLocalOperatorWrapper<LOP> MPLOP;
-      MPLOP mplop(lop);
-      typedef Dune::PDELab::UnfittedSubTriangulation<GV> UST;
-      UST ust(gfs.gridView(), subTriangulation);
-      using MBE = Dune::PDELab::istl::BCRSMatrixBackend<>;
-      typedef Dune::UDG::UDGGridOperator<GFS, GFS, MPLOP, MBE, ctype, ctype, ctype, UST> GO;
-      MBE mbe(2 * dim + 1);
-      GO go(gfs, gfs, ust, mplop, mbe);
-      typedef typename Dune::PDELab::BackendVectorSelector<GFS, ctype>::Type U;
-      U r(gfs, 0.0);
-      go.residual(r, r);
-      for (unsigned int i = 0; i < electrodes.size(); ++i) {
-        projections_.push_back(lop.projection(i));
+      Dune::Timer timer;
+      KDTreeElementSearch<GV> search(gridView_);
+      for (const auto& electrode : electrodes) {
+        const auto& element = search.findEntity(electrode);
+        if (!subTriangulation.isHostCell(element)) {
+          DUNE_THROW(Dune::Exception, "element of electrode at "
+                                          << electrode << " is not a host cell for any domain");
+        }
+        projections_.push_back(Projection(element, element.geometry().local(electrode)));
       }
+      dataTree.set("time", timer.elapsed());
     }
 #endif
 
