@@ -43,14 +43,14 @@ namespace duneuro
     virtual const Value& operator()(Index row, Index column) const
     {
       assert(row < matrix_->size());
-      assert(column < k);
+      assert(column == 0);
       return (*matrix_)[row];
     }
 
     virtual Value& operator()(Index row, Index column)
     {
       assert(row < matrix_->size());
-      assert(column < k);
+      assert(column == 0);
       return (*matrix_)[row];
     }
 
