@@ -43,11 +43,14 @@ namespace duneuro
         , transferMatrix_(transferMatrix)
         , solver_(volumeConductor_, config)
         , density_(source_model_default_density(config.sub("source_model")))
-        , sourceModelDense_(SMF::template createDense<typename Traits::DenseRHSVector>(
-              volumeConductor, solver_, config.sub("source_model")))
-        , sourceModelSparse_(SMF::template createSparse<typename Traits::SparseRHSVector>(
-              volumeConductor, solver_, config.sub("source_model")))
     {
+      if (density_ == VectorDensity::dense) {
+        sourceModelDense_ = SMF::template createDense<typename Traits::DenseRHSVector>(
+            volumeConductor, solver_, config.sub("source_model"));
+      } else {
+        sourceModelSparse_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
+            volumeConductor, solver_, config.sub("source_model"));
+      }
     }
 
     std::vector<typename Traits::DomainField> solve(const typename Traits::DipoleType& dipole,
@@ -69,6 +72,7 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
+      assert(sourceModelSparse_);
       sourceModelSparse_->assembleRightHandSide(dipole, rhs);
 
       const auto blockSize =
@@ -92,6 +96,7 @@ namespace duneuro
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
       }
+      assert(sourceModelDense_);
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
 
       std::vector<typename Traits::DomainField> output;
