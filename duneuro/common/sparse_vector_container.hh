@@ -33,7 +33,12 @@ namespace duneuro
     }
     const Value& operator[](const Index& index) const
     {
-      return values_[index];
+      auto it = values_.find(index);
+      if (it == values_.end()) {
+        DUNE_THROW(Dune::Exception, "Illegal access of sparse vector. entry " << index
+                                                                              << " does not exist");
+      }
+      return it->second;
     }
     const_iterator begin() const
     {
@@ -52,7 +57,7 @@ namespace duneuro
     friend std::ostream& operator<<(std::ostream&, const SparseVectorContainer<J, U>&);
 
   private:
-    mutable std::unordered_map<Index, Value> values_;
+    std::unordered_map<Index, Value> values_;
   };
 
   template <class I, class T>
