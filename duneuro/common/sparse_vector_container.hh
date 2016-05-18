@@ -52,7 +52,7 @@ namespace duneuro
     friend std::ostream& operator<<(std::ostream&, const SparseVectorContainer<J, U>&);
 
   private:
-    std::unordered_map<Index, Value> values_;
+    mutable std::unordered_map<Index, Value> values_;
   };
 
   template <class I, class T>
