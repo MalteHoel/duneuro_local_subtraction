@@ -48,7 +48,7 @@ namespace duneuro
     {
       std::ifstream stream(filename);
       if (!stream) {
-        DUNE_THROW(Dune::IOError, "Could not open projectiosn file \"" << filename << "\"!");
+        DUNE_THROW(Dune::IOError, "Could not open projections file \"" << filename << "\"!");
       }
       read(stream, out, dataTree);
     }
