@@ -56,6 +56,35 @@ namespace duneuro
           name));
     }
 
+
+    template <class Solver>
+    void addCellDataGradient(const Solver& solver,
+                     std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
+                     const std::string& name)
+    {
+      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
+                                                     typename Solver::Traits::DomainDOFVector>;
+      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
+      writer_.addCellData(std::make_shared<VTKF>(
+          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
+                                v),
+          name));
+    }
+
+    template <class Solver>
+    void addVertexDataGradient(const Solver& solver,
+                       std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
+                       const std::string& name)
+    {
+      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
+                                                     typename Solver::Traits::DomainDOFVector>;
+      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
+      writer_.addVertexData(std::make_shared<VTKF>(
+          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
+                                v),
+          name));
+    }
+
     void write(const std::string& filename, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
