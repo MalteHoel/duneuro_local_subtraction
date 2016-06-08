@@ -41,7 +41,7 @@ namespace duneuro
       if (sensorIndex >= matrix_->rows()) {
         DUNE_THROW(Dune::Exception, "tried to set row of sensor " << sensorIndex << " but only "
                                                                   << matrix_->rows()
-                                                                  << " senosrs are present");
+                                                                  << " sensors are present");
       }
       if (vector.dim() != matrix_->cols()) {
         DUNE_THROW(Dune::Exception, "tried to set row of a sensor with "
