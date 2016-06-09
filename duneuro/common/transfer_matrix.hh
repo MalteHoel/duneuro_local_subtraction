@@ -1,7 +1,6 @@
 #ifndef DUNEURO_TRANSFER_MATRIX_HH
 #define DUNEURO_TRANSFER_MATRIX_HH
 
-#include <dune/common/dynmatrix.hh>
 #include <dune/common/parametertree.hh>
 
 #include <dune/istl/bcrsmatrix.hh>
@@ -9,6 +8,7 @@
 
 #include <dune/pdelab/backend/istl/vector.hh>
 
+#include <duneuro/common/dense_matrix.hh>
 
 namespace duneuro
 {
@@ -16,7 +16,7 @@ namespace duneuro
   class ISTLTransferMatrix
   {
   public:
-    using MatrixType = Dune::DynamicMatrix<T>;
+    using MatrixType = DenseMatrix<T>;
 
     ISTLTransferMatrix(std::size_t numberOfSensors, std::size_t numberOfDOFs)
         : matrix_(std::make_shared<MatrixType>(numberOfSensors, numberOfDOFs, 0.0))
@@ -24,6 +24,11 @@ namespace duneuro
     }
 
     explicit ISTLTransferMatrix(std::unique_ptr<MatrixType> matrix) : matrix_(std::move(matrix))
+    {
+      assert(matrix_);
+    }
+
+    explicit ISTLTransferMatrix(std::shared_ptr<MatrixType> matrix) : matrix_(matrix)
     {
       assert(matrix_);
     }
@@ -50,7 +55,7 @@ namespace duneuro
       for (unsigned int block = 0; block < vector.size(); ++block) {
         for (unsigned int localIndex = 0; localIndex < blockSize; ++localIndex) {
           unsigned int flatIndex = block * blockSize + localIndex;
-          (*matrix_)[sensorIndex][flatIndex] = vector[block][localIndex];
+          (*matrix_)(sensorIndex, flatIndex) = vector[block][localIndex];
         }
       }
     }

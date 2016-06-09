@@ -1,10 +1,14 @@
 #ifndef DUNEURO_SPARSEVECTORCONTAINER_HH
 #define DUNEURO_SPARSEVECTORCONTAINER_HH
 
+#include <map>
+
 #include <dune/common/typetraits.hh>
+
 #include <dune/pdelab/backend/istl/matrixhelpers.hh>
 #include <dune/pdelab/common/multiindex.hh>
-#include <map>
+
+#include <duneuro/common/dense_matrix.hh>
 
 namespace duneuro
 {
@@ -69,18 +73,17 @@ namespace duneuro
     return stream;
   }
 
-  template <class M, class I, class T, class V, class F>
-  void matrix_sparse_vector_product(const M& matrix, const SparseVectorContainer<I, T>& vector,
-                                    V& output, F toFlat)
+  template <class I, class T, class F>
+  std::vector<T> matrix_sparse_vector_product(const DenseMatrix<T>& matrix,
+                                              const SparseVectorContainer<I, T>& vector, F toFlat)
   {
-    std::array<std::size_t, 1> singleIndex;
+    std::vector<T> output(matrix.rows(), T(0));
     for (int row = 0; row < matrix.rows(); ++row) {
-      singleIndex[0] = row;
-      output[row] = 0;
       for (const auto& entry : vector) {
-        output[row] += matrix[row][toFlat(entry.first)] * vector[entry.first];
+        output[row] += matrix(row, toFlat(entry.first)) * vector[entry.first];
       }
     }
+    return output;
   }
 }
 

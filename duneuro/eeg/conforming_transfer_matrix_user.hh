@@ -8,8 +8,8 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/sparse_vector_container.hh>
-#include <duneuro/common/transfer_matrix.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
 #include <duneuro/io/data_tree.hh>
@@ -37,10 +37,8 @@ namespace duneuro
     using Traits = ConformingTransferMatrixUserTraits<S>;
 
     ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                                 std::shared_ptr<typename Traits::TransferMatrix> transferMatrix,
                                  const Dune::ParameterTree& config)
         : volumeConductor_(volumeConductor)
-        , transferMatrix_(transferMatrix)
         , solver_(volumeConductor_, config)
         , density_(source_model_default_density(config.sub("source_model")))
     {
@@ -53,22 +51,25 @@ namespace duneuro
       }
     }
 
-    std::vector<typename Traits::DomainField> solve(const typename Traits::DipoleType& dipole,
+    template <class M>
+    std::vector<typename Traits::DomainField> solve(const M& transferMatrix,
+                                                    const typename Traits::DipoleType& dipole,
                                                     DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
       if (density_ == VectorDensity::sparse) {
         dataTree.set("density", "sparse");
-        return solveSparse(dipole);
+        return solveSparse(transferMatrix, dipole);
       } else {
         dataTree.set("density", "dense");
-        return solveDense(dipole);
+        return solveDense(transferMatrix, dipole);
       }
       dataTree.set("time", timer.elapsed());
     }
 
+    template <class M>
     std::vector<typename Traits::DomainField>
-    solveSparse(const typename Traits::DipoleType& dipole) const
+    solveSparse(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
@@ -78,20 +79,19 @@ namespace duneuro
       const auto blockSize =
           Traits::EEGForwardSolver::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
 
-      std::vector<typename Traits::DomainField> output(transferMatrix_->matrix().rows());
       if (blockSize == 1) {
-        matrix_sparse_vector_product(transferMatrix_->matrix(), rhs, output,
-                                     [](const typename SVC::Index& c) { return c[0]; });
+        return matrix_sparse_vector_product(transferMatrix, rhs,
+                                            [](const typename SVC::Index& c) { return c[0]; });
       } else {
-        matrix_sparse_vector_product(
-            transferMatrix_->matrix(), rhs, output,
+        return matrix_sparse_vector_product(
+            transferMatrix, rhs,
             [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
       }
-      return output;
     }
 
+    template <class M>
     std::vector<typename Traits::DomainField>
-    solveDense(const typename Traits::DipoleType& dipole) const
+    solveDense(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
@@ -99,26 +99,12 @@ namespace duneuro
       assert(sourceModelDense_);
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
 
-      std::vector<typename Traits::DomainField> output;
-      output.reserve(transferMatrix_->matrix().rows());
-      const auto blockSize =
-          Traits::EEGForwardSolver::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
-      for (std::size_t k = 0; k < transferMatrix_->matrix().rows(); ++k) {
-        typename Traits::DomainField product = 0.0;
-        for (std::size_t cb = 0; cb < denseRHSVector_->N(); ++cb) {
-          for (std::size_t bi = 0; bi < blockSize; ++bi) {
-            product +=
-                transferMatrix_->matrix()[k][cb * blockSize + bi] * denseRHSVector_->block(cb)[bi];
-          }
-        }
-        output.push_back(product);
-      }
-      return output;
+      return matrix_dense_vector_product(transferMatrix,
+                                         Dune::PDELab::Backend::native(*denseRHSVector_));
     }
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    std::shared_ptr<typename Traits::TransferMatrix> transferMatrix_;
     typename Traits::EEGForwardSolver solver_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::CoordinateField, Traits::dimension,
