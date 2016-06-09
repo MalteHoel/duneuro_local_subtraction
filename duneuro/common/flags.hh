@@ -9,7 +9,7 @@ namespace duneuro
 {
   enum class ElementType { hexahedron, tetrahedron };
 
-  std::string to_string(ElementType elementType)
+  static std::string to_string(ElementType elementType)
   {
     switch (elementType) {
     case ElementType::hexahedron: return "hexahedron";

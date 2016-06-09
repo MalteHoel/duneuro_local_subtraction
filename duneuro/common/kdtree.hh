@@ -22,7 +22,7 @@ namespace duneuro
     };
 
     // print the sub tree at the given node
-    void print(const Node& node, const std::string& prefix = "")
+    static void print(const Node& node, const std::string& prefix = "")
     {
       std::cout << prefix << node.location << "\n";
       if (node.left)

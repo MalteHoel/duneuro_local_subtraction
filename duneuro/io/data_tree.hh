@@ -14,6 +14,7 @@
 
 #if HAVE_HDF5WRAP
 #include <duneuro/io/hdf5_dataset_writers.hh>
+#include <duneuro/io/hdf5_dense_matrix.hh>
 #include <hdf5wrap/output.hh>
 #endif
 
@@ -237,7 +238,7 @@ namespace duneuro
     std::string prefix_;
   };
 
-  void add_parameter_tree_to_data_tree(const Dune::ParameterTree& from, DataTree to)
+  static void add_parameter_tree_to_data_tree(const Dune::ParameterTree& from, DataTree to)
   {
     for (const auto& vk : from.getValueKeys()) {
       to.set(vk, from[vk]);
