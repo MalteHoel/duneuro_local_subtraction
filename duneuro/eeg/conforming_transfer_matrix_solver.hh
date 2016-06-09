@@ -79,4 +79,4 @@ namespace duneuro
     friend class MakeDOFVectorHelper;
   };
 }
-#endif DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
+#endif  // DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
