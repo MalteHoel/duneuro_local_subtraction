@@ -29,6 +29,8 @@ namespace duneuro
   struct BasicTypeFromElementType<ElementType::tetrahedron> {
     static const Dune::GeometryType::BasicType value = Dune::GeometryType::BasicType::simplex;
   };
+
+  enum class FittedSolverType { cg, dg };
 }
 
 #endif // DUNEURO_FLAGS_HH
