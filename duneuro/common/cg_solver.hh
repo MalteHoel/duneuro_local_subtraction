@@ -73,10 +73,11 @@ namespace duneuro
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
                                                          Dune::StaticPower<3, VC::dim>::power)
-        , solverBackend_(functionSpace_, assembler_, config.get<unsigned int>("iterations"),
-                         config.get<unsigned int>("verbose"))
+        , solverBackend_(functionSpace_, assembler_,
+                         config.get<unsigned int>("backend.max_iterations"),
+                         config.get<unsigned int>("backend.verbose"))
         , linearSolverMutex_()
-        , linearSolver_(linearSolverMutex_, assembler_.getGO(), config)
+        , linearSolver_(linearSolverMutex_, assembler_.getGO(), config.sub("linear_solver"))
     {
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));

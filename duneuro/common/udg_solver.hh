@@ -59,8 +59,8 @@ namespace duneuro
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
         , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
                         wrappedLocalOperator_)
-        , solverBackend_(config.get<unsigned int>("amg.iterations"),
-                         config.get<unsigned int>("amg.verbose"))
+        , solverBackend_(config.get<unsigned int>("backend.max_iterations"),
+                         config.get<unsigned int>("backend.verbose"))
         , linearSolver_(linearSolverMutex_, gridOperator_, config.sub("linear_solver"))
     {
     }

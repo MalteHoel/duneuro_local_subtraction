@@ -77,7 +77,7 @@ namespace duneuro
                          false, config.get<unsigned int>("intorderadd"))
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
         , firstOrderSpace_(volumeConductor_->grid(), volumeConductor_->gridView())
-        , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config.sub("amg"))
+        , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config.sub("backend"))
         , linearSolverMutex_()
         , linearSolver_(linearSolverMutex_, *assembler_, config.sub("linear_solver"))
     {
