@@ -169,7 +169,6 @@ namespace duneuro
                                        projectedElectrodes_->projectedPosition(i), *solution,
                                        dataTree.sub("solver.electrode_" + std::to_string(i)));
         set_matrix_row(*transferMatrix, i, Dune::PDELab::Backend::native(*solution));
-        std::cout << "solution:\n" << Dune::PDELab::Backend::native(*solution) << "\n\n";
       }
       return std::move(transferMatrix);
     }
