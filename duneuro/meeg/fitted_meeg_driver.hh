@@ -1,5 +1,5 @@
-#ifndef DUNEURO_FITTED_EEG_DRIVER_HH
-#define DUNEURO_FITTED_EEG_DRIVER_HH
+#ifndef DUNEURO_FITTED_MEEG_DRIVER_HH
+#define DUNEURO_FITTED_MEEG_DRIVER_HH
 
 #include <dune/common/std/memory.hh>
 
@@ -15,11 +15,11 @@
 #include <duneuro/eeg/conforming_transfer_matrix_solver.hh>
 #include <duneuro/eeg/conforming_transfer_matrix_user.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
-#include <duneuro/eeg/eeg_driver_interface.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
+#include <duneuro/meeg/meeg_driver_interface.hh>
 
 namespace duneuro
 {
@@ -89,7 +89,7 @@ namespace duneuro
   };
 
   template <ElementType elementType, FittedSolverType solverType, int degree, bool geometryAdaption>
-  struct FittedEEGDriverTraits {
+  struct FittedMEEGDriverTraits {
     using VCStorage = VolumeConductorStorage<elementType, geometryAdaption>;
     using VC = typename VCStorage::Type;
     using Solver = typename SelectFittedSolver<solverType, VC, elementType, degree>::SolverType;
@@ -100,23 +100,29 @@ namespace duneuro
 
   template <ElementType elementType, FittedSolverType solverType, int degree,
             bool geometryAdaption = false>
-  class FittedEEGDriver : public EEGDriverInterface
+  class FittedMEEGDriver : public MEEGDriverInterface
   {
   public:
-    using Traits = FittedEEGDriverTraits<elementType, solverType, degree, geometryAdaption>;
+    using Traits = FittedMEEGDriverTraits<elementType, solverType, degree, geometryAdaption>;
 
-    explicit FittedEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : volumeConductorStorage_(config.sub("volume_conductor"), dataTree.sub("volume_conductor"))
         , eegForwardSolver_(volumeConductorStorage_.get(), config.sub("solver"))
         , eegTransferMatrixSolver_(volumeConductorStorage_.get(), config.sub("solver"))
-        , eegTransferMatrixUser_(volumeConductorStorage_.get(), config.sub("solver"))
+        , transferMatrixUser_(volumeConductorStorage_.get(), config.sub("solver"))
     {
     }
 
-    virtual void solve(const EEGDriverInterface::DipoleType& dipole, Function& solution,
-                       DataTree dataTree = DataTree()) override
+    virtual void solveEEGForward(const MEEGDriverInterface::DipoleType& dipole, Function& solution,
+                                 DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), dataTree);
+    }
+
+    virtual std::vector<double> solveMEGForward(const Function& eegSolution,
+                                                DataTree dataTree = DataTree()) override
+    {
+      DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
     virtual Function makeDomainFunction() const override
@@ -125,11 +131,18 @@ namespace duneuro
     }
 
     virtual void
-    setElectrodes(const std::vector<EEGDriverInterface::CoordinateType>& electrodes) override
+    setElectrodes(const std::vector<MEEGDriverInterface::CoordinateType>& electrodes) override
     {
       projectedElectrodes_ =
           Dune::Std::make_unique<duneuro::ProjectedElectrodes<typename Traits::VC::GridView>>(
               electrodes, volumeConductorStorage_.get()->gridView());
+    }
+
+    virtual void
+    setCoilsAndProjections(const std::vector<CoordinateType>& coils,
+                           const std::vector<std::vector<CoordinateType>>& projections) override
+    {
+      DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
@@ -158,7 +171,7 @@ namespace duneuro
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeTransferMatrix(DataTree dataTree = DataTree()) override
+    computeEEGTransferMatrix(DataTree dataTree = DataTree()) override
     {
       checkElectrodes();
       auto solution = duneuro::make_domain_dof_vector(eegForwardSolver_, 0.0);
@@ -173,11 +186,17 @@ namespace duneuro
       return std::move(transferMatrix);
     }
 
-    virtual std::vector<double> solve(const DenseMatrix<double>& transferMatrix,
-                                      const DipoleType& dipole,
-                                      DataTree dataTree = DataTree()) override
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeMEGTransferMatrix(DataTree dataTree = DataTree()) override
     {
-      return eegTransferMatrixUser_.solve(transferMatrix, dipole, dataTree);
+      DUNE_THROW(Dune::NotImplemented, "currently not implemented");
+    }
+
+    virtual std::vector<double> applyTransfer(const DenseMatrix<double>& transferMatrix,
+                                              const DipoleType& dipole,
+                                              DataTree dataTree = DataTree()) override
+    {
+      return transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
     }
 
   private:
@@ -192,10 +211,10 @@ namespace duneuro
         eegForwardSolver_;
     ConformingTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
     ConformingTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>
-        eegTransferMatrixUser_;
+        transferMatrixUser_;
     std::unique_ptr<duneuro::ProjectedElectrodes<typename Traits::VC::GridView>>
         projectedElectrodes_;
   };
 }
 
-#endif // DUNEURO_FITTED_EEG_DRIVER_HH
+#endif // DUNEURO_FITTED_MEEG_DRIVER_HH

@@ -1,4 +1,5 @@
 add_subdirectory(common)
 add_subdirectory(eeg)
+add_subdirectory(meeg)
 add_subdirectory(io)
 add_subdirectory(meg)
