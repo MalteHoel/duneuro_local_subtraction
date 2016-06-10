@@ -29,13 +29,15 @@ namespace duneuro
     static std::shared_ptr<VolumeConductor<G>> read(const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree())
     {
+      unsigned int offset = config.get("tensors.offset", 0);
       return read(config.get<std::string>("grid.filename"),
-                  config.get<std::string>("tensors.filename"), dataTree);
+          config.get<std::string>("tensors.filename"), dataTree,offset);
     }
 
     static std::shared_ptr<VolumeConductor<G>> read(const std::string& gridFilename,
                                                     const std::string& tensorFilename,
-                                                    DataTree dataTree = DataTree())
+                                                    DataTree dataTree = DataTree(),
+                                                    unsigned int offset=0)
     {
       Dune::Timer timer(false);
       std::string extension = gridFilename.substr(gridFilename.find_last_of(".") + 1);
@@ -66,13 +68,13 @@ namespace duneuro
         It endit = gv.template end<0>();
         for (; it != endit; ++it) {
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(*it)];
-          if (pe >= tensors.size()) {
+          if (pe-offset >= tensors.size()) {
             DUNE_THROW(Dune::Exception, "physical entitiy of element "
                                             << factory.insertionIndex(*it) << " is " << pe
                                             << " but only " << tensors.size()
                                             << " tensors have been read");
           }
-          indexToTensor[mapper.index(*it)] = pe;
+          indexToTensor[mapper.index(*it)] = pe-offset;
         }
         timer.stop();
         dataTree.set("time_reordering_indices", timer.lastElapsed());
