@@ -27,7 +27,6 @@ namespace duneuro
     using CoordinateField = typename VolumeConductor::ctype;
     using DipoleType = Dipole<CoordinateField, dimension>;
     using DomainField = typename EEGForwardSolver::Traits::DomainDOFVector::field_type;
-    using TransferMatrix = ISTLTransferMatrix<DomainField>;
   };
 
   template <class S, class SMF>

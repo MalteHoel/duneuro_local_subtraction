@@ -9,7 +9,6 @@
 #include <dune/istl/solvercategory.hh>
 
 #include <duneuro/common/matrix_adapter.hh>
-#include <duneuro/common/transfer_matrix.hh>
 #include <duneuro/io/hdf5_dense_matrix.hh>
 
 namespace hdf5wrap
@@ -42,17 +41,6 @@ namespace hdf5wrap
           values.push_back(v[i]);
       dataset.write(values.data(), datatype);
       return dataset;
-    }
-  };
-
-  template <class T>
-  struct DataSetWriter<duneuro::ISTLTransferMatrix<T>> {
-    typedef duneuro::ISTLTransferMatrix<T> DataType;
-    static H5::DataSet write(H5::CommonFG& parent, const std::string& datasetName,
-                             const DataType& data)
-    {
-      return duneuro::DenseMatrixToHDF5Writer<typename DataType::MatrixType>::write(
-          parent, data.matrix(), datasetName);
     }
   };
 
