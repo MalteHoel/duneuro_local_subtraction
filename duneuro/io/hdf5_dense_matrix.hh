@@ -8,6 +8,8 @@
 #include <dune/common/dynmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
+#include <duneuro/common/dense_matrix.hh>
+
 #include <duneuro/common/matrix_adapter.hh>
 
 #if HAVE_HDF5WRAP
@@ -81,6 +83,7 @@ namespace duneuro
     }
   };
 
+#if HAVE_EIGEN
   template <class T, int Rows, int Cols>
   struct DenseMatrixToHDF5Writer<Eigen::Matrix<T, Rows, Cols>> {
     typedef hdf5wrap::AttributeTraits<T> Traits;
@@ -103,6 +106,7 @@ namespace duneuro
       return dataSet;
     }
   };
+#endif
 
   template <class T, int blockSizeRow, int blockSizeCol>
   struct DenseMatrixToHDF5Writer<Dune::BCRSMatrix<Dune::FieldMatrix<T, blockSizeRow,
@@ -249,6 +253,37 @@ namespace duneuro
       return matrix;
     }
   };
+
+  template <class T>
+  struct DenseMatrixToHDF5Reader<DenseMatrix<T>> {
+    typedef hdf5wrap::AttributeTraits<T> Traits;
+
+    static std::unique_ptr<DenseMatrix<T>> read(const std::string& filename,
+                                                const std::string& name = "matrix")
+    {
+      using MatrixType = DenseMatrix<T>;
+
+      H5::H5File file(filename, H5F_ACC_RDONLY);
+      H5::DataSet dataSet = file.openDataSet(name);
+      H5::DataSpace dataSpace = dataSet.getSpace();
+
+      hsize_t dims[2];
+      dataSpace.getSimpleExtentDims(dims, NULL);
+
+      std::unique_ptr<MatrixType> matrix(new MatrixType(dims[0], dims[1]));
+      std::cout << "starting to read dense matrix from HDF" << std::endl;
+      std::vector<T> data(dims[0] * dims[1]);
+      dataSet.read(data.data(), Traits::predType);
+      for (unsigned int r = 0; r < dims[0]; ++r)
+        for (unsigned int c = 0; c < dims[1]; ++c)
+          (*matrix)(r, c) = data[r * dims[1] + c];
+      std::cout << "done reading dense matrix from HDF" << std::endl;
+
+      return matrix;
+    }
+  };
+
+#if HAVE_EIGEN
   template <class T, int Rows, int Cols>
   struct DenseMatrixToHDF5Reader<Eigen::Matrix<T, Rows, Cols, Eigen::ColMajor>> {
     typedef hdf5wrap::AttributeTraits<T> Traits;
@@ -277,147 +312,22 @@ namespace duneuro
       return matrix;
     }
   };
-
-/*    template <class T, int blockSize>
-    void writeToBinary(const ISTLTransferMatrix<T, blockSize> &matrix,
-                       const std::string &filename)
-    {
-      std::ofstream stream(filename, std::ios::binary);
-      std::size_t numberOfElectrodes = matrix.matrix().N();
-      std::size_t numberOfVectorBlocks = matrix.matrix().M();
-      std::size_t bs = blockSize;
-      stream.write(reinterpret_cast<char *>(&numberOfElectrodes),
-                   sizeof(numberOfElectrodes));
-      stream.write(reinterpret_cast<char *>(&numberOfVectorBlocks),
-                   sizeof(numberOfVectorBlocks));
-      stream.write(reinterpret_cast<char *>(&bs), sizeof(bs));
-      for (std::size_t row = 0; row < matrix.matrix().N(); ++row) {
-        for (std::size_t colBlock = 0; colBlock < matrix.matrix().M();
-             ++colBlock) {
-          for (std::size_t col = 0; col < blockSize; ++col) {
-            T value = matrix.matrix()[row][colBlock][0][col];
-            stream.write(reinterpret_cast<char *>(&value), sizeof(value));
-          }
-        }
-      }
-    }
-    */
+#endif
 
 #if HAVE_HDF5WRAP
-  template <class T>
-  void writeToHDF5(const ISTLTransferMatrix<T>& matrix, const std::string& filename = "transfer.h5")
+  template <class M>
+  std::unique_ptr<M> readMatrixFromHDF5(const std::string& filename)
   {
-    H5::H5File file(filename, H5F_ACC_TRUNC);
-    DenseMatrixToHDF5Writer<typename ISTLTransferMatrix<T>::MatrixType>::write(file,
-                                                                               matrix.matrix());
+    return DenseMatrixToHDF5Reader<M>::read(filename);
   }
 #endif
 
-  /*
-      template <class T, int blockSize>
-      std::shared_ptr<ISTLTransferMatrix<T, blockSize> >
-      readTransferMatrixFromBinary(const std::string &filename)
-      {
-        std::ifstream stream(filename, std::ios::binary);
-        std::size_t numberOfElectrodes;
-        std::size_t numberOfVectorBlocks;
-        std::size_t bs;
-        stream.read(reinterpret_cast<char *>(&numberOfElectrodes),
-                    sizeof(numberOfElectrodes));
-        stream.read(reinterpret_cast<char *>(&numberOfVectorBlocks),
-                    sizeof(numberOfVectorBlocks));
-        stream.read(reinterpret_cast<char *>(&bs), sizeof(bs));
-        std::shared_ptr<ISTLTransferMatrix<T, blockSize> > matrix(
-            new ISTLTransferMatrix<T, blockSize>(numberOfElectrodes,
-                                                 numberOfVectorBlocks));
-        for (std::size_t row = 0; row < matrix->matrix().N(); ++row) {
-          for (std::size_t colBlock = 0; colBlock < matrix->matrix().M();
-               ++colBlock) {
-            for (std::size_t col = 0; col < blockSize; ++col) {
-              T value;
-              stream.read(reinterpret_cast<char *>(&value), sizeof(value));
-              matrix->matrix()[row][colBlock][0][col] = value;
-            }
-          }
-        }
-        return std::move(matrix);
-      }
-
-      template <class T, int blockSize>
-      void writeToMatlab(const ISTLTransferMatrix<T, blockSize> &matrix,
-                         const std::string &filename = "transfer.mat")
-      {
-        Dune::writeMatrixToMatlab(matrix.matrix(), filename);
-      }
-
-      template <class T, int blockSize>
-      void writeToMatrixMarket(const ISTLTransferMatrix<T, blockSize> &matrix,
-                               const std::string &filename = "transfer.txt")
-      {
-        std::ofstream stream(filename);
-        Dune::writeMatrixMarket(matrix.matrix(), stream);
-      }
-  */
-
-  template <class T>
-  void writeToFile(const ISTLTransferMatrix<T>& matrix, const std::string& fileFormat,
-                   const std::string& fileName)
+  template <class M>
+  std::unique_ptr<M> readMatrixFromFile(const std::string& fileFormat, const std::string& fileName)
   {
-    /*if (fileFormat == "matrixmarket") {
-      writeToMatrixMarket(matrix, fileName);
-    } else if (fileFormat == "matlab") {
-      writeToMatlab(matrix, fileName);
-    } else if (fileFormat == "binary") {
-      writeToBinary(matrix, fileName);*/
-    /*} else */
     if (fileFormat == "hdf5") {
-      writeToHDF5(matrix, fileName);
-    } else {
-      DUNE_THROW(Dune::NotImplemented, "writing matrix format " << fileFormat
-                                                                << " not implemented");
-    }
-  }
-
-  template <class T>
-  void writeToFile(const ISTLTransferMatrix<T>& matrix, const Dune::ParameterTree& config)
-  {
-    writeToFile(matrix, config.get<std::string>("format"), config.get<std::string>("filename"));
-  }
-
-/*
-template <class T, int blockSize>
-std::shared_ptr<ISTLTransferMatrix<T, blockSize> >
-readTransferMatrixFromMatrixMarket(const std::string &filename)
-{
-  std::shared_ptr<ISTLTransferMatrix<T, blockSize> > matrix(
-      new ISTLTransferMatrix<T, blockSize>(1, 1));
-  std::ifstream stream(filename);
-  Dune::readMatrixMarket(matrix->matrix(), stream);
-  return std::move(matrix);
-}
-*/
-
 #if HAVE_HDF5WRAP
-  template <class T>
-  std::shared_ptr<ISTLTransferMatrix<T>> readTransferMatrixFromHDF5(const std::string& filename)
-  {
-    typedef typename ISTLTransferMatrix<T>::MatrixType MatrixType;
-    return std::make_shared<ISTLTransferMatrix<T>>(
-        DenseMatrixToHDF5Reader<MatrixType>::read(filename, "transfer_matrix"));
-  }
-#endif
-
-  template <class T>
-  std::shared_ptr<ISTLTransferMatrix<T>> readTransferMatrixFromFile(const std::string& fileFormat,
-                                                                    const std::string& fileName)
-  {
-    /*if (fileFormat == "matrixmarket") {
-      return readTransferMatrixFromMatrixMarket<T, blockSize>(fileName);
-    } else if (fileFormat == "binary") {
-      return readTransferMatrixFromBinary<T, blockSize>(fileName); */
-    /*} else */ if (fileFormat == "hdf5") {
-#if HAVE_HDF5WRAP
-      return readTransferMatrixFromHDF5<T>(fileName);
+      return readMatrixFromHDF5<M>(fileName);
 #endif
     } else {
       DUNE_THROW(Dune::NotImplemented, "reading matrix format " << fileFormat
@@ -425,12 +335,11 @@ readTransferMatrixFromMatrixMarket(const std::string &filename)
     }
   }
 
-  template <class T>
-  std::shared_ptr<ISTLTransferMatrix<T>>
-  readTransferMatrixFromFile(const Dune::ParameterTree& config)
+  template <class M>
+  std::unique_ptr<M> readMatrixFromFile(const Dune::ParameterTree& config)
   {
-    return readTransferMatrixFromFile<T>(config.get<std::string>("format"),
-                                         config.get<std::string>("filename"));
+    return readMatrixFromFile<M>(config.get<std::string>("format"),
+                                 config.get<std::string>("filename"));
   }
 }
 

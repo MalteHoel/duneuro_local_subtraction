@@ -9,7 +9,7 @@
 #include <dune/istl/solvercategory.hh>
 
 #include <duneuro/common/matrix_adapter.hh>
-#include <duneuro/io/hdf5_dense_matrix.hh>
+#include <duneuro/io/matrix_io.hh>
 
 namespace hdf5wrap
 {
