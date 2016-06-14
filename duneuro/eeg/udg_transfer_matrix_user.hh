@@ -27,7 +27,6 @@ namespace duneuro
     using CoordinateFieldType = typename ST::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
     using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
-    using TransferMatrix = ISTLTransferMatrix<DomainField>;
   };
 
   template <class ST, int compartments, int degree, class DF = double, class RF = double,
