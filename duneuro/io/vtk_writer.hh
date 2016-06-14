@@ -30,7 +30,7 @@ namespace duneuro
 
     template <class Solver>
     void addCellData(const Solver& solver,
-                     std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
+                     std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
                      const std::string& name)
     {
       using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS,
@@ -44,7 +44,7 @@ namespace duneuro
 
     template <class Solver>
     void addVertexData(const Solver& solver,
-                       std::shared_ptr<typename Solver::Traits::DomainDOFVector> v,
+                       std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
                        const std::string& name)
     {
       using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS,
