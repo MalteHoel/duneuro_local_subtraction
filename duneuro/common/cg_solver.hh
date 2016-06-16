@@ -75,7 +75,7 @@ namespace duneuro
                                                          Dune::StaticPower<3, VC::dim>::power)
         , solverBackend_(functionSpace_, assembler_,
                          config.get<unsigned int>("backend.max_iterations"),
-                         config.get<unsigned int>("backend.verbose"))
+                         config.get<unsigned int>("backend.verbose"), true)
         , linearSolverMutex_()
         , linearSolver_(linearSolverMutex_, assembler_.getGO(), config.sub("linear_solver"))
     {
