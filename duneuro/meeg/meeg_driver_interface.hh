@@ -11,33 +11,107 @@
 namespace duneuro
 {
   struct MEEGDriverInterface {
-    using DipoleType = Dipole<double, 3>;
-    using CoordinateType = Dune::FieldVector<double, 3>;
+    static const int dimension = 3;
+    using FieldType = double;
+    using DipoleType = Dipole<FieldType, dimension>;
+    using CoordinateType = Dune::FieldVector<FieldType, dimension>;
 
+    /**
+     * \brief create a domain function for the given interface
+     *
+     * This domain function mainly serves as data storage, as the internal data structure is hidden
+     * through type erasure. It can be passed back to the driver which now how to treat it.
+     */
     virtual Function makeDomainFunction() const = 0;
 
+    /**
+     * \brief solve the eeg forward problem for the given dipole
+     *
+     * Important: make sure that the given Function object has been created by the same driver.
+     * Passing e.g. a Function which has been created by a cg driver to a dg driver will
+     * probably fail, but certainly produce undefined behaviour.
+     */
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
                                  DataTree dataTree = DataTree()) = 0;
-    virtual std::vector<double> solveMEGForward(const Function& eegSolution,
-                                                DataTree dataTree = DataTree()) = 0;
+    /**
+     * \brief solve the meg forward problem
+     *
+     * Solve the MEG forward problem using a given EEG solution. Note that if the eeg solution is
+     * only the correction potential of the subtraction approach, this method will not add the
+     * analytical part. The entries of the result will be ordered coil-wise.
+     *
+     * Important: make sure that setCoilsAndProjections has been called before calling this method.
+     *
+     * Important: make sure that the given Function object has been created by the same driver.
+     * Passing e.g. a Function which has been created by a cg driver to a dg driver will
+     * probably fail, but certainly produce undefined behaviour.
+     */
+    virtual std::vector<FieldType> solveMEGForward(const Function& eegSolution,
+                                                   DataTree dataTree = DataTree()) = 0;
 
+    /**
+     * \brief set the eeg electrodes of this driver
+     *
+     * Subsequent calls to evaluateAtElectrodes will use the given electrodes after this call.
+     * Note that the electrodes might be projected onto the drivers domain.
+     */
     virtual void setElectrodes(const std::vector<CoordinateType>& electrodes) = 0;
-    virtual std::vector<double> evaluateAtElectrodes(const Function& solution) const = 0;
+
+    /**
+     * \brief evaluate the given function at the electrodes
+     *
+     * Make sure that electrodes have been set using setElectrodes before calling this method. The
+     * result will be the function evaluated at the projected electrode positions.
+     */
+    virtual std::vector<FieldType> evaluateAtElectrodes(const Function& solution) const = 0;
+
+    /**
+     * \brief set the meg coils and projections of this driver
+     *
+     * Subsequent calls to solveMEGForward will use the given coils and projections after this
+     * call. The size of the coils and projections vectors have to match. The projections vector
+     * contains a set of projections for each coil. Note that the number of projections for each
+     * coils has to be the same.
+     */
     virtual void
     setCoilsAndProjections(const std::vector<CoordinateType>& coils,
                            const std::vector<std::vector<CoordinateType>>& projections) = 0;
 
+    /**
+     * \brief write the given solution to a file
+     *
+     * The string suffix will be attached to the filename given in the config tree (e.g. a
+     * successive number).
+     */
     virtual void write(const Dune::ParameterTree& config, const Function& solution,
                        const std::string& suffix = "") const = 0;
 
-    virtual std::unique_ptr<DenseMatrix<double>>
+    /**
+     * \brief compute the EEG transfer matrix
+     *
+     * Note that setElectrodes has to be called before using this method.
+     */
+    virtual std::unique_ptr<DenseMatrix<FieldType>>
     computeEEGTransferMatrix(DataTree dataTree = DataTree()) = 0;
-    virtual std::unique_ptr<DenseMatrix<double>>
+
+    /**
+     * \brief compute the MEG transfer matrix
+     *
+     * Note that setCoilsAndProjections has to be called before using this method. The rows of the
+     * resulting matrix will be ordered coil-wise.
+     */
+    virtual std::unique_ptr<DenseMatrix<FieldType>>
     computeMEGTransferMatrix(DataTree dataTree = DataTree()) = 0;
 
-    virtual std::vector<double> applyTransfer(const DenseMatrix<double>& transferMatrix,
-                                              const DipoleType& dipole,
-                                              DataTree dataTree = DataTree()) = 0;
+    /**
+     * \brief apply the given transfer matrix
+     *
+     * Note that no operations on the column mean will performed. When selecting the subtraction
+     * approach, the analytical part will not be considered.
+     */
+    virtual std::vector<FieldType> applyTransfer(const DenseMatrix<FieldType>& transferMatrix,
+                                                 const DipoleType& dipole,
+                                                 DataTree dataTree = DataTree()) = 0;
 
     virtual ~MEEGDriverInterface()
     {
