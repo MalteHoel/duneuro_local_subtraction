@@ -6,5 +6,5 @@ if (dune-udg_FOUND)
   set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/meeg/udg_meeg_driver.cc)
 endif()
 
-dune_add_library(duneuro SOURCES ${duneuro_SOURCES})
+dune_add_library(duneuro SOURCES ${duneuro_SOURCES} _DUNE_TARGET_OBJECTS:SimBio_)
 dune_target_enable_all_packages(duneuro)
