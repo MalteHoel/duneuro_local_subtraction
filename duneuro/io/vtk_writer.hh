@@ -66,8 +66,8 @@ namespace duneuro
                                                      typename Solver::Traits::DomainDOFVector>;
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
       writer_.addCellData(std::make_shared<VTKF>(
-          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
-                                v),
+          std::make_shared<DGF>(solver.functionSpace().getGFS(),
+                                *v),
           name));
     }
 
@@ -80,8 +80,8 @@ namespace duneuro
                                                      typename Solver::Traits::DomainDOFVector>;
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
       writer_.addVertexData(std::make_shared<VTKF>(
-          std::make_shared<DGF>(Dune::stackobject_to_shared_ptr(solver.functionSpace().getGFS()),
-                                v),
+          std::make_shared<DGF>(solver.functionSpace().getGFS(),
+                                *v),
           name));
     }
 
