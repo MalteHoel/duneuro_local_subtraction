@@ -32,6 +32,9 @@ namespace duneuro
                 const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : config_(config), smatrix_(coils.size())
     {
+      if (coils.size() != projections.size()) {
+        DUNE_THROW(Dune::Exception, "coils and projections vectors have to have the same size");
+      }
       Dune::Timer timer;
       DOF smatrixrow(fs.getGFS(), 0.0);
 
