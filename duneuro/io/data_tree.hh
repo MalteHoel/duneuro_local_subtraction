@@ -124,7 +124,7 @@ namespace duneuro
     }
   };
 
-#if HAVE_HDF5WRAP
+#if HAVE_HDF5WRAP || DOXYGEN
   class HDF5Storage : public StorageInterface
   {
   public:
@@ -189,9 +189,20 @@ namespace duneuro
   };
 #endif
 
+  /**
+   * \brief simple class for storing program output in a tree like structure
+   *
+   * This class serves as a dump for storing program output, such as parameters, timings, etc.. When
+   * copied, the new DataTree shares the same internal storage.
+   */
   class DataTree
   {
   public:
+    /**
+     * \brief create a new DataTree
+     *
+     * The new tree will use the PrintStorage, thus printing all values to the standard output.
+     */
     DataTree() : storage_(std::make_shared<PrintStorage>()), prefix_("")
     {
     }
@@ -201,11 +212,24 @@ namespace duneuro
     {
     }
 
+    /**
+     * \brief set the internal storage class
+     *
+     * From now on, the new storage will be used for this class. Note that this will only change the
+     * storage for this objects, not for any subtree created by sub().
+     */
     void setStorage(std::shared_ptr<StorageInterface> storage)
     {
       storage_ = storage;
     }
 
+    /**
+     * \brief create a DataTree with the given prefix
+     *
+     * The resulting tree will use the same storage as this tree, but prepend the given prefix and a
+     * `.` to all subsequent calls to its set() method. This prefix will also be preserved to
+     * further calls to sub().
+     */
     DataTree sub(std::string prefix) const
     {
       std::stringstream combinedPrefix;
