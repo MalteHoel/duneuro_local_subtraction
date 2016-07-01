@@ -1,6 +1,7 @@
 #ifndef DUNEURO_DENSE_MATRIX_HH
 #define DUNEURO_DENSE_MATRIX_HH
 
+#include <memory>
 #include <vector>
 
 #include <dune/common/exceptions.hh>
