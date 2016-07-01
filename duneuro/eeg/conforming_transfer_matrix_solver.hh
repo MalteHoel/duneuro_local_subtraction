@@ -6,7 +6,7 @@
 
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
-#include <duneuro/eeg/projection_utilities.hh>
+#include <duneuro/eeg/electrode_projection_interface.hh>
 #include <duneuro/eeg/transfer_matrix_rhs.hh>
 #include <duneuro/io/data_tree.hh>
 
@@ -23,7 +23,7 @@ namespace duneuro
     using CoordinateFieldType = typename VolumeConductor::ctype;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using Element = typename VolumeConductor::GridView::template Codim<0>::Entity;
-    using ProjectedPosition = duneuro::ProjectedPosition<Element, Coordinate>;
+    using ProjectedPosition = ProjectedElectrode<typename VolumeConductor::GridView>;
   };
 
   template <class S>
@@ -79,4 +79,4 @@ namespace duneuro
     friend class MakeDOFVectorHelper;
   };
 }
-#endif  // DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
+#endif // DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH

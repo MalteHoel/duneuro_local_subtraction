@@ -15,7 +15,7 @@
 #include <duneuro/eeg/conforming_transfer_matrix_solver.hh>
 #include <duneuro/eeg/conforming_transfer_matrix_user.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
-#include <duneuro/eeg/projected_electrodes.hh>
+#include <duneuro/eeg/electrode_projection_factory.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
@@ -114,6 +114,8 @@ namespace duneuro
         , eegTransferMatrixSolver_(volumeConductorStorage_.get(), config.sub("solver"))
         , transferMatrixUser_(volumeConductorStorage_.get(), config.sub("solver"))
         , megTransferMatrixSolver_(volumeConductorStorage_.get(), config.sub("solver"))
+        , electrodeProjection_(duneuro::ElectrodeProjectionFactory::make_electrode_projection(
+              config.sub("electrode_projection"), volumeConductorStorage_.get()->gridView()))
     {
     }
 
@@ -140,15 +142,19 @@ namespace duneuro
     virtual void
     setElectrodes(const std::vector<MEEGDriverInterface::CoordinateType>& electrodes) override
     {
-      projectedElectrodes_ =
-          Dune::Std::make_unique<duneuro::ProjectedElectrodes<typename Traits::VC::GridView>>(
-              electrodes, volumeConductorStorage_.get()->gridView());
+      assert(electrodes.size() > 0);
+      electrodeProjection_->setElectrodes(electrodes);
     }
 
     virtual void setCoilsAndProjections(
         const std::vector<MEEGDriverInterface::CoordinateType>& coils,
         const std::vector<std::vector<MEEGDriverInterface::CoordinateType>>& projections) override
     {
+      if (coils.size() != projections.size()) {
+        DUNE_THROW(Dune::Exception,
+                   "number of coils (" << coils.size() << ") does not match number of projections ("
+                                       << projections.size() << ")");
+      }
       coils_ = Dune::Std::make_unique<std::vector<MEEGDriverInterface::CoordinateType>>(coils);
       projections_ =
           Dune::Std::make_unique<std::vector<std::vector<MEEGDriverInterface::CoordinateType>>>(
@@ -162,9 +168,23 @@ namespace duneuro
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
     {
-      checkElectrodes();
-      return projectedElectrodes_->evaluate(eegForwardSolver_.functionSpace().getGFS(),
-                                            function.cast<typename Traits::DomainDOFVector>());
+      // create discrete grid function
+      using DGF =
+          Dune::PDELab::DiscreteGridFunction<typename Traits::Solver::Traits::FunctionSpace::GFS,
+                                             typename Traits::DomainDOFVector>;
+      DGF dgf(eegForwardSolver_.functionSpace().getGFS(),
+              function.cast<typename Traits::DomainDOFVector>());
+
+      // evalaute discrete grid function at every projection
+      std::vector<double> result;
+      result.reserve(electrodeProjection_->size());
+      for (std::size_t i = 0; i < electrodeProjection_->size(); ++i) {
+        const auto& projection = electrodeProjection_->getProjection(i);
+        typename DGF::Traits::RangeType y(0.0);
+        dgf.evaluate(projection.element, projection.localPosition, y);
+        result.push_back(y);
+      }
+      return result;
     }
 
     virtual void write(const Dune::ParameterTree& config, const Function& function,
@@ -188,13 +208,12 @@ namespace duneuro
     virtual std::unique_ptr<DenseMatrix<double>>
     computeEEGTransferMatrix(DataTree dataTree = DataTree()) override
     {
-      checkElectrodes();
       auto solution = duneuro::make_domain_dof_vector(eegForwardSolver_, 0.0);
       auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
-          projectedElectrodes_->size(), solution->flatsize());
-      for (unsigned int i = 1; i < projectedElectrodes_->size(); ++i) {
-        eegTransferMatrixSolver_.solve(projectedElectrodes_->projectedPosition(0),
-                                       projectedElectrodes_->projectedPosition(i), *solution,
+          electrodeProjection_->size(), solution->flatsize());
+      for (unsigned int i = 1; i < electrodeProjection_->size(); ++i) {
+        eegTransferMatrixSolver_.solve(electrodeProjection_->getProjection(0),
+                                       electrodeProjection_->getProjection(i), *solution,
                                        dataTree.sub("solver.electrode_" + std::to_string(i)));
         set_matrix_row(*transferMatrix, i, Dune::PDELab::Backend::native(*solution));
       }
@@ -235,12 +254,6 @@ namespace duneuro
     }
 
   private:
-    void checkElectrodes() const
-    {
-      if (!projectedElectrodes_) {
-        DUNE_THROW(Dune::Exception, "electrodes not set");
-      }
-    }
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
     ConformingEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
@@ -252,8 +265,8 @@ namespace duneuro
                                 typename Traits::Solver::Traits::RangeDOFVector::field_type>>
         megSolution_;
     ConformingMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
-    std::unique_ptr<duneuro::ProjectedElectrodes<typename Traits::VC::GridView>>
-        projectedElectrodes_;
+    std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
+        electrodeProjection_;
     std::unique_ptr<std::vector<MEEGDriverInterface::CoordinateType>> coils_;
     std::unique_ptr<std::vector<std::vector<MEEGDriverInterface::CoordinateType>>> projections_;
   };
