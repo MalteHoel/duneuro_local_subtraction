@@ -219,6 +219,8 @@ namespace duneuro
         harmonic_average = 1.0;
       }
 
+      std::vector<RangeType> phi_s(lfsv_s.size());
+      std::vector<RangeType> phi_n(lfsv_n.size());
       /** loop over quadrature points **/
       for (typename Dune::QuadratureRule<DF, dim - 1>::const_iterator it = rule.begin();
            it != rule.end(); ++it) {
@@ -230,9 +232,7 @@ namespace duneuro
         Dune::FieldVector<DF, dim> iplocal_n = ig.geometryInOutside().global(it->position());
 
         /* evaluate basis functions */
-        std::vector<RangeType> phi_s(lfsv_s.size());
         lfsv_s.finiteElement().localBasis().evaluateFunction(iplocal_s, phi_s);
-        std::vector<RangeType> phi_n(lfsv_n.size());
         lfsv_n.finiteElement().localBasis().evaluateFunction(iplocal_n, phi_n);
 
         /* get sigma^corr for both sides of the interface */
