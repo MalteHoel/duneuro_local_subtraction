@@ -5,6 +5,7 @@
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/grid_function_mean.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/eeg_forward_solver_interface.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -63,6 +64,7 @@ namespace duneuro
     {
       // post process solution
       sourceModel_->postProcessSolution(dipole, solution);
+      subtract_mean(solver_, solution);
     }
 
     const typename Traits::FunctionSpace& functionSpace() const
