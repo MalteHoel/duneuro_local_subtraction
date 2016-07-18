@@ -2,7 +2,7 @@
 #define DUNEURO_UDG_MEEG_DRIVER_HH
 
 #include <dune/udg/simpletpmctriangulation.hh>
-#include <duneuro/udg/domain_factory.hh>
+#include <duneuro/udg/simpletpmc_domain.hh>
 
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
@@ -39,10 +39,9 @@ namespace duneuro
         : grid_(make_structured_grid<3>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
+        , domain_(config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
-              fundamentalGridView_, levelSetGridView_,
-              SimpleTPMCDomainFactory::create(fundamentalGridView_, config.sub("domain"))
-                  ->getDomainConfiguration(),
+              fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement")))
         , solver_(
               std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
@@ -153,6 +152,7 @@ namespace duneuro
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
     typename Traits::GridView levelSetGridView_;
+    SimpleTPMCDomain<typename Traits::GridView, typename Traits::GridView> domain_;
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
     typename Traits::EEGForwardSolver eegForwardSolver_;
