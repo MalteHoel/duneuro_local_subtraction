@@ -1,6 +1,8 @@
 #ifndef DUNEURO_UDG_MEEG_DRIVER_HH
 #define DUNEURO_UDG_MEEG_DRIVER_HH
 
+#include <dune/common/std/memory.hh>
+
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
@@ -69,9 +71,9 @@ namespace duneuro
       return Function(make_shared_from_unique(make_domain_dof_vector(eegForwardSolver_, 0.0)));
     }
 
-    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes)
+    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes) override
     {
-      projectedElectrodes_ = std::make_shared<ProjectedElectrodes<typename Traits::GridView>>(
+      projectedElectrodes_ = Dune::Std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
           electrodes, eegForwardSolver_.functionSpace().getGFS(), *subTriangulation_);
     }
 
@@ -158,7 +160,7 @@ namespace duneuro
     typename Traits::EEGForwardSolver eegForwardSolver_;
     typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
     typename Traits::TransferMatrixUser transferMatrixUser_;
-    std::shared_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
+    std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
     std::vector<double> conductivities_;
   };
 }
