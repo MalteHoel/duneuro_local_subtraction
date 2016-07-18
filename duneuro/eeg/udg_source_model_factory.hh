@@ -2,6 +2,7 @@
 #define DUNEURO_UDG_SOURCE_MODEL_FACTORY_HH
 
 #include <dune/common/parametertree.hh>
+#include <dune/common/std/memory.hh>
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -11,13 +12,13 @@ namespace duneuro
 {
   struct UDGSourceModelFactory {
     template <int dipoleCompartment, class Vector, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createDense(const Solver& solver, const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return std::make_shared<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment,
             typename Solver::Traits::UnfittedSubTriangulation, Vector>>(
             solver.functionSpace().getGFS(),
@@ -30,13 +31,13 @@ namespace duneuro
     }
 
     template <int dipoleCompartment, class Vector, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createSparse(const Solver& solver, const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return std::make_shared<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment,
             typename Solver::Traits::UnfittedSubTriangulation, Vector>>(
             solver.functionSpace().getGFS(),
