@@ -103,6 +103,8 @@ namespace duneuro
     {
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
+      } else {
+        *denseRHSVector_ = 0.0;
       }
       assert(sourceModelDense_);
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
