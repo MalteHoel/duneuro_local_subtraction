@@ -58,6 +58,8 @@ namespace duneuro
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), dataTree);
+      eegForwardSolver_.postProcessSolution(dipole,
+                                            solution.cast<typename Traits::DomainDOFVector>());
     }
 
     virtual std::vector<double> solveMEGForward(const Function& eegSolution,
