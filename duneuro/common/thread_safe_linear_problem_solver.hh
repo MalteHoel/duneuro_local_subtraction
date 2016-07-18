@@ -8,6 +8,7 @@
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/parametertree.hh>
+#include <dune/common/std/memory.hh>
 #include <dune/common/timer.hh>
 
 #include <dune/istl/bcrsmatrix.hh>
@@ -203,7 +204,7 @@ namespace duneuro
           std::cout << "thread with id " << std::this_thread::get_id() << " creates jacobian"
                     << std::endl;
           timer.start();
-          _jacobian = std::unique_ptr<M>(new M(_go));
+          _jacobian = Dune::Std::make_unique<M>(_go);
           timer.stop();
           if (_go.trialGridFunctionSpace().gridView().comm().rank() == 0 && _verbose >= 1)
             std::cout << "=== matrix setup (max) " << timer.lastElapsed() << " s" << std::endl;

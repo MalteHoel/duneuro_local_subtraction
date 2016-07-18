@@ -5,6 +5,7 @@
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
+#include <dune/common/std/memory.hh>
 
 #include <dune/grid/common/rangegenerators.hh>
 
@@ -74,7 +75,7 @@ namespace duneuro
       std::swap(points[high], points[store]);
 
       // construct node for the pivot element and create its subtrees if necessary
-      std::unique_ptr<Node> node(new Node());
+      auto node = Dune::Std::make_unique<Node>();
       node->location = store;
       if (low < store) {
         node->left = construct(points, low, store - 1, depth + 1);

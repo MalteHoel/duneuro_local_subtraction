@@ -23,8 +23,8 @@ namespace duneuro
 
     GalerkinGlobalAssembler(const FS& fs, LOP& lop, const std::size_t nonzeros)
     {
-      gop = std::shared_ptr<GO>(
-          new GO(fs.getGFS(), fs.getCC(), fs.getGFS(), fs.getCC(), lop, MBE(nonzeros)));
+      gop = std::make_shared<GO>(fs.getGFS(), fs.getCC(), fs.getGFS(), fs.getCC(), lop,
+                                 MBE(nonzeros));
     }
 
     // return grid reference

@@ -7,6 +7,7 @@
 
 #include <dune/common/dynmatrix.hh>
 #include <dune/common/parametertree.hh>
+#include <dune/common/std/memory.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
 #include <duneuro/common/dense_matrix.hh>
@@ -204,8 +205,7 @@ namespace duneuro
       std::vector<T> data(rows * cols * bsRow * bsCol, 0.0);
       dataSet.read(data.data(), Traits::predType);
 
-      std::unique_ptr<MatrixType> matrix(
-          new MatrixType(rows, cols, rows * cols, MatrixType::row_wise));
+      auto matrix = Dune::Std::make_unique<MatrixType>(rows, cols, rows * cols, MatrixType::row_wise);
       typedef typename MatrixType::CreateIterator It;
       for (It row = matrix->createbegin(); row != matrix->createend(); ++row) {
         for (std::size_t col = 0; col < cols; ++col) {
@@ -244,7 +244,7 @@ namespace duneuro
       hsize_t dims[2];
       dataSpace.getSimpleExtentDims(dims, NULL);
 
-      std::unique_ptr<MatrixType> matrix(new MatrixType(dims[0], dims[1]));
+      auto matrix = Dune::Std::make_unique<MatrixType>(dims[0], dims[1]);
       std::cout << "starting to read dense matrix from HDF" << std::endl;
       std::vector<T> data(dims[0] * dims[1]);
       dataSet.read(data.data(), Traits::predType);
@@ -273,7 +273,7 @@ namespace duneuro
       hsize_t dims[2];
       dataSpace.getSimpleExtentDims(dims, NULL);
 
-      std::unique_ptr<MatrixType> matrix(new MatrixType(dims[0], dims[1]));
+      auto matrix = Dune::Std::make_unique<MatrixType>(dims[0], dims[1]);
       std::cout << "starting to read dense matrix from HDF" << std::endl;
       std::vector<T> data(dims[0] * dims[1]);
       dataSet.read(data.data(), Traits::predType);
@@ -307,7 +307,7 @@ namespace duneuro
       unsigned int rows = dims[1];
       unsigned int cols = dims[0];
 
-      std::unique_ptr<MatrixType> matrix(new MatrixType(rows, cols));
+      auto matrix = Dune::Std::make_unique<MatrixType>(rows, cols);
       std::cout << "starting to read dense matrix from HDF" << std::endl;
       dataSet.read(matrix->data(), Traits::predType);
       std::cout << "done reading dense matrix from HDF" << std::endl;
