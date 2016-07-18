@@ -110,10 +110,12 @@ namespace duneuro
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(config.sub("volume_conductor"), dataTree.sub("volume_conductor"))
-        , eegForwardSolver_(volumeConductorStorage_.get(), config.sub("solver"))
-        , eegTransferMatrixSolver_(volumeConductorStorage_.get(), config.sub("solver"))
-        , transferMatrixUser_(volumeConductorStorage_.get(), config.sub("solver"))
-        , megTransferMatrixSolver_(volumeConductorStorage_.get(), config.sub("solver"))
+        , solver_(std::make_shared<typename Traits::Solver>(volumeConductorStorage_.get(),
+                                                            config.sub("solver")))
+        , eegForwardSolver_(volumeConductorStorage_.get(), solver_, config.sub("solver"))
+        , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_, config.sub("solver"))
+        , transferMatrixUser_(volumeConductorStorage_.get(), solver_, config.sub("solver"))
+        , megTransferMatrixSolver_(volumeConductorStorage_.get(), solver_, config.sub("solver"))
         , electrodeProjection_(duneuro::ElectrodeProjectionFactory::make_electrode_projection(
               config.sub("electrode_projection"), volumeConductorStorage_.get()->gridView()))
     {
@@ -256,6 +258,7 @@ namespace duneuro
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
+    std::shared_ptr<typename Traits::Solver> solver_;
     ConformingEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;
     ConformingTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
