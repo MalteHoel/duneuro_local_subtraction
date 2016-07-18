@@ -267,7 +267,7 @@ namespace duneuro
 
   protected:
     // parameters
-    const Dune::ParameterTree& configuration_;
+    Dune::ParameterTree configuration_;
     const unsigned char realEdgeNormProviderType_;
 
     // real edge norm providers
