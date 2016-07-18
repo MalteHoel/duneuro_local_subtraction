@@ -36,18 +36,27 @@ namespace duneuro
     using Traits = ConformingTransferMatrixUserTraits<S>;
 
     ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                                 std::shared_ptr<typename Traits::EEGForwardSolver> solver,
                                  const Dune::ParameterTree& config)
         : volumeConductor_(volumeConductor)
-        , solver_(volumeConductor_, config)
+        , solver_(solver)
         , density_(source_model_default_density(config.sub("source_model")))
     {
       if (density_ == VectorDensity::dense) {
         sourceModelDense_ = SMF::template createDense<typename Traits::DenseRHSVector>(
-            volumeConductor, solver_, config.sub("source_model"));
+            volumeConductor, *solver_, config.sub("source_model"));
       } else {
         sourceModelSparse_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            volumeConductor, solver_, config.sub("source_model"));
+            volumeConductor, *solver_, config.sub("source_model"));
       }
+    }
+
+    ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                                 const Dune::ParameterTree& config)
+        : ConformingTransferMatrixUser(
+              volumeConductor,
+              std::make_shared<typename Traits::EEGForwardSolver>(volumeConductor, config), config)
+    {
     }
 
     template <class M>
@@ -93,7 +102,7 @@ namespace duneuro
     solveDense(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       if (!denseRHSVector_) {
-        denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
+        denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
       }
       assert(sourceModelDense_);
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
@@ -104,7 +113,7 @@ namespace duneuro
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    typename Traits::EEGForwardSolver solver_;
+    std::shared_ptr<typename Traits::EEGForwardSolver> solver_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::CoordinateField, Traits::dimension,
                                          typename Traits::DenseRHSVector>>

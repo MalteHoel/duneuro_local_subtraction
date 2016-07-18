@@ -33,12 +33,21 @@ namespace duneuro
 
     ConformingMEGTransferMatrixSolver(
         std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        const Dune::ParameterTree& config)
+        std::shared_ptr<typename Traits::Solver> solver, const Dune::ParameterTree& config)
         : volumeConductor_(volumeConductor)
-        , solver_(volumeConductor, config)
-        , rhsAssembler_(volumeConductor, &solver_.functionSpace(), config)
-        , rightHandSideVector_(make_range_dof_vector(solver_, 0.0))
+        , solver_(solver)
+        , rhsAssembler_(volumeConductor, &solver_->functionSpace(), config)
+        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
+    {
+    }
+
+    ConformingMEGTransferMatrixSolver(
+        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+        const Dune::ParameterTree& config)
+        : ConformingMEGTransferMatrixSolver(
+              volumeConductor, std::make_shared<typename Traits::Solver>(volumeConductor, config),
+              config)
     {
     }
 
@@ -54,7 +63,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -62,12 +71,12 @@ namespace duneuro
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
-      return solver_.functionSpace();
+      return solver_->functionSpace();
     }
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    typename Traits::Solver solver_;
+    std::shared_ptr<typename Traits::Solver> solver_;
     MEGTransferMatrixRHS<typename Traits::VolumeConductor, typename Traits::FunctionSpace>
         rhsAssembler_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
@@ -77,4 +86,4 @@ namespace duneuro
     friend class MakeDOFVectorHelper;
   };
 }
-#endif DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
+#endif // DUNEURO_CONFORMING_MEG_TRANSFER_MATRIX_SOLVER_HH

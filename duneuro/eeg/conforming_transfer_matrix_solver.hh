@@ -34,12 +34,21 @@ namespace duneuro
 
     ConformingTransferMatrixSolver(
         std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        const Dune::ParameterTree& config)
+        std::shared_ptr<typename Traits::Solver> solver, const Dune::ParameterTree& config)
         : volumeConductor_(volumeConductor)
-        , solver_(volumeConductor, config)
-        , rhsAssembler_(solver_.functionSpace().getGFS())
-        , rightHandSideVector_(make_range_dof_vector(solver_, 0.0))
+        , solver_(solver)
+        , rhsAssembler_(solver_->functionSpace().getGFS())
+        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
+    {
+    }
+
+    ConformingTransferMatrixSolver(
+        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+        const Dune::ParameterTree& config)
+        : ConformingTransferMatrixSolver(
+              volumeConductor, std::make_shared<typename Traits::Solver>(volumeConductor, config),
+              config)
     {
     }
 
@@ -57,7 +66,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -65,12 +74,12 @@ namespace duneuro
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
-      return solver_.functionSpace();
+      return solver_->functionSpace();
     }
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    typename Traits::Solver solver_;
+    std::shared_ptr<typename Traits::Solver> solver_;
     TransferMatrixRHS<typename Traits::FunctionSpace::GFS> rhsAssembler_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     Dune::ParameterTree config_;

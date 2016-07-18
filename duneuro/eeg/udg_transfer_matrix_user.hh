@@ -37,18 +37,27 @@ namespace duneuro
     using Traits = UDGTransferMatrixUserTraits<ST, compartments, degree, DF, RF, JF>;
 
     UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                          std::shared_ptr<typename Traits::Solver> solver,
                           const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
-        , solver_(subTriangulation_, config)
+        , solver_(solver)
         , density_(source_model_default_density(config.sub("source_model")))
         , sourceModelDense_(
               UDGSourceModelFactory::template createDense<compartments - 1,
                                                           typename Traits::DenseRHSVector>(
-                  solver_, config.sub("source_model")))
+                  *solver_, config.sub("source_model")))
         , sourceModelSparse_(
               UDGSourceModelFactory::template createSparse<compartments - 1,
                                                            typename Traits::SparseRHSVector>(
-                  solver_, config.sub("source_model")))
+                  *solver_, config.sub("source_model")))
+    {
+    }
+
+    UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                          const Dune::ParameterTree& config)
+        : UDGTransferMatrixUser(subTriangulation,
+                                std::make_shared<typename Traits::Solver>(subTriangulation, config),
+                                config)
     {
     }
 
@@ -94,7 +103,7 @@ namespace duneuro
     solveDense(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       if (!denseRHSVector_) {
-        denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
+        denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
       }
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
 
@@ -104,7 +113,7 @@ namespace duneuro
 
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    typename Traits::Solver solver_;
+    std::shared_ptr<typename Traits::Solver> solver_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::DenseRHSVector>>

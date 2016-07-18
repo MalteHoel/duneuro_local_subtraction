@@ -36,12 +36,21 @@ namespace duneuro
 
     UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
                        const Dune::ParameterTree& config)
+        : UDGEEGFowardSolver(subTriangulation,
+                             std::make_shared<typename Traits::Solver>(subTriangulation, config),
+                             config)
+    {
+    }
+
+    UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                       std::shared_ptr<typename Traits::Solver> solver,
+                       const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
-        , solver_(subTriangulation, config)
+        , solver_(solver)
         , sourceModel_(UDGSourceModelFactory::template createDense<compartments - 1,
                                                                    typename Traits::RangeDOFVector>(
-              solver_, config.sub("source_model")))
-        , rightHandSideVector_(make_range_dof_vector(solver_, 0.0))
+              *solver_, config.sub("source_model")))
+        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
     {
     }
@@ -57,7 +66,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solve", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -71,7 +80,7 @@ namespace duneuro
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
-      return solver_.functionSpace();
+      return solver_->functionSpace();
     }
 
     const typename Traits::SubTriangulation& subTriangulation() const
@@ -81,11 +90,11 @@ namespace duneuro
 
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    typename Traits::Solver solver_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+    std::shared_ptr<typename Traits::Solver> solver_;
+    std::unique_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>>
         sourceModel_;
-    std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
+    std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     Dune::ParameterTree config_;
   };
 }
