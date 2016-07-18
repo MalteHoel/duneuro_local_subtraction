@@ -66,7 +66,7 @@ namespace duneuro
         It endit = gv.template end<0>();
         for (; it != endit; ++it) {
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(*it)];
-          if (pe >= tensors.size()) {
+          if (pe >= static_cast<int>(tensors.size())) {
             DUNE_THROW(Dune::Exception, "physical entitiy of element "
                                             << factory.insertionIndex(*it) << " is " << pe
                                             << " but only " << tensors.size()

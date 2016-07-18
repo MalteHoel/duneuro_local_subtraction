@@ -78,7 +78,7 @@ namespace duneuro
                                               const SparseVectorContainer<I, T>& vector, F toFlat)
   {
     std::vector<T> output(matrix.rows(), T(0));
-    for (int row = 0; row < matrix.rows(); ++row) {
+    for (unsigned int row = 0; row < matrix.rows(); ++row) {
       for (const auto& entry : vector) {
         output[row] += matrix(row, toFlat(entry.first)) * vector[entry.first];
       }

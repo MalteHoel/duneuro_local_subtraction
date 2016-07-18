@@ -25,7 +25,7 @@ namespace duneuro
         : gridView_(gridView), mapper_(gridView), tensors_(tensors), indexToTensor_(indexToTensor)
     {
       assert(tensors.size() > 0);
-      assert(indexToTensor_.size() == gridView_.size(0));
+      assert(indexToTensor_.size() == static_cast<std::size_t>(gridView_.size(0)));
     }
 
     const T& operator()(const EntityType& e) const
