@@ -7,7 +7,9 @@
 #include <duneuro/common/default_grids.hh>
 #include <duneuro/common/dg_solver.hh>
 #include <duneuro/common/flags.hh>
+#if HAVE_DUNE_SUBGRID
 #include <duneuro/common/geometry_adaption.hh>
+#endif
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/volume_conductor.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
@@ -65,6 +67,7 @@ namespace duneuro
     std::shared_ptr<Type> volumeConductor_;
   };
 
+#if HAVE_DUNE_SUBGRID
   template <>
   class VolumeConductorStorage<ElementType::hexahedron, true>
   {
@@ -89,6 +92,7 @@ namespace duneuro
     GeometryAdaptedGrid<3> adaptedGrid_;
     std::shared_ptr<Type> volumeConductor_;
   };
+#endif
 
   template <ElementType elementType, FittedSolverType solverType, int degree, bool geometryAdaption>
   struct FittedMEEGDriverTraits {

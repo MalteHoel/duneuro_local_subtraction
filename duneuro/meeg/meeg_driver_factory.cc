@@ -12,14 +12,18 @@ extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::tetrahedro
                                                 duneuro::FittedSolverType::cg, 1, false>;
 extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::cg, 1, false>;
-extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron,
-                                                duneuro::FittedSolverType::cg, 1, true>;
 extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::tetrahedron,
                                                 duneuro::FittedSolverType::dg, 1, false>;
 extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::dg, 1, false>;
+
+#if HAVE_DUNE_SUBGRID
 extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::dg, 1, true>;
+extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron,
+                                                duneuro::FittedSolverType::cg, 1, true>;
+#endif
+
 #if HAVE_DUNE_UDG
 extern template class duneuro::UDGMEEGDriver<1, 4>;
 extern template class duneuro::UDGMEEGDriver<1, 5>;
@@ -42,9 +46,13 @@ namespace duneuro
         } else if (elementType == "hexahedron") {
           auto geometryAdapted = config.get<bool>("geometry_adapted", false);
           if (geometryAdapted) {
+#if HAVE_DUNE_SUBGRID
             return Dune::Std::make_unique<FittedMEEGDriver<ElementType::hexahedron,
                                                            FittedSolverType::cg, 1, true>>(
                 config, dataTree);
+#else
+            DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
           } else {
             return Dune::Std::make_unique<FittedMEEGDriver<ElementType::hexahedron,
                                                            FittedSolverType::cg, 1, false>>(
@@ -61,9 +69,13 @@ namespace duneuro
         } else if (elementType == "hexahedron") {
           auto geometryAdapted = config.get<bool>("geometry_adapted", false);
           if (geometryAdapted) {
+#if HAVE_DUNE_SUBGRID
             return Dune::Std::make_unique<FittedMEEGDriver<ElementType::hexahedron,
                                                            FittedSolverType::dg, 1, true>>(
                 config, dataTree);
+#else
+            DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
           } else {
             return Dune::Std::make_unique<FittedMEEGDriver<ElementType::hexahedron,
                                                            FittedSolverType::dg, 1, false>>(
