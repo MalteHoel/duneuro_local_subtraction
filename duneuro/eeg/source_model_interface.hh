@@ -16,6 +16,10 @@ namespace duneuro
 
     virtual void postProcessSolution(const DipoleType& dipole, VectorType& vector) const = 0;
 
+    virtual void postProcessSolution(const DipoleType& dipole,
+                                     const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
+                                     std::vector<typename V::field_type>& vector) const = 0;
+
     virtual ~SourceModelInterface()
     {
     }
@@ -54,9 +58,27 @@ namespace duneuro
       postProcessSolution(e, local, dipole.moment(), vector);
     }
 
+    virtual void postProcessSolution(const DipoleType& dipole,
+                                     const std::vector<CoordinateType>& electrodes,
+                                     std::vector<typename V::field_type>& vector) const
+    {
+      auto e = search_.findEntity(dipole.position());
+      auto local = e.geometry().local(dipole.position());
+      postProcessSolution(e, local, dipole.moment(), electrodes, vector);
+    }
+
     virtual void postProcessSolution(const ElementType& element,
                                      const CoordinateType& localDipolePosition,
                                      const CoordinateType& dipoleMoment, VectorType& vector) const
+    {
+      // as a default: no post processing
+    }
+
+    virtual void postProcessSolution(const ElementType& element,
+                                     const CoordinateType& localDipolePosition,
+                                     const CoordinateType& dipoleMoment,
+                                     const std::vector<CoordinateType>& electrodes,
+                                     std::vector<typename V::field_type>& vector) const
     {
       // as a default: no post processing
     }

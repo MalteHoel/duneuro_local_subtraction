@@ -69,6 +69,21 @@ namespace duneuro
       vector += interp;
     }
 
+    virtual void postProcessSolution(const ElementType& element,
+                                     const CoordinateType& localDipolePosition,
+                                     const CoordinateType& dipoleMoment,
+                                     const std::vector<CoordinateType>& electrodes,
+                                     std::vector<typename VectorType::field_type>& vector) const
+    {
+      assert(electrodes.size() == vector.size());
+      problem_.bind(element, localDipolePosition, dipoleMoment);
+      Dune::FieldVector<typename Problem::Traits::RangeFieldType, 1> result;
+      for (unsigned int i = 0; i < electrodes.size(); ++i) {
+        problem_.get_u_infty().evaluateGlobal(electrodes[i], result);
+        vector[i] += result;
+      }
+    }
+
   private:
     mutable Problem problem_;
     EdgeNormProvider edgeNormProvider_;

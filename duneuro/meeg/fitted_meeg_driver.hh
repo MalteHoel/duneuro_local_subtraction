@@ -152,6 +152,11 @@ namespace duneuro
     {
       assert(electrodes.size() > 0);
       electrodeProjection_->setElectrodes(electrodes);
+      projectedGlobalElectrodes_.clear();
+      for (unsigned int i = 0; i < electrodeProjection_->size(); ++i) {
+        const auto& proj = electrodeProjection_->getProjection(i);
+        projectedGlobalElectrodes_.push_back(proj.element.geometry().global(proj.localPosition));
+      }
     }
 
     virtual void setCoilsAndProjections(
@@ -258,7 +263,8 @@ namespace duneuro
                                               const DipoleType& dipole,
                                               DataTree dataTree = DataTree()) override
     {
-      return transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
+      return transferMatrixUser_.solve(transferMatrix, dipole, projectedGlobalElectrodes_,
+                                       dataTree);
     }
 
   private:
@@ -276,6 +282,9 @@ namespace duneuro
     ConformingMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
     std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
         electrodeProjection_;
+    std::vector<typename duneuro::ElectrodeProjectionInterface<
+        typename Traits::VC::GridView>::GlobalCoordinate>
+        projectedGlobalElectrodes_;
     std::unique_ptr<std::vector<MEEGDriverInterface::CoordinateType>> coils_;
     std::unique_ptr<std::vector<std::vector<MEEGDriverInterface::CoordinateType>>> projections_;
   };
