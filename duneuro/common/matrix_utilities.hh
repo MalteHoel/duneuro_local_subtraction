@@ -45,6 +45,14 @@ namespace duneuro
   }
 
   template <class T>
+  void subtract_mean(std::vector<T>& vector)
+  {
+    auto mean = std::accumulate(vector.begin(), vector.end(), 0.0) / vector.size();
+    for (auto& v : vector)
+      v -= mean;
+  }
+
+  template <class T>
   std::vector<T> flatten(const std::vector<std::vector<T>>& v)
   {
     std::vector<T> out;

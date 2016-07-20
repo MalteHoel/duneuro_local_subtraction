@@ -22,7 +22,7 @@ namespace duneuro
      * This domain function mainly serves as data storage, as the internal data structure is hidden
      * through type erasure. It can be passed back to the driver which now how to treat it.
      */
-    virtual Function makeDomainFunction() const = 0;
+    virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
 
     /**
      * \brief solve the eeg forward problem for the given dipole
@@ -104,14 +104,18 @@ namespace duneuro
     computeMEGTransferMatrix(DataTree dataTree = DataTree()) = 0;
 
     /**
-     * \brief apply the given transfer matrix
-     *
-     * Note that no operations on the column mean will performed. When selecting the subtraction
-     * approach, the analytical part will not be considered.
+     * \brief apply the given EEG transfer matrix
      */
-    virtual std::vector<FieldType> applyTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                                                 const DipoleType& dipole,
-                                                 DataTree dataTree = DataTree()) = 0;
+    virtual std::vector<FieldType> applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
+                                                    const DipoleType& dipole,
+                                                    DataTree dataTree = DataTree()) = 0;
+
+    /**
+     * \brief apply the given MEG transfer matrix
+     */
+    virtual std::vector<FieldType> applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
+                                                    const DipoleType& dipole,
+                                                    DataTree dataTree = DataTree()) = 0;
 
     virtual ~MEEGDriverInterface()
     {

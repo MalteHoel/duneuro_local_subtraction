@@ -60,27 +60,36 @@ namespace duneuro
     {
     }
 
+    void postProcessPotential(const typename Traits::DipoleType& dipole,
+                              const std::vector<typename Traits::Coordinate>& projectedElectrodes,
+                              std::vector<typename Traits::DomainField>& potential)
+    {
+      if (density_ == VectorDensity::sparse) {
+        sourceModelSparse_->postProcessSolution(dipole, projectedElectrodes, potential);
+      } else {
+        sourceModelDense_->postProcessSolution(dipole, projectedElectrodes, potential);
+      }
+    }
+
     template <class M>
-    std::vector<typename Traits::DomainField>
-    solve(const M& transferMatrix, const typename Traits::DipoleType& dipole,
-          const std::vector<typename Traits::Coordinate>& projectedElectrodes,
-          DataTree dataTree = DataTree()) const
+    std::vector<typename Traits::DomainField> solve(const M& transferMatrix,
+                                                    const typename Traits::DipoleType& dipole,
+                                                    DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
       if (density_ == VectorDensity::sparse) {
         dataTree.set("density", "sparse");
-        return solveSparse(transferMatrix, dipole, projectedElectrodes);
+        return solveSparse(transferMatrix, dipole);
       } else {
         dataTree.set("density", "dense");
-        return solveDense(transferMatrix, dipole, projectedElectrodes);
+        return solveDense(transferMatrix, dipole);
       }
       dataTree.set("time", timer.elapsed());
     }
 
     template <class M>
     std::vector<typename Traits::DomainField>
-    solveSparse(const M& transferMatrix, const typename Traits::DipoleType& dipole,
-                const std::vector<typename Traits::Coordinate>& projectedElectrodes) const
+    solveSparse(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
@@ -90,25 +99,19 @@ namespace duneuro
       const auto blockSize =
           Traits::EEGForwardSolver::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
 
-      std::vector<typename Traits::DomainField> result;
-
       if (blockSize == 1) {
-        result = matrix_sparse_vector_product(transferMatrix, rhs,
-                                              [](const typename SVC::Index& c) { return c[0]; });
+        return matrix_sparse_vector_product(transferMatrix, rhs,
+                                            [](const typename SVC::Index& c) { return c[0]; });
       } else {
-        result = matrix_sparse_vector_product(
+        return matrix_sparse_vector_product(
             transferMatrix, rhs,
             [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
       }
-
-      sourceModelSparse_->postProcessSolution(dipole, projectedElectrodes, result);
-      return result;
     }
 
     template <class M>
     std::vector<typename Traits::DomainField>
-    solveDense(const M& transferMatrix, const typename Traits::DipoleType& dipole,
-               const std::vector<typename Traits::Coordinate>& projectedElectrodes) const
+    solveDense(const M& transferMatrix, const typename Traits::DipoleType& dipole) const
     {
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
@@ -118,11 +121,8 @@ namespace duneuro
       assert(sourceModelDense_);
       sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
 
-      auto result = matrix_dense_vector_product(transferMatrix,
-                                                Dune::PDELab::Backend::native(*denseRHSVector_));
-
-      sourceModelDense_->postProcessSolution(dipole, projectedElectrodes, result);
-      return result;
+      return matrix_dense_vector_product(transferMatrix,
+                                         Dune::PDELab::Backend::native(*denseRHSVector_));
     }
 
   private:

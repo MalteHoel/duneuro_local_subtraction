@@ -6,6 +6,7 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
@@ -138,9 +139,18 @@ namespace duneuro
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
-    virtual std::vector<double> applyTransfer(const DenseMatrix<double>& transferMatrix,
-                                              const DipoleType& dipole,
-                                              DataTree dataTree = DataTree()) override
+    virtual std::vector<double> applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
+                                                 const DipoleType& dipole,
+                                                 DataTree dataTree = DataTree()) override
+    {
+      auto result = transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
+      subtract_mean(result);
+      return result;
+    }
+
+    virtual std::vector<double> applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
+                                                 const DipoleType& dipole,
+                                                 DataTree dataTree = DataTree()) override
     {
       return transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
     }

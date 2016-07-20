@@ -10,6 +10,7 @@
 #if HAVE_DUNE_SUBGRID
 #include <duneuro/common/geometry_adaption.hh>
 #endif
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/volume_conductor.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
@@ -259,12 +260,21 @@ namespace duneuro
       return std::move(transferMatrix);
     }
 
-    virtual std::vector<double> applyTransfer(const DenseMatrix<double>& transferMatrix,
-                                              const DipoleType& dipole,
-                                              DataTree dataTree = DataTree()) override
+    virtual std::vector<double> applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
+                                                 const DipoleType& dipole,
+                                                 DataTree dataTree = DataTree()) override
     {
-      return transferMatrixUser_.solve(transferMatrix, dipole, projectedGlobalElectrodes_,
-                                       dataTree);
+      auto result = transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
+      transferMatrixUser_.postProcessPotential(dipole, projectedGlobalElectrodes_, result);
+      subtract_mean(result);
+      return result;
+    }
+
+    virtual std::vector<double> applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
+                                                 const DipoleType& dipole,
+                                                 DataTree dataTree = DataTree()) override
+    {
+      return transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
     }
 
   private:
