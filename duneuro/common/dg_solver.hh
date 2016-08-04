@@ -116,7 +116,7 @@ namespace duneuro
     typename Traits::LinearSolver linearSolver_;
 
     template <class V>
-    friend class MakeDOFVectorHelper;
+    friend struct MakeDOFVectorHelper;
   };
 }
 

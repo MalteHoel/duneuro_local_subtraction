@@ -23,7 +23,7 @@ namespace duneuro
     };
 
     // print the sub tree at the given node
-    static void print(const Node& node, const std::string& prefix = "")
+    static inline void print(const Node& node, const std::string& prefix = "")
     {
       std::cout << prefix << node.location << "\n";
       if (node.left)
@@ -83,7 +83,7 @@ namespace duneuro
       if (store < high) {
         node->right = construct(points, store + 1, high, depth + 1);
       }
-      return std::move(node);
+      return node;
     }
 
     // find an element which is close to the element containing x
