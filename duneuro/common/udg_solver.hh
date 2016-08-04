@@ -31,10 +31,11 @@ namespace duneuro
     using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
+    using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
     using GridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
-                                   WrappedLocalOperator, Dune::PDELab::ISTLMatrixBackend, DF, RF,
-                                   JF, UnfittedSubTriangulation>;
+                                   WrappedLocalOperator, MatrixBackend, DF, RF, JF,
+                                   UnfittedSubTriangulation>;
     using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
     using LinearSolver = ThreadSafeStationaryLinearProblemSolver<GridOperator, SolverBackend,
                                                                  DomainDOFVector, RangeDOFVector>;
