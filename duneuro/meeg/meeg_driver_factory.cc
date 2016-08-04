@@ -25,6 +25,9 @@ extern template class duneuro::FittedMEEGDriver<duneuro::ElementType::hexahedron
 #endif
 
 #if HAVE_DUNE_UDG
+extern template class duneuro::UDGMEEGDriver<1, 1>;
+extern template class duneuro::UDGMEEGDriver<1, 2>;
+extern template class duneuro::UDGMEEGDriver<1, 3>;
 extern template class duneuro::UDGMEEGDriver<1, 4>;
 extern template class duneuro::UDGMEEGDriver<1, 5>;
 #endif
@@ -90,7 +93,13 @@ namespace duneuro
 #if HAVE_DUNE_UDG
     } else if (type == "udg") {
       auto compartments = config.get<unsigned int>("compartments");
-      if (compartments == 4) {
+      if (compartments == 1) {
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 1>>(config);
+      } else if (compartments == 2) {
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 2>>(config);
+      } else if (compartments == 3) {
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 3>>(config);
+      } else if (compartments == 4) {
         return Dune::Std::make_unique<UDGMEEGDriver<1, 4>>(config);
       } else if (compartments == 5) {
         return Dune::Std::make_unique<UDGMEEGDriver<1, 5>>(config);
