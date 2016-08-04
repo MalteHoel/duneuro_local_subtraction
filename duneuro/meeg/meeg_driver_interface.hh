@@ -87,6 +87,11 @@ namespace duneuro
                        DataTree dataTree = DataTree()) const = 0;
 
     /**
+     * \brief write the model without a solution to a file
+     */
+    virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const = 0;
+
+    /**
      * \brief compute the EEG transfer matrix
      *
      * Note that setElectrodes has to be called before using this method.

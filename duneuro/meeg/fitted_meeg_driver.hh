@@ -229,6 +229,20 @@ namespace duneuro
       }
     }
 
+    virtual void write(const Dune::ParameterTree& config,
+                       DataTree dataTree = DataTree()) const override
+    {
+      auto format = config.get<std::string>("format");
+      if (format == "vtk") {
+        VTKWriter<typename Traits::VC, degree> writer(volumeConductorStorage_.get());
+        writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
+            volumeConductorStorage_.get()));
+        writer.write(config.get<std::string>("filename"), dataTree);
+      } else {
+        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
+      }
+    }
+
     virtual std::unique_ptr<DenseMatrix<double>>
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override

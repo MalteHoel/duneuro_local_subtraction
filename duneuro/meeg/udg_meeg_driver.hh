@@ -127,6 +127,23 @@ namespace duneuro
       }
     }
 
+    virtual void write(const Dune::ParameterTree& config,
+                       DataTree dataTree = DataTree()) const override
+    {
+      auto format = config.get<std::string>("format");
+      if (format == "vtk") {
+        RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
+                         typename Traits::SubTriangulation, compartments>
+            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
+        vtkWriter.addVertexData(
+            std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
+                fundamentalGridView_, conductivities_));
+        vtkWriter.write(config.get<std::string>("filename"), dataTree);
+      } else {
+        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
+      }
+    }
+
     virtual std::unique_ptr<DenseMatrix<double>>
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
