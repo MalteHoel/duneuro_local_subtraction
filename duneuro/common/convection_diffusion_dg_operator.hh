@@ -270,27 +270,15 @@ namespace duneuro
 
       A = param.A(eg, homeentity_localcenter);
 
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsu.size());
+
       // loop over quadrature points
       for (auto&& qp : rule) {
         // the finite element in a UDG local function space uses the global finite
         // element interface; in order to make the code compatible with both the
         // PDELab assembler and the UDG assembler, use:
 
-        // evaluate basis functions
-        std::vector<RangeType> phi(lfsu.size());
-        FESwitch::basis(lfsu.finiteElement()).evaluateFunction(qp.position(), phi);
-
-        // evaluate u
-        RF u = 0.0;
-        for (size_type i = 0; i < lfsu.size(); i++)
-          u += x(lfsu, i) * phi[i];
-
-        // the finite element in a UDG local function space uses the global finite
-        // element interface; in order to make the code compatible with both the
-        // PDELab assembler and the UDG assembler, use:
-
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsu.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu.finiteElement()), eg.geometry(), qp.position(),
                               gradphi);
 
@@ -300,37 +288,21 @@ namespace duneuro
           // gradu.axpy(x(lfsu,i),gradphi[i]);
           gradu.axpy(x(lfsu, i), gradphi[i][0]);
 
-        // position of quadrature point in local coordinates
-        // PDELab assembler: local coordinates are the same as qp.position()
-        // UDG assembler: local coordinates of the entity part's fundamental mesh home entity
-        // use it for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = eg.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> homeentity_iplocal =
-            eg.entity().geometry().local(ipglobal);
-
         // compute A * gradient of u
         Dune::FieldVector<RF, dim> Agradu(0.0);
         A.umv(gradu, Agradu);
 
-        // evaluate velocity field
-        const typename T::Traits::RangeType b = param.b(eg.entity(), homeentity_iplocal);
-
-        // evaluate reaction term
-        const typename T::Traits::RangeFieldType c = param.c(eg.entity(), homeentity_iplocal);
-
         // integrate (A grad u - bu)*grad phi_i + c*u*phi_i
         const RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
         for (size_type i = 0; i < lfsv.size(); i++)
-          // r.accumulate(lfsv,i,( Agradu*gradphi[i] - u*(b*gradphi[i]) + c*u*phi[i] )*factor);
-          r.accumulate(lfsv, i, (Agradu * gradphi[i][0] - u * (b * gradphi[i][0]) + c * u * phi[i])
-                                    * factor);
+          r.accumulate(lfsv, i, Agradu * gradphi[i][0] * factor);
       }
     }
 
     // jacobian of volume term
     template <typename EG, typename LFSU, typename X, typename LFSV, typename M>
-    void jacobian_volume(const EG& eg, const LFSU& lfsu, const X& x, const LFSV& lfsv, M& mat) const
+    void jacobian_volume(const EG& eg, const LFSU& lfsu, const X& DUNE_UNUSED(x),
+                         const LFSV& DUNE_UNUSED(lfsv), M& mat) const
     {
       // domain and range field type
       typedef Dune::FiniteElementInterfaceSwitch<typename LFSU::Traits::FiniteElementType> FESwitch;
@@ -360,53 +332,29 @@ namespace duneuro
           Dune::ReferenceElements<DF, dim>::general(homeentity_gt).position(0, 0);
       A = param.A(eg, homeentity_localcenter);
 
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsu.size());
+      std::vector<Dune::FieldVector<RF, dim>> Agradphi(lfsu.size());
+
       // loop over quadrature points
       for (auto&& qp : rule) {
         // the finite element in a UDG local function space uses the global finite
         // element interface; in order to make the code compatible with both the
         // PDELab assembler and the UDG assembler, use:
 
-        // evaluate basis functions
-        std::vector<RangeType> phi(lfsu.size());
-        FESwitch::basis(lfsu.finiteElement()).evaluateFunction(qp.position(), phi);
-
-        // the finite element in a UDG local function space uses the global finite
-        // element interface; in order to make the code compatible with both the
-        // PDELab assembler and the UDG assembler, use:
-
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsu.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu.finiteElement()), eg.geometry(), qp.position(),
                               gradphi);
 
-        // position of quadrature point in local coordinates
-        // PDELab assembler: local coordinates are the same as qp.position()
-        // UDG assembler: local coordinates of the entity part's fundamental mesh home entity
-        // use it for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = eg.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> homeentity_iplocal =
-            eg.entity().geometry().local(ipglobal);
-
         // compute A * gradient of shape functions
-        std::vector<Dune::FieldVector<RF, dim>> Agradphi(lfsu.size());
         for (size_type i = 0; i < lfsu.size(); i++)
           // A.mv(gradphi[i],Agradphi[i]);
           A.mv(gradphi[i][0], Agradphi[i]);
-
-        // evaluate velocity field
-        const typename T::Traits::RangeType b = param.b(eg.entity(), homeentity_iplocal);
-
-        // evaluate reaction term
-        const typename T::Traits::RangeFieldType c = param.c(eg.entity(), homeentity_iplocal);
 
         // integrate (A grad u - bu)*grad phi_i + c*u*phi_i
         const RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
         for (size_type j = 0; j < lfsu.size(); j++)
           for (size_type i = 0; i < lfsu.size(); i++)
-            mat.accumulate(lfsu, i, lfsu, j, (Agradphi[j] * gradphi[i][0]
-                                              - phi[j] * (b * gradphi[i][0]) + c * phi[j] * phi[i])
-                                                 * factor);
+            mat.accumulate(lfsu, i, lfsu, j, Agradphi[j] * gradphi[i][0] * factor);
       }
     }
 
@@ -485,32 +433,23 @@ namespace duneuro
       // const RF penalty_factor = (alpha/h_F) * harmonic_average;
 
       // create copies of inside and outside entities
-      auto outsideEntity = ig.outside();
-      auto insideEntity = ig.inside();
+      const auto& outsideEntity = ig.outside();
+      const auto& insideEntity = ig.inside();
+
+      std::vector<RangeType> phi_s(lfsu_s.size());
+      std::vector<RangeType> phi_n(lfsu_n.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_n(lfsu_n.size());
 
       // loop over quadrature points and integrate normal flux
       for (auto&& qp : rule) {
-        // local normal
-        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
-
         // position of quadrature point in local coordinates of elements
         // UDG assembler: local coordinates of the inside/outside bounding box
         const Dune::FieldVector<DF, dim> iplocal_s = ig.geometryInInside().global(qp.position());
         const Dune::FieldVector<DF, dim> iplocal_n = ig.geometryInOutside().global(qp.position());
 
-        // position of quadrature point in local coordinates of elements
-        // PDELab assembler: local coordinates are the same as iplocal_s and iplocal_n
-        // UDG assembler: local coordinates of the inside/outside host entity
-        // use them for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = ig.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> hostentity_iplocal_s =
-            insideEntity.geometry().local(ipglobal);
-
         // evaluate basis functions
-        std::vector<RangeType> phi_s(lfsu_s.size());
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
-        std::vector<RangeType> phi_n(lfsu_n.size());
         FESwitch::basis(lfsu_n.finiteElement()).evaluateFunction(iplocal_n, phi_n);
 
         // evaluate u
@@ -526,10 +465,8 @@ namespace duneuro
         // PDELab assembler and the UDG assembler, use:
 
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_s.finiteElement()), insideEntity.geometry(),
                               iplocal_s, gradphi_s);
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_n(lfsu_n.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_n.finiteElement()), outsideEntity.geometry(),
                               iplocal_n, gradphi_n);
 
@@ -543,27 +480,8 @@ namespace duneuro
           // gradu_n.axpy(x_n(lfsu_n,i),tgradphi_n[i]);
           gradu_n.axpy(x_n(lfsu_n, i), gradphi_n[i][0]);
 
-        // evaluate velocity field and upwinding (**)
-        const typename T::Traits::RangeType b = param.b(insideEntity, hostentity_iplocal_s);
-        const RF normalflux = b * n_F_local;
-        RF omegaup_s, omegaup_n;
-        if (normalflux >= 0.0) {
-          omegaup_s = 1.0;
-          omegaup_n = 0.0;
-        } else {
-          omegaup_s = 0.0;
-          omegaup_n = 1.0;
-        }
-
         // integration factor
         const RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
-
-        // convection term
-        const RF term1 = (omegaup_s * u_s + omegaup_n * u_n) * normalflux * factor;
-        for (size_type i = 0; i < lfsu_s.size(); i++)
-          r_s.accumulate(lfsu_s, i, term1 * phi_s[i]);
-        for (size_type i = 0; i < lfsu_n.size(); i++)
-          r_n.accumulate(lfsu_n, i, -term1 * phi_n[i]);
 
         // diffusion term
         const RF term2 = -(omega_s * (An_F_s * gradu_s) + omega_n * (An_F_n * gradu_n)) * factor;
@@ -592,8 +510,9 @@ namespace duneuro
 
     // jacobian of skeleton term
     template <typename IG, typename LFSU, typename X, typename LFSV, typename M>
-    void jacobian_skeleton(const IG& ig, const LFSU& lfsu_s, const X& x_s, const LFSV& lfsv_s,
-                           const LFSU& lfsu_n, const X& x_n, const LFSV& lfsv_n, M& mat_ss,
+    void jacobian_skeleton(const IG& ig, const LFSU& lfsu_s, const X& DUNE_UNUSED(x_s),
+                           const LFSV& DUNE_UNUSED(lfsv_s), const LFSU& lfsu_n,
+                           const X& DUNE_UNUSED(x_n), const LFSV& DUNE_UNUSED(lfsv_n), M& mat_ss,
                            M& mat_sn, M& mat_ns, M& mat_nn) const
     {
       // domain and range field type
@@ -665,32 +584,23 @@ namespace duneuro
       // const RF penalty_factor = (alpha/h_F) * harmonic_average;
 
       // create copies of inside and outside entities
-      auto insideEntity = ig.inside();
-      auto outsideEntity = ig.outside();
+      const auto& insideEntity = ig.inside();
+      const auto& outsideEntity = ig.outside();
+
+      std::vector<RangeType> phi_s(lfsu_s.size());
+      std::vector<RangeType> phi_n(lfsu_n.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_n(lfsu_n.size());
 
       // loop over quadrature points and integrate normal flux
       for (auto&& qp : rule) {
-        // local normal
-        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
-
         // position of quadrature point in local coordinates of elements
         // UDG assembler: local coordinates of the inside/outside bounding box
         const Dune::FieldVector<DF, dim> iplocal_s = ig.geometryInInside().global(qp.position());
         const Dune::FieldVector<DF, dim> iplocal_n = ig.geometryInOutside().global(qp.position());
 
-        // position of quadrature point in local coordinates of elements
-        // PDELab assembler: local coordinates are the same as iplocal_s and iplocal_n
-        // UDG assembler: local coordinates of the inside/outside host entity
-        // use them for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = ig.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> hostentity_iplocal_s =
-            insideEntity.geometry().local(ipglobal);
-
         // evaluate basis functions
-        std::vector<RangeType> phi_s(lfsu_s.size());
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
-        std::vector<RangeType> phi_n(lfsu_n.size());
         FESwitch::basis(lfsu_n.finiteElement()).evaluateFunction(iplocal_n, phi_n);
 
         // the finite element in a UDG local function space uses the global finite
@@ -698,24 +608,10 @@ namespace duneuro
         // PDELab assembler and the UDG assembler, use:
 
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_s.finiteElement()), insideEntity.geometry(),
                               iplocal_s, gradphi_s);
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_n(lfsu_n.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_n.finiteElement()), outsideEntity.geometry(),
                               iplocal_n, gradphi_n);
-
-        // evaluate velocity field and upwinding (**)
-        const typename T::Traits::RangeType b = param.b(insideEntity, hostentity_iplocal_s);
-        const RF normalflux = b * n_F_local;
-        RF omegaup_s, omegaup_n;
-        if (normalflux >= 0.0) {
-          omegaup_s = 1.0;
-          omegaup_n = 0.0;
-        } else {
-          omegaup_s = 0.0;
-          omegaup_n = 1.0;
-        }
 
         // integration factor
         const RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
@@ -726,19 +622,17 @@ namespace duneuro
           // const RF temp1 = -(An_F_s*tgradphi_s[j])*omega_s*factor;
           const RF temp1 = -(An_F_s * gradphi_s[j][0]) * omega_s * factor;
           for (size_type i = 0; i < lfsu_s.size(); i++) {
-            mat_ss.accumulate(lfsu_s, i, lfsu_s, j,
-                              omegaup_s * phi_s[j] * normalflux * factor * phi_s[i]);
             mat_ss.accumulate(lfsu_s, i, lfsu_s, j, temp1 * phi_s[i]);
             mat_ss.accumulate(lfsu_s, i, lfsu_s, j,
                               phi_s[j] * factor * theta * omega_s * (An_F_s * gradphi_s[i][0]));
             mat_ss.accumulate(lfsu_s, i, lfsu_s, j, phi_s[j] * ipfactor * phi_s[i]);
             if (std::isnan(mat_ss.container()(lfsu_s, i, lfsu_s, j))) {
-              for (unsigned int k = 0; k < ig.geometry().corners(); ++k) {
+              for (int k = 0; k < ig.geometry().corners(); ++k) {
                 std::cout << "corner " << k << ": " << ig.geometry().corner(i) << std::endl;
               }
-              std::cout << "j " << j << " i " << i << " omegaup_s " << omegaup_s << " phi_s[j] "
-                        << phi_s[j] << " normalflux " << normalflux << " factor " << factor
-                        << " phi_s[i] " << phi_s[i] << " temp1 " << temp1 << " theta " << theta
+              std::cout << "j " << j << " i " << i << " omegaup_s "
+                        << " phi_s[j] " << phi_s[j] << " factor " << factor << " phi_s[i] "
+                        << phi_s[i] << " temp1 " << temp1 << " theta " << theta
                         << " (An_F_s*gradphi_s[i]) " << (An_F_s * gradphi_s[i][0]) << " ipfactor "
                         << ipfactor << std::endl;
               std::cout << "penalty_factor " << penalty_factor << " ig.geometry().corners() "
@@ -748,8 +642,8 @@ namespace duneuro
                         << std::endl;
               double minDiff = std::numeric_limits<double>::max();
               double maxDiff = 0;
-              for (unsigned int k = 0; k < ig.geometry().corners(); ++k) {
-                for (unsigned int l = k + 1; l < ig.geometry().corners(); ++l) {
+              for (int k = 0; k < ig.geometry().corners(); ++k) {
+                for (int l = k + 1; l < ig.geometry().corners(); ++l) {
                   auto c = ig.geometry().corner(k);
                   c -= ig.geometry().corner(l);
                   auto diff = c.two_norm();
@@ -766,8 +660,6 @@ namespace duneuro
         for (size_type j = 0; j < lfsu_n.size(); j++) {
           const RF temp1 = -(An_F_n * gradphi_n[j][0]) * omega_n * factor;
           for (size_type i = 0; i < lfsu_s.size(); i++) {
-            mat_sn.accumulate(lfsu_s, i, lfsu_n, j,
-                              omegaup_n * phi_n[j] * normalflux * factor * phi_s[i]);
             mat_sn.accumulate(lfsu_s, i, lfsu_n, j, temp1 * phi_s[i]);
             mat_sn.accumulate(lfsu_s, i, lfsu_n, j,
                               -phi_n[j] * factor * theta * omega_s * (An_F_s * gradphi_s[i][0]));
@@ -780,8 +672,6 @@ namespace duneuro
         for (size_type j = 0; j < lfsu_s.size(); j++) {
           const RF temp1 = -(An_F_s * gradphi_s[j][0]) * omega_s * factor;
           for (size_type i = 0; i < lfsu_n.size(); i++) {
-            mat_ns.accumulate(lfsu_n, i, lfsu_s, j,
-                              -omegaup_s * phi_s[j] * normalflux * factor * phi_n[i]);
             mat_ns.accumulate(lfsu_n, i, lfsu_s, j, -temp1 * phi_n[i]);
             mat_ns.accumulate(lfsu_n, i, lfsu_s, j,
                               phi_s[j] * factor * theta * omega_n * (An_F_n * gradphi_n[i][0]));
@@ -794,8 +684,6 @@ namespace duneuro
         for (size_type j = 0; j < lfsu_n.size(); j++) {
           const RF temp1 = -(An_F_n * gradphi_n[j][0]) * omega_n * factor;
           for (size_type i = 0; i < lfsu_n.size(); i++) {
-            mat_nn.accumulate(lfsu_n, i, lfsu_n, j,
-                              -omegaup_n * phi_n[j] * normalflux * factor * phi_n[i]);
             mat_nn.accumulate(lfsu_n, i, lfsu_n, j, -temp1 * phi_n[i]);
             mat_nn.accumulate(lfsu_n, i, lfsu_n, j,
                               -phi_n[j] * factor * theta * omega_n * (An_F_n * gradphi_n[i][0]));
@@ -875,7 +763,9 @@ namespace duneuro
       // const RF penalty_factor = (alpha/h_F) * harmonic_average;
 
       // create copy of inside Entity
-      auto insideEntity = ig.inside();
+      const auto& insideEntity = ig.inside();
+      std::vector<RangeType> phi_s(lfsu_s.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
 
       // loop over quadrature points and integrate normal flux
       for (auto&& qp : rule) {
@@ -896,7 +786,6 @@ namespace duneuro
             insideEntity.geometry().local(ipglobal);
 
         // evaluate basis functions
-        std::vector<RangeType> phi_s(lfsu_s.size());
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
 
         // integration factor
@@ -918,35 +807,11 @@ namespace duneuro
         for (size_type i = 0; i < lfsu_s.size(); i++)
           u_s += x_s(lfsu_s, i) * phi_s[i];
 
-        // evaluate velocity field and upwinding
-        const typename T::Traits::RangeType b = param.b(insideEntity, hostentity_iplocal_s);
-        const RF normalflux = b * n_F_local;
-
-        if (bctype == Dune::PDELab::ConvectionDiffusionBoundaryConditions::Outflow) {
-          if (normalflux < -1e-30 && !useOutflowBoundaryConditionAndItsFluxOnInflow)
-            DUNE_THROW(Dune::Exception, "Outflow boundary condition on inflow!");
-
-          // convection term
-          const RF term1 = u_s * normalflux * factor;
-          for (size_type i = 0; i < lfsu_s.size(); i++)
-            r_s.accumulate(lfsu_s, i, term1 * phi_s[i]);
-
-          // evaluate flux boundary condition
-          const RF o = param.o(ig.intersection(), qp.position());
-
-          // integrate
-          for (size_type i = 0; i < lfsv_s.size(); i++)
-            r_s.accumulate(lfsu_s, i, o * phi_s[i] * factor);
-
-          continue;
-        }
-
         // the finite element in a UDG local function space uses the global finite
         // element interface; in order to make the code compatible with both the
         // PDELab assembler and the UDG assembler, use:
 
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_s.finiteElement()), insideEntity.geometry(),
                               iplocal_s, gradphi_s);
 
@@ -958,21 +823,6 @@ namespace duneuro
 
         // evaluate Dirichlet boundary condition
         const RF g = param.g(ig, qp.position());
-
-        // upwind
-        RF omegaup_s, omegaup_n;
-        if (normalflux >= 0.0) {
-          omegaup_s = 1.0;
-          omegaup_n = 0.0;
-        } else {
-          omegaup_s = 0.0;
-          omegaup_n = 1.0;
-        }
-
-        // convection term
-        const RF term1 = (omegaup_s * u_s + omegaup_n * g) * normalflux * factor;
-        for (size_type i = 0; i < lfsu_s.size(); i++)
-          r_s.accumulate(lfsu_s, i, term1 * phi_s[i]);
 
         // diffusion term
         const RF term2 = (An_F_s * gradu_s) * factor;
@@ -1063,73 +913,29 @@ namespace duneuro
       // const RF penalty_factor = (alpha/h_F) * harmonic_average;
 
       // create copy of inside entity
-      auto insideEntity = ig.inside();
+      const auto& insideEntity = ig.inside();
+      std::vector<RangeType> phi_s(lfsu_s.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
 
       // loop over quadrature points and integrate normal flux
       for (auto&& qp : rule) {
-        // local normal
-        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
-
         // position of quadrature point in local coordinates of inside element
         // UDG assembler: local coordinates of the inside bounding box
         const Dune::FieldVector<DF, dim> iplocal_s = ig.geometryInInside().global(qp.position());
 
-        // position of quadrature point in local coordinates of inside element
-        // PDELab assembler: local coordinates are the same as iplocal_s
-        // UDG assembler: local coordinates of the inside host entity
-        // use them for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = ig.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> hostentity_iplocal_s =
-            insideEntity.geometry().local(ipglobal);
-
         // evaluate basis functions
-        std::vector<RangeType> phi_s(lfsu_s.size());
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
 
         // integration factor
         const RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
-
-        // evaluate velocity field and upwinding
-        typename T::Traits::RangeType b = param.b(insideEntity, hostentity_iplocal_s);
-        const RF normalflux = b * n_F_local;
-
-        if (bctype == Dune::PDELab::ConvectionDiffusionBoundaryConditions::Outflow) {
-          if (normalflux < -1e-30 && !useOutflowBoundaryConditionAndItsFluxOnInflow)
-            DUNE_THROW(Dune::Exception, "Outflow boundary condition on inflow!");
-
-          // convection term
-          for (size_type j = 0; j < lfsu_s.size(); j++)
-            for (size_type i = 0; i < lfsu_s.size(); i++)
-              mat_ss.accumulate(lfsu_s, i, lfsu_s, j, phi_s[j] * normalflux * factor * phi_s[i]);
-
-          continue;
-        }
 
         // the finite element in a UDG local function space uses the global finite
         // element interface; in order to make the code compatible with both the
         // PDELab assembler and the UDG assembler, use:
 
         // evaluate gradient of basis functions (we assume Galerkin method lfsu=lfsv)
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi_s(lfsu_s.size());
         BasisSwitch::gradient(FESwitch::basis(lfsu_s.finiteElement()), insideEntity.geometry(),
                               iplocal_s, gradphi_s);
-
-        // upwind
-        RF omegaup_s; // not used: ", omegaup_n;"
-        if (normalflux >= 0.0) {
-          omegaup_s = 1.0;
-          // omegaup_n = 0.0;
-        } else {
-          omegaup_s = 0.0;
-          // omegaup_n = 1.0;
-        }
-
-        // convection term
-        for (size_type j = 0; j < lfsu_s.size(); j++)
-          for (size_type i = 0; i < lfsu_s.size(); i++)
-            mat_ss.accumulate(lfsu_s, i, lfsu_s, j,
-                              omegaup_s * phi_s[j] * normalflux * factor * phi_s[i]);
 
         // diffusion term
         for (size_type j = 0; j < lfsu_s.size(); j++)
@@ -1173,6 +979,8 @@ namespace duneuro
       const Dune::QuadratureRule<DF, dim>& rule =
           Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
 
+      std::vector<RangeType> phi(lfsv.size());
+
       // loop over quadrature points
       for (auto&& qp : rule) {
         // the finite element in a UDG local function space uses the global finite
@@ -1180,7 +988,6 @@ namespace duneuro
         // PDELab assembler and the UDG assembler, use:
 
         // evaluate shape functions
-        std::vector<RangeType> phi(lfsv.size());
         FESwitch::basis(lfsv.finiteElement()).evaluateFunction(qp.position(), phi);
 
         // position of quadrature point in local coordinates
@@ -1219,13 +1026,18 @@ namespace duneuro
       return maxH;
     }
 
+    ConvectionDiffusion_DG_LocalOperator(const ConvectionDiffusion_DG_LocalOperator& other) =
+        delete;
+    ConvectionDiffusion_DG_LocalOperator&
+    operator=(const ConvectionDiffusion_DG_LocalOperator& other) = delete;
+
   protected:
     // model parameters (of type ConvectionDiffusionModelProblem)
-    T& param;
+    T param;
     const bool useOutflowBoundaryConditionAndItsFluxOnInflow;
 
     // DG scheme related parameters
-    const EdgeNormProvider& edgenormprovider;
+    EdgeNormProvider edgenormprovider;
     const ConvectionDiffusion_DG_Scheme::Type scheme;
     const ConvectionDiffusion_DG_Weights::Type weights;
     Real alpha;
