@@ -3,6 +3,8 @@
 
 #include <memory>
 
+#include <dune/common/std/memory.hh>
+
 namespace duneuro
 {
   class Function
