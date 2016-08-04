@@ -241,7 +241,8 @@ namespace duneuro
     {
     }
 
-    MultiEdgeNormProvider(const std::string& type, double gridWidth) : structuredENP_(gridWidth)
+    MultiEdgeNormProvider(const std::string& type, double gridWidth)
+        : structuredENP_(gridWidth), faceBasedENP_(), cellBasedENP_(), houstonENP_()
     {
       if (type == "structured") {
         realEdgeNormProviderType_ = 0;
