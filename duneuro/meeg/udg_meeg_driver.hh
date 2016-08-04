@@ -42,7 +42,7 @@ namespace duneuro
         : grid_(make_structured_grid<3>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
-        , domain_(config.sub("domain"))
+        , domain_(levelSetGridView_, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement")))
