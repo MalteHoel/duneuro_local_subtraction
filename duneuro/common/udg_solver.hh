@@ -52,7 +52,7 @@ namespace duneuro
               const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , problem_(config.get<std::vector<double>>("conductivities"))
-        , functionSpace_(subTriangulation_->gridView(), *subTriangulation_)
+        , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
         , localOperator_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
                                                           config.get<std::string>("scheme")),
