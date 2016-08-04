@@ -74,9 +74,9 @@ namespace duneuro
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
-    virtual Function makeDomainFunction() const override
+    virtual std::unique_ptr<Function> makeDomainFunction() const override
     {
-      return Function(make_shared_from_unique(make_domain_dof_vector(eegForwardSolver_, 0.0)));
+      return Dune::Std::make_unique<Function>(make_domain_dof_vector(eegForwardSolver_, 0.0));
     }
 
     virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
