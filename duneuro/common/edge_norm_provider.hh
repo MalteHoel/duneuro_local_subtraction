@@ -227,14 +227,33 @@ namespace duneuro
   class MultiEdgeNormProvider : public EdgeNormProviderInterface<MultiEdgeNormProvider>
   {
   public:
-    MultiEdgeNormProvider(const Dune::ParameterTree& configuration, const double gridWidth)
-        : configuration_(configuration)
-        , realEdgeNormProviderType_(configuration_.get<unsigned int>("type"))
+    MultiEdgeNormProvider(unsigned int type, double gridWidth)
+        : realEdgeNormProviderType_(type)
         , structuredENP_(gridWidth)
         , faceBasedENP_()
         , cellBasedENP_()
         , houstonENP_()
     {
+    }
+
+    MultiEdgeNormProvider(const Dune::ParameterTree& configuration, double gridWidth)
+        : MultiEdgeNormProvider(configuration.get<unsigned int>("type"), gridWidth)
+    {
+    }
+
+    MultiEdgeNormProvider(const std::string& type, double gridWidth) : structuredENP_(gridWidth)
+    {
+      if (type == "structured") {
+        realEdgeNormProviderType_ = 0;
+      } else if (type == "face") {
+        realEdgeNormProviderType_ = 1;
+      } else if (type == "cell") {
+        realEdgeNormProviderType_ = 2;
+      } else if (type == "houston") {
+        realEdgeNormProviderType_ = 3;
+      } else {
+        DUNE_THROW(Dune::Exception, "unknown edge norm type");
+      }
     }
 
     template <typename IntersectionGeometry>
@@ -268,7 +287,7 @@ namespace duneuro
   protected:
     // parameters
     Dune::ParameterTree configuration_;
-    const unsigned char realEdgeNormProviderType_;
+    unsigned char realEdgeNormProviderType_;
 
     // real edge norm providers
     const StructuredGridEdgeNormProvider structuredENP_;
