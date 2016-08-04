@@ -15,15 +15,16 @@ namespace duneuro
 
     template <class T>
     struct Data : public Base {
-      explicit Data(std::shared_ptr<T> d) : data(d)
+      explicit Data(std::unique_ptr<T> d) : data(std::move(d))
       {
       }
-      std::shared_ptr<T> data;
+      std::unique_ptr<T> data;
     };
 
   public:
     template <class T>
-    explicit Function(std::shared_ptr<T> data) : data_(new Data<T>(data))
+    explicit Function(std::unique_ptr<T> data)
+        : data_(Dune::Std::make_unique<Data<T>>(std::move(data)))
     {
     }
 
@@ -42,7 +43,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<Base> data_;
+    std::unique_ptr<Base> data_;
   };
 }
 
