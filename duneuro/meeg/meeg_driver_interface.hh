@@ -32,6 +32,7 @@ namespace duneuro
      * probably fail, but certainly produce undefined behaviour.
      */
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
+                                 const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) = 0;
     /**
      * \brief solve the meg forward problem
@@ -47,6 +48,7 @@ namespace duneuro
      * probably fail, but certainly produce undefined behaviour.
      */
     virtual std::vector<FieldType> solveMEGForward(const Function& eegSolution,
+                                                   const Dune::ParameterTree& config,
                                                    DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -55,7 +57,8 @@ namespace duneuro
      * Subsequent calls to evaluateAtElectrodes will use the given electrodes after this call.
      * Note that the electrodes might be projected onto the drivers domain.
      */
-    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes) = 0;
+    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
+                               const Dune::ParameterTree& config) = 0;
 
     /**
      * \brief evaluate the given function at the electrodes
@@ -79,12 +82,9 @@ namespace duneuro
 
     /**
      * \brief write the given solution to a file
-     *
-     * The string suffix will be attached to the filename given in the config tree (e.g. a
-     * successive number).
      */
-    virtual void write(const Dune::ParameterTree& config, const Function& solution,
-                       const std::string& suffix = "") const = 0;
+    virtual void write(const Function& solution, const Dune::ParameterTree& config,
+                       DataTree dataTree = DataTree()) const = 0;
 
     /**
      * \brief compute the EEG transfer matrix
@@ -92,7 +92,7 @@ namespace duneuro
      * Note that setElectrodes has to be called before using this method.
      */
     virtual std::unique_ptr<DenseMatrix<FieldType>>
-    computeEEGTransferMatrix(DataTree dataTree = DataTree()) = 0;
+    computeEEGTransferMatrix(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) = 0;
 
     /**
      * \brief compute the MEG transfer matrix
@@ -101,13 +101,14 @@ namespace duneuro
      * resulting matrix will be ordered coil-wise.
      */
     virtual std::unique_ptr<DenseMatrix<FieldType>>
-    computeMEGTransferMatrix(DataTree dataTree = DataTree()) = 0;
+    computeMEGTransferMatrix(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) = 0;
 
     /**
      * \brief apply the given EEG transfer matrix
      */
     virtual std::vector<FieldType> applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
                                                     const DipoleType& dipole,
+                                                    const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -115,6 +116,7 @@ namespace duneuro
      */
     virtual std::vector<FieldType> applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
                                                     const DipoleType& dipole,
+                                                    const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree()) = 0;
 
     virtual ~MEEGDriverInterface()

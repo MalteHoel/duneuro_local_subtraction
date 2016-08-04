@@ -67,21 +67,22 @@ namespace duneuro
         , dirichletExtension_(volumeConductor->gridView(), problem_)
         , boundaryCondition_(volumeConductor->gridView(), problem_)
         , functionSpace_(volumeConductor->grid(), boundaryCondition_)
-        , localOperator_(problem_, config.get<unsigned int>("intorderadd"))
+        , localOperator_(problem_, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
                                                          Dune::StaticPower<3, VC::dim>::power)
         , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
                          config.get<unsigned int>("verbose", 0), true, true)
         , linearSolverMutex_()
-        , linearSolver_(linearSolverMutex_, assembler_.getGO(), config.sub("linear_solver"))
+        , linearSolver_(linearSolverMutex_, assembler_.getGO(), config)
     {
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));
     }
 
     void solve(const typename Traits::RangeDOFVector& rightHandSide,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));

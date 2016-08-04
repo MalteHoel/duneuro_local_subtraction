@@ -52,26 +52,28 @@ namespace duneuro
         : subTriangulation_(subTriangulation)
         , problem_(config.get<std::vector<double>>("conductivities"))
         , functionSpace_(subTriangulation_->gridView(), *subTriangulation_)
-        , edgeNormProvider_(config.sub("edge_norm"), 1.0)
+        , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
         , localOperator_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
                                                           config.get<std::string>("scheme")),
                          ConvectionDiffusion_DG_Weights::weightsOn, config.get<RF>("penalty"))
         , wrappedLocalOperator_(localOperator_)
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
         , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
-                        wrappedLocalOperator_)
-        , solverBackend_(config.get<unsigned int>("backend.max_iterations"),
-                         config.get<unsigned int>("backend.verbose"))
-        , linearSolver_(linearSolverMutex_, gridOperator_, config.sub("linear_solver"))
+                        wrappedLocalOperator_,
+                        typename Traits::MatrixBackend(2 * Traits::dimension + 1))
+        , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
+                         config.get<unsigned int>("verbose", 0))
+        , linearSolver_(linearSolverMutex_, gridOperator_, config)
     {
     }
 
     void solve(const typename Traits::RangeDOFVector& rightHandSide,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, rightHandSide, dataTree.sub("linear_solver"));
+      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 

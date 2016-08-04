@@ -34,12 +34,11 @@ namespace duneuro
 
     ConformingTransferMatrixSolver(
         std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        std::shared_ptr<typename Traits::Solver> solver, const Dune::ParameterTree& config)
+        std::shared_ptr<typename Traits::Solver> solver)
         : volumeConductor_(volumeConductor)
         , solver_(solver)
         , rhsAssembler_(solver_->functionSpace().getGFS())
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
-        , config_(config)
     {
     }
 
@@ -54,7 +53,8 @@ namespace duneuro
 
     void solve(const typename Traits::ProjectedPosition& reference,
                const typename Traits::ProjectedPosition& electrode,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       // assemble right hand side
@@ -66,7 +66,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, config, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -82,10 +82,9 @@ namespace duneuro
     std::shared_ptr<typename Traits::Solver> solver_;
     TransferMatrixRHS<typename Traits::FunctionSpace::GFS> rhsAssembler_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
-    Dune::ParameterTree config_;
 
     template <class V>
-    friend class MakeDOFVectorHelper;
+    friend struct MakeDOFVectorHelper;
   };
 }
 #endif // DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH

@@ -54,7 +54,8 @@ namespace duneuro
 
     void solve(const typename Traits::ProjectedPosition& reference,
                const typename Traits::ProjectedPosition& electrode,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       // assemble right hand side
@@ -66,7 +67,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector, solution, config, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());

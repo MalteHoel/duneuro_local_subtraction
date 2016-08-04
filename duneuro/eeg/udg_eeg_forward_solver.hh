@@ -47,35 +47,43 @@ namespace duneuro
                        const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
-        , sourceModel_(UDGSourceModelFactory::template createDense<compartments - 1,
-                                                                   typename Traits::RangeDOFVector>(
-              *solver_, config.sub("source_model")))
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
     {
     }
 
     void solve(const typename Traits::DipoleType& dipole,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       // assemble right hand side
       Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
-      sourceModel_->assembleRightHandSide(dipole, *rightHandSideVector_);
+      auto sourceModel =
+          UDGSourceModelFactory::template createDense<compartments - 1,
+                                                      typename Traits::RangeDOFVector>(
+              *solver_, config.sub("source_model"));
+      sourceModel->assembleRightHandSide(dipole, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, config.sub("solver"),
+                     dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solve", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
     }
 
     void postProcessSolution(const typename Traits::DipoleType& dipole,
-                             typename Traits::DomainDOFVector& solution)
+                             typename Traits::DomainDOFVector& solution,
+                             const Dune::ParameterTree& config)
     {
-      sourceModel_->postProcessSolution(dipole, solution);
+      auto sourceModel =
+          UDGSourceModelFactory::template createDense<compartments - 1,
+                                                      typename Traits::RangeDOFVector>(
+              *solver_, config.sub("source_model"));
+      sourceModel->postProcessSolution(dipole, solution);
     }
 
     const typename Traits::FunctionSpace& functionSpace() const
@@ -91,9 +99,6 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    std::unique_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
-                                         typename Traits::RangeDOFVector>>
-        sourceModel_;
     std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     Dune::ParameterTree config_;
   };

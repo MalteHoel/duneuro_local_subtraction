@@ -45,7 +45,7 @@ namespace duneuro
         , domain_(levelSetGridView_, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
-              config.get<bool>("udg.force_refinement")))
+              config.get<bool>("udg.force_refinement", false)))
         , solver_(
               std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
         , eegForwardSolver_(subTriangulation_, solver_, config.sub("solver"))
@@ -56,14 +56,19 @@ namespace duneuro
     }
 
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
+                                 const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
-      eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), dataTree);
-      eegForwardSolver_.postProcessSolution(dipole,
-                                            solution.cast<typename Traits::DomainDOFVector>());
+      eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), config,
+                              dataTree);
+      if (config.get<bool>("post_process")) {
+        eegForwardSolver_.postProcessSolution(
+            dipole, solution.cast<typename Traits::DomainDOFVector>(), config);
+      }
     }
 
     virtual std::vector<double> solveMEGForward(const Function& eegSolution,
+                                                const Dune::ParameterTree& config,
                                                 DataTree dataTree = DataTree()) override
     {
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
@@ -74,10 +79,15 @@ namespace duneuro
       return Function(make_shared_from_unique(make_domain_dof_vector(eegForwardSolver_, 0.0)));
     }
 
-    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes) override
+    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
+                               const Dune::ParameterTree& config) override
     {
       projectedElectrodes_ = Dune::Std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
           electrodes, eegForwardSolver_.functionSpace().getGFS(), *subTriangulation_);
+      projectedGlobalElectrodes_.clear();
+      for (unsigned int i = 0; i < projectedElectrodes_->size(); ++i) {
+        projectedGlobalElectrodes_.push_back(projectedElectrodes_->projection(i));
+      }
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& solution) const override
@@ -98,8 +108,8 @@ namespace duneuro
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
-    virtual void write(const Dune::ParameterTree& config, const Function& solution,
-                       const std::string& suffix = "") const override
+    virtual void write(const Function& solution, const Dune::ParameterTree& config,
+                       DataTree dataTree = DataTree()) const override
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
@@ -111,48 +121,59 @@ namespace duneuro
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
-        vtkWriter.write(config.get<std::string>("filename") + suffix);
+        vtkWriter.write(config.get<std::string>("filename"), dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeEEGTransferMatrix(DataTree dataTree = DataTree()) override
+    computeEEGTransferMatrix(const Dune::ParameterTree& config,
+                             DataTree dataTree = DataTree()) override
     {
       checkElectrodes();
       auto solution = make_domain_dof_vector(eegForwardSolver_, 0.0);
       auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
           projectedElectrodes_->size(), solution->flatsize());
+      auto solver_config = config.sub("solver");
       for (unsigned int i = 1; i < projectedElectrodes_->size(); ++i) {
-        eegTransferMatrixSolver_.solve(projectedElectrodes_->projectedPosition(0),
-                                       projectedElectrodes_->projectedPosition(i), *solution,
-                                       dataTree.sub("solver.electrode_" + std::to_string(i)));
+        eegTransferMatrixSolver_.solve(
+            projectedElectrodes_->projectedPosition(0), projectedElectrodes_->projectedPosition(i),
+            *solution, solver_config, dataTree.sub("solver.electrode_" + std::to_string(i)));
         set_matrix_row(*transferMatrix, i, Dune::PDELab::Backend::native(*solution));
       }
       return std::move(transferMatrix);
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeMEGTransferMatrix(DataTree dataTree = DataTree()) override
+    computeMEGTransferMatrix(const Dune::ParameterTree& config,
+                             DataTree dataTree = DataTree()) override
     {
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
     virtual std::vector<double> applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
                                                  const DipoleType& dipole,
+                                                 const Dune::ParameterTree& config,
                                                  DataTree dataTree = DataTree()) override
     {
-      auto result = transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
-      subtract_mean(result);
+      auto result = transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
+      if (config.get<bool>("post_process")) {
+        transferMatrixUser_.postProcessPotential(dipole, projectedGlobalElectrodes_, result,
+                                                 config);
+      }
+      if (config.get<bool>("subtract_mean")) {
+        subtract_mean(result);
+      }
       return result;
     }
 
     virtual std::vector<double> applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
                                                  const DipoleType& dipole,
+                                                 const Dune::ParameterTree& config,
                                                  DataTree dataTree = DataTree()) override
     {
-      return transferMatrixUser_.solve(transferMatrix, dipole, dataTree);
+      return transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
     }
 
   private:
@@ -173,6 +194,8 @@ namespace duneuro
     typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
     typename Traits::TransferMatrixUser transferMatrixUser_;
     std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
+    std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>>
+        projectedGlobalElectrodes_;
     std::vector<double> conductivities_;
   };
 }
