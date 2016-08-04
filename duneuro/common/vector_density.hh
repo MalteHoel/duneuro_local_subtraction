@@ -7,7 +7,7 @@ namespace duneuro
 {
   enum class VectorDensity { dense, sparse };
 
-  static VectorDensity source_model_default_density(const Dune::ParameterTree& config)
+  static inline VectorDensity source_model_default_density(const Dune::ParameterTree& config)
   {
     const auto t = config.get<std::string>("type");
     if (t == "partial_integration") {

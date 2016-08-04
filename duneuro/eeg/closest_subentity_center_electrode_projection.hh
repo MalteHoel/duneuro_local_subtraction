@@ -34,7 +34,7 @@ namespace duneuro
         const auto& ref = Dune::ReferenceElements<ctype, GV::dimension>::general(geo.type());
 
         for (unsigned int codim : codims_) {
-          for (unsigned int i = 0; i < ref.size(codim); ++i) {
+          for (int i = 0; i < ref.size(codim); ++i) {
             for (unsigned int j = 0; j < electrodes.size(); ++j) {
               auto local = ref.position(i, codim);
               auto diff = geo.global(local);

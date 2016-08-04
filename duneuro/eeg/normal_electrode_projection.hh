@@ -31,8 +31,6 @@ namespace duneuro
       for (const auto& element : elements(gridView_)) {
         if (element.hasBoundaryIntersections()) {
           const auto& eg = element.geometry();
-          const auto& elementReference =
-              Dune::ReferenceElements<ctype, GV::dimension>::general(eg.type());
           for (const auto& intersection : Dune::intersections(gridView_, element)) {
             if (intersection.boundary() && !intersection.neighbor()) {
               const auto& ig = intersection.geometry();
