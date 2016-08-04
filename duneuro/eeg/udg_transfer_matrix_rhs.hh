@@ -47,7 +47,7 @@ namespace duneuro
       ChildLFS& childLfs = ulfs_.child(child);
 
       ust.create(electrodeElement);
-      if (ust.size() == 0) {
+      if (ust.begin() == ust.end()) {
         DUNE_THROW(Dune::Exception, "subtriangulation has no parts");
       }
 
