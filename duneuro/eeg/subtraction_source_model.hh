@@ -43,7 +43,7 @@ namespace duneuro
                config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)
         , res_(fs.getGFS(), 0.0)
-        , assembler_(fs, lop_)
+        , assembler_(fs, lop_, 1)
         , lfs_(fs.getGFS())
         , cache_(lfs_)
     {

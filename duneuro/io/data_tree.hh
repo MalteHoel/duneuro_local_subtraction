@@ -262,7 +262,7 @@ namespace duneuro
     std::string prefix_;
   };
 
-  static void add_parameter_tree_to_data_tree(const Dune::ParameterTree& from, DataTree to)
+  static inline void add_parameter_tree_to_data_tree(const Dune::ParameterTree& from, DataTree to)
   {
     for (const auto& vk : from.getValueKeys()) {
       to.set(vk, from[vk]);

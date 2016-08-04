@@ -5,7 +5,6 @@
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
 
-#include <dune/pdelab/backend/backendselector.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
 #include <duneuro/io/data_tree.hh>

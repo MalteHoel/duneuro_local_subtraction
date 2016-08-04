@@ -81,7 +81,6 @@ namespace duneuro
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
 
     template <class V>
-    friend class MakeDOFVectorHelper;
     friend struct MakeDOFVectorHelper;
   };
 }
