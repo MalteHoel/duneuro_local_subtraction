@@ -4,12 +4,31 @@
 #include <cmath>
 #include <random>
 
+#include <dune/common/ftraits.hh>
 #include <dune/common/fvector.hh>
 
 #include <dune/istl/bvector.hh>
 
 namespace duneuro
 {
+  namespace random_detail
+  {
+    template <class T, int N, class F>
+    void randomize_uniform(Dune::FieldVector<T, N>& vector, F&& func)
+    {
+      for (auto& v : vector) {
+        v = func();
+      }
+    }
+
+    template <class B, class F>
+    void randomize_uniform(Dune::BlockVector<B>& vector, F&& func)
+    {
+      for (auto& block : vector) {
+        randomize_uniform(block, func);
+      }
+    }
+  }
   /**
    * replaces the entries of a vector by unform random values in [low,high)
    */
@@ -22,11 +41,7 @@ namespace duneuro
     std::mt19937 mt(rd());
     // note: generates numbers from [low,high)
     std::uniform_real_distribution<T> dist(low, high);
-    for (auto& block : vector) {
-      for (auto& entry : block) {
-        entry = dist(mt);
-      }
-    }
+    random_detail::randomize_uniform(vector, [&]() { return dist(mt); });
   }
 }
 
