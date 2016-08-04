@@ -87,7 +87,7 @@ namespace duneuro
       for (unsigned int j = 0; j < solutionsAtElectrodes[i].size(); ++j)
         leadFieldMatrix[j][i] = solutionsAtElectrodes[i][j];
 
-    duneuro::subtract_column_means(*leadFieldMatrix);
+    duneuro::subtract_column_means(leadFieldMatrix);
     output.set("time", timer.elapsed());
     return leadFieldMatrix;
   }
@@ -98,7 +98,9 @@ namespace duneuro
                             const Dipole<ctype, dim>& dipole, const Dune::ParameterTree& config,
                             DataTree output = DataTree())
   {
-    return AnalyticSolution<ctype>(config, electrodes)(dipole);
+    auto sol = AnalyticSolution<ctype>(config, electrodes)(dipole);
+    subtract_mean(sol);
+    return sol;
   }
 }
 
