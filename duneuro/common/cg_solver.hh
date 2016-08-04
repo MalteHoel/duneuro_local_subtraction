@@ -48,11 +48,9 @@ namespace duneuro
     using LocalOperator =
         Dune::PDELab::ConvectionDiffusionFEM<Problem, typename FunctionSpace::FEM>;
     using Assembler = GalerkinGlobalAssembler<FunctionSpace, LocalOperator, DF, RF, JF>;
-    using SolverBackend =
-        Dune::PDELab::ISTLSolverBackend_CG_AMG_SSOR<FunctionSpace, Assembler,
-                                                    Dune::SolverCategory::sequential>;
+    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_AMG_SSOR<typename Assembler::GO>;
     using LinearSolver =
-        ThreadSafeStationaryLinearProblemSolver<typename Assembler::GO, typename SolverBackend::LS,
+        ThreadSafeStationaryLinearProblemSolver<typename Assembler::GO, SolverBackend,
                                                 DomainDOFVector, RangeDOFVector>;
   };
 
@@ -73,9 +71,8 @@ namespace duneuro
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
                                                          Dune::StaticPower<3, VC::dim>::power)
-        , solverBackend_(functionSpace_, assembler_,
-                         config.get<unsigned int>("backend.max_iterations"),
-                         config.get<unsigned int>("backend.verbose"), true)
+        , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
+                         config.get<unsigned int>("verbose", 0), true, true)
         , linearSolverMutex_()
         , linearSolver_(linearSolverMutex_, assembler_.getGO(), config.sub("linear_solver"))
     {
@@ -88,7 +85,7 @@ namespace duneuro
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(*solverBackend_, solution, rightHandSide, dataTree.sub("linear_solver"));
+      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
