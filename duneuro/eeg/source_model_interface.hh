@@ -35,13 +35,13 @@ namespace duneuro
     using ElementType = typename GV::template Codim<0>::Entity;
     using SearchType = KDTreeElementSearch<GV>;
 
-    explicit SourceModelBase(const GV& gridView) : search_(gridView)
+    explicit SourceModelBase(std::shared_ptr<SearchType> search) : search_(search)
     {
     }
 
     virtual void assembleRightHandSide(const DipoleType& dipole, VectorType& vector) const
     {
-      auto e = search_.findEntity(dipole.position());
+      auto e = search_->findEntity(dipole.position());
       auto local = e.geometry().local(dipole.position());
       assembleRightHandSide(e, local, dipole.moment(), vector);
     }
@@ -53,7 +53,7 @@ namespace duneuro
 
     virtual void postProcessSolution(const DipoleType& dipole, VectorType& vector) const
     {
-      auto e = search_.findEntity(dipole.position());
+      auto e = search_->findEntity(dipole.position());
       auto local = e.geometry().local(dipole.position());
       postProcessSolution(e, local, dipole.moment(), vector);
     }
@@ -62,7 +62,7 @@ namespace duneuro
                                      const std::vector<CoordinateType>& electrodes,
                                      std::vector<typename V::field_type>& vector) const
     {
-      auto e = search_.findEntity(dipole.position());
+      auto e = search_->findEntity(dipole.position());
       auto local = e.geometry().local(dipole.position());
       postProcessSolution(e, local, dipole.moment(), electrodes, vector);
     }
@@ -85,7 +85,7 @@ namespace duneuro
 
     const SearchType& elementSearch() const
     {
-      return search_;
+      return *search_;
     }
 
     virtual ~SourceModelBase()
@@ -93,7 +93,7 @@ namespace duneuro
     }
 
   private:
-    SearchType search_;
+    std::shared_ptr<SearchType> search_;
   };
 }
 

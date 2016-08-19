@@ -28,6 +28,7 @@ namespace duneuro
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
     using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
+    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
   };
 
   template <class ST, int compartments, int degree, class DF = double, class RF = double,
@@ -39,16 +40,9 @@ namespace duneuro
 
     UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
                           std::shared_ptr<typename Traits::Solver> solver,
+                          std::shared_ptr<typename Traits::ElementSearch> search,
                           const Dune::ParameterTree& config)
-        : subTriangulation_(subTriangulation), solver_(solver)
-    {
-    }
-
-    UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                          const Dune::ParameterTree& config)
-        : UDGTransferMatrixUser(subTriangulation,
-                                std::make_shared<typename Traits::Solver>(subTriangulation, config),
-                                config)
+        : subTriangulation_(subTriangulation), solver_(solver), search_(search)
     {
     }
 
@@ -62,13 +56,13 @@ namespace duneuro
         auto sourceModel =
             UDGSourceModelFactory::template createSparse<compartments - 1,
                                                          typename Traits::SparseRHSVector>(
-                *solver_, config.sub("source_model"));
+                *solver_, subTriangulation_, search_, config.sub("source_model"));
         sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
       } else {
         auto sourceModel =
             UDGSourceModelFactory::template createDense<compartments - 1,
                                                         typename Traits::DenseRHSVector>(
-                *solver_, config.sub("source_model"));
+                *solver_, subTriangulation_, search_, config.sub("source_model"));
         sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
       }
     }
@@ -102,7 +96,7 @@ namespace duneuro
       auto sourceModel =
           UDGSourceModelFactory::template createSparse<compartments - 1,
                                                        typename Traits::SparseRHSVector>(
-              *solver_, config.sub("source_model"));
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, rhs);
 
       const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
@@ -131,7 +125,7 @@ namespace duneuro
       auto sourceModel =
           UDGSourceModelFactory::template createDense<compartments - 1,
                                                       typename Traits::DenseRHSVector>(
-              *solver_, config.sub("source_model"));
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, *denseRHSVector_);
 
       return matrix_dense_vector_product(transferMatrix,
@@ -141,6 +135,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;
   };
 }

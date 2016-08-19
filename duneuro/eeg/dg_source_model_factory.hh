@@ -14,16 +14,18 @@ namespace duneuro
     template <class V, class VC, class Solver>
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
     createDense(std::shared_ptr<VC> volumeConductor, const Solver& solver,
+                std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
                 const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS());
+            typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
+                                                             search);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
                                                        typename Solver::Traits::FunctionSpace, V>>(
-            volumeConductor, solver.functionSpace(), config);
+            volumeConductor, solver.functionSpace(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -33,12 +35,14 @@ namespace duneuro
     template <class V, class VC, class Solver>
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
     createSparse(std::shared_ptr<VC> volumeConductor, const Solver& solver,
+                 std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
                  const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS());
+            typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
+                                                             search);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

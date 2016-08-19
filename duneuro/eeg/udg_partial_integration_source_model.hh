@@ -10,12 +10,13 @@
 #include <dune/pdelab/gridfunctionspace/subspace.hh>
 
 #include <dune/udg/pdelab/assembler/ulocalfunctionspace.hh>
+#include <dune/udg/pdelab/subtriangulation.hh>
 
 #include <duneuro/eeg/source_model_interface.hh>
 
 namespace duneuro
 {
-  template <class GFS, int child, class UST, class V>
+  template <class GFS, int child, class ST, class V>
   class UDGPartialIntegrationSourceModel
       : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
@@ -28,11 +29,13 @@ namespace duneuro
     using VectorType = typename BaseT::VectorType;
     using CoordinateType = typename BaseT::CoordinateType;
     using ElementType = typename BaseT::ElementType;
+    using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UDGPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<UST> subTriangulation)
-        : BaseT(gfs.gridView()), subTriangulation_(subTriangulation), ulfs_(gfs), ucache_(ulfs_)
+    UDGPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
+                                     std::shared_ptr<typename BaseT::SearchType> search)
+        : BaseT(search), subTriangulation_(subTriangulation), ulfs_(gfs), ucache_(ulfs_)
     {
     }
 
@@ -47,10 +50,11 @@ namespace duneuro
 
       ChildLFS& childLfs = ulfs_.child(child);
 
-      subTriangulation_->create(element);
+      UST ust(subTriangulation_->gridView(), *subTriangulation_);
+      ust.create(element);
 
       bool foundCompartment = false;
-      for (const auto& ep : *subTriangulation_) {
+      for (const auto& ep : ust) {
         if (ep.domainIndex() != child)
           continue;
         foundCompartment = true;
@@ -100,7 +104,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<UST> subTriangulation_;
+    std::shared_ptr<ST> subTriangulation_;
     mutable ULFS ulfs_;
     mutable UCache ucache_;
   };

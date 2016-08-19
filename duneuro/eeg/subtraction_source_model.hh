@@ -32,10 +32,11 @@ namespace duneuro
     using ElementType = typename BaseT::ElementType;
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
+    using SearchType = typename BaseT::SearchType;
 
     SubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
-                           const Dune::ParameterTree& config)
-        : BaseT(fs.getGFS().gridView())
+                           std::shared_ptr<SearchType> search, const Dune::ParameterTree& config)
+        : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
         , edgeNormProvider_()
         , lop_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::SIPG,

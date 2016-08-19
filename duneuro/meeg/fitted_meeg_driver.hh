@@ -104,6 +104,7 @@ namespace duneuro
     using SourceModelFactory =
         typename SelectFittedSolver<solverType, VC, elementType, degree>::SourceModelFactoryType;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+    using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   };
 
   template <ElementType elementType, FittedSolverType solverType, int degree,
@@ -116,12 +117,13 @@ namespace duneuro
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(config.sub("volume_conductor"), dataTree.sub("volume_conductor"))
-        , solver_(std::make_shared<typename Traits::Solver>(
-              volumeConductorStorage_.get(),
-              config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
-        , eegForwardSolver_(volumeConductorStorage_.get(), solver_)
+        , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
+              volumeConductorStorage_.get()->gridView()))
+        , solver_(std::make_shared<typename Traits::Solver>(volumeConductorStorage_.get(),
+                                                            config.sub("solver")))
+        , eegForwardSolver_(volumeConductorStorage_.get(), elementSearch_, solver_)
         , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
-        , transferMatrixUser_(volumeConductorStorage_.get(), solver_)
+        , transferMatrixUser_(volumeConductorStorage_.get(), elementSearch_, solver_)
         , megTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
     {
     }
@@ -316,6 +318,7 @@ namespace duneuro
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
+    std::shared_ptr<typename Traits::ElementSearch> elementSearch_;
     std::shared_ptr<typename Traits::Solver> solver_;
     ConformingEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;

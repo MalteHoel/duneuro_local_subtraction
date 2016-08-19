@@ -23,6 +23,7 @@ namespace duneuro
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
     using CoordinateFieldType = typename ST::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
+    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
   };
 
   template <class ST, int compartments, int degree, class DF = double, class RF = double,
@@ -35,18 +36,12 @@ namespace duneuro
     using Traits = UDGEEGFowardSolverTraits<ST, compartments, degree, DF, RF, JF>;
 
     UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                       const Dune::ParameterTree& config)
-        : UDGEEGFowardSolver(subTriangulation,
-                             std::make_shared<typename Traits::Solver>(subTriangulation, config),
-                             config)
-    {
-    }
-
-    UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
                        std::shared_ptr<typename Traits::Solver> solver,
+                       std::shared_ptr<typename Traits::ElementSearch> search,
                        const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
+        , search_(search)
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
     {
@@ -62,7 +57,7 @@ namespace duneuro
       auto sourceModel =
           UDGSourceModelFactory::template createDense<compartments - 1,
                                                       typename Traits::RangeDOFVector>(
-              *solver_, config.sub("source_model"));
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
@@ -82,7 +77,7 @@ namespace duneuro
       auto sourceModel =
           UDGSourceModelFactory::template createDense<compartments - 1,
                                                       typename Traits::RangeDOFVector>(
-              *solver_, config.sub("source_model"));
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
       sourceModel->postProcessSolution(dipole, solution);
     }
 
@@ -99,6 +94,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
     std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     Dune::ParameterTree config_;
   };

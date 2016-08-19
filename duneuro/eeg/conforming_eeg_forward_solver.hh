@@ -21,6 +21,7 @@ namespace duneuro
     using RangeDOFVector = typename S::Traits::RangeDOFVector;
     using CoordinateFieldType = typename VolumeConductor::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
+    using ElementSearch = KDTreeElementSearch<typename VolumeConductor::GridView>;
   };
 
   template <class S, class SMF>
@@ -31,18 +32,12 @@ namespace duneuro
     using Traits = ConformingEEGForwardSolverTraits<S>;
 
     ConformingEEGForwardSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                               std::shared_ptr<typename Traits::ElementSearch> search,
                                std::shared_ptr<typename Traits::Solver> solver)
         : volumeConductor_(volumeConductor)
+        , search_(search)
         , solver_(solver)
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
-    {
-    }
-
-    ConformingEEGForwardSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                               const Dune::ParameterTree& config)
-        : ConformingEEGForwardSolver(
-              volumeConductor, std::make_shared<typename Traits::Solver>(volumeConductor, config),
-              config)
     {
     }
 
@@ -54,7 +49,7 @@ namespace duneuro
       Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
       auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
-          volumeConductor_, *solver_, config.sub("source_model"));
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
@@ -73,7 +68,7 @@ namespace duneuro
     {
       // post process solution
       auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
-          volumeConductor_, *solver_, config.sub("source_model"));
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
       sourceModel->postProcessSolution(dipole, solution);
     }
 
@@ -84,6 +79,7 @@ namespace duneuro
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
 

@@ -28,6 +28,7 @@ namespace duneuro
     using Coordinate = Dune::FieldVector<CoordinateField, dimension>;
     using DipoleType = Dipole<CoordinateField, dimension>;
     using DomainField = typename EEGForwardSolver::Traits::DomainDOFVector::field_type;
+    using ElementSearch = KDTreeElementSearch<typename VolumeConductor::GridView>;
   };
 
   template <class S, class SMF>
@@ -37,16 +38,9 @@ namespace duneuro
     using Traits = ConformingTransferMatrixUserTraits<S>;
 
     ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                                 std::shared_ptr<typename Traits::ElementSearch> search,
                                  std::shared_ptr<typename Traits::EEGForwardSolver> solver)
-        : volumeConductor_(volumeConductor), solver_(solver)
-    {
-    }
-
-    ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                                 const Dune::ParameterTree& config)
-        : ConformingTransferMatrixUser(
-              volumeConductor,
-              std::make_shared<typename Traits::EEGForwardSolver>(volumeConductor, config), config)
+        : volumeConductor_(volumeConductor), search_(search), solver_(solver)
     {
     }
 
@@ -58,11 +52,11 @@ namespace duneuro
       auto density = source_model_default_density(config.sub("source_model"));
       if (density == VectorDensity::sparse) {
         auto sourceModel = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            volumeConductor_, *solver_, config.sub("source_model"));
+            volumeConductor_, *solver_, search_, config.sub("source_model"));
         sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
       } else {
         auto sourceModel = SMF::template createDense<typename Traits::DenseRHSVector>(
-            volumeConductor_, *solver_, config.sub("source_model"));
+            volumeConductor_, *solver_, search_, config.sub("source_model"));
         sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
       }
     }
@@ -94,7 +88,7 @@ namespace duneuro
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
       auto sourceModel = SMF::template createSparse<typename Traits::SparseRHSVector>(
-          volumeConductor_, *solver_, config.sub("source_model"));
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, rhs);
 
       const auto blockSize =
@@ -121,7 +115,7 @@ namespace duneuro
         *denseRHSVector_ = 0.0;
       }
       auto sourceModel = SMF::template createDense<typename Traits::DenseRHSVector>(
-          volumeConductor_, *solver_, config.sub("source_model"));
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
       sourceModel->assembleRightHandSide(dipole, *denseRHSVector_);
 
       return matrix_dense_vector_product(transferMatrix,
@@ -130,6 +124,7 @@ namespace duneuro
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::EEGForwardSolver> solver_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;
   };

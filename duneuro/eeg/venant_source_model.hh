@@ -31,11 +31,13 @@ namespace duneuro
     using Real = typename GV::ctype;
     using Vertex = typename GV::template Codim<dim>::Entity;
     using ES = Venant::ClosestVertexElementSelection<GV>;
+    using SearchType = typename BaseT::SearchType;
 
     VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
                       unsigned int numberOfMoments, Real referenceLength,
-                      unsigned int weightingExponent, Real relaxationFactor, bool restricted)
-        : BaseT(gfs.gridView())
+                      unsigned int weightingExponent, Real relaxationFactor, bool restricted,
+                      std::shared_ptr<SearchType> search)
+        : BaseT(search)
         , volumeConductor_(volumeConductor)
         , gfs_(gfs)
         , selection_(gfs_.gridView())
@@ -49,11 +51,11 @@ namespace duneuro
     }
 
     VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                      const Dune::ParameterTree& params)
-        : VenantSourceModel(volumeConductor, gfs, params.get<unsigned int>("numberOfMoments"),
-                            params.get<Real>("referenceLength"),
-                            params.get<unsigned int>("weightingExponent"),
-                            params.get<Real>("relaxationFactor"), params.get<bool>("restricted"))
+                      std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
+        : VenantSourceModel(
+              volumeConductor, gfs, params.get<unsigned int>("numberOfMoments"),
+              params.get<Real>("referenceLength"), params.get<unsigned int>("weightingExponent"),
+              params.get<Real>("relaxationFactor"), params.get<bool>("restricted"), search)
     {
     }
 

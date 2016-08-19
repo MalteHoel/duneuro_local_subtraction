@@ -23,6 +23,7 @@ namespace duneuro
   struct UDGMEEGDriverTraits {
     using Grid = Dune::YaspGrid<3, Dune::EquidistantOffsetCoordinates<double, 3>>;
     using GridView = Grid::LevelGridView;
+    using ElementSearch = KDTreeElementSearch<GridView>;
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
     using Solver = UDGSolver<SubTriangulation, compartments, degree>;
     using EEGForwardSolver = UDGEEGFowardSolver<SubTriangulation, compartments, degree>;
@@ -46,11 +47,12 @@ namespace duneuro
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement", false)))
+        , elementSearch_(std::make_shared<typename Traits::ElementSearch>(fundamentalGridView_))
         , solver_(
               std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
-        , eegForwardSolver_(subTriangulation_, solver_, config.sub("solver"))
+        , eegForwardSolver_(subTriangulation_, solver_, elementSearch_, config.sub("solver"))
         , eegTransferMatrixSolver_(subTriangulation_, solver_, config.sub("solver"))
-        , transferMatrixUser_(subTriangulation_, solver_, config.sub("solver"))
+        , transferMatrixUser_(subTriangulation_, solver_, elementSearch_, config.sub("solver"))
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
     }
@@ -206,6 +208,7 @@ namespace duneuro
     typename Traits::GridView levelSetGridView_;
     SimpleTPMCDomain<typename Traits::GridView, typename Traits::GridView> domain_;
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<typename Traits::ElementSearch> elementSearch_;
     std::shared_ptr<typename Traits::Solver> solver_;
     typename Traits::EEGForwardSolver eegForwardSolver_;
     typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
