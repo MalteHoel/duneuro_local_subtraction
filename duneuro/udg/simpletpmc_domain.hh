@@ -31,6 +31,23 @@ namespace duneuro
       }
     }
 
+    explicit SimpleTPMCDomain(const LGV& gridView,
+                              SimpleTPMCLevelSetData<double, GV::dimension> levelSetData,
+                              const Dune::ParameterTree& config)
+    {
+      auto domains = config.get<std::vector<std::string>>("domains");
+      for (unsigned int i = 0; i < domains.size(); ++i) {
+        domainConfiguration_.addDomain(
+            {i, config.sub(domains[i]).get<std::vector<std::string>>("positions")});
+      }
+      auto levelsets = config.get<std::vector<std::string>>("level_sets");
+      for (unsigned int i = 0; i < levelsets.size(); ++i) {
+        domainConfiguration_.addInterface(
+            {i, make_shared_from_unique(SimpleTPMCLevelsetFactory<LGV>::make_level_set(
+                    gridView, config.sub(levelsets[i]), levelSetData))});
+      }
+    }
+
     const DC& getDomainConfiguration() const
     {
       return domainConfiguration_;

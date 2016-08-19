@@ -16,6 +16,7 @@
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
+#include <duneuro/meeg/udg_meeg_driver_data.hh>
 
 namespace duneuro
 {
@@ -40,10 +41,15 @@ namespace duneuro
     using Traits = UDGMEEGDriverTraits<degree, compartments>;
 
     explicit UDGMEEGDriver(const Dune::ParameterTree& config)
+        : UDGMEEGDriver(UDGMEEGDriverData{}, config)
+    {
+    }
+
+    explicit UDGMEEGDriver(UDGMEEGDriverData data, const Dune::ParameterTree& config)
         : grid_(make_structured_grid<3>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
-        , domain_(levelSetGridView_, config.sub("domain"))
+        , domain_(levelSetGridView_, data.levelSetData, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement", false)))

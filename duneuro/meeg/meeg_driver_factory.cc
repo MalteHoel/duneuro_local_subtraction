@@ -35,7 +35,8 @@ extern template class duneuro::UDGMEEGDriver<1, 5>;
 namespace duneuro
 {
   std::unique_ptr<MEEGDriverInterface>
-  MEEGDriverFactory::make_meeg_driver(const Dune::ParameterTree& config, DataTree dataTree)
+  MEEGDriverFactory::make_meeg_driver(const Dune::ParameterTree& config, MEEGDriverData data,
+                                      DataTree dataTree)
   {
     auto type = config.get<std::string>("type");
     if (type == "fitted") {
@@ -94,15 +95,15 @@ namespace duneuro
     } else if (type == "udg") {
       auto compartments = config.get<unsigned int>("compartments");
       if (compartments == 1) {
-        return Dune::Std::make_unique<UDGMEEGDriver<1, 1>>(config);
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 1>>(data.udgData, config);
       } else if (compartments == 2) {
-        return Dune::Std::make_unique<UDGMEEGDriver<1, 2>>(config);
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 2>>(data.udgData, config);
       } else if (compartments == 3) {
-        return Dune::Std::make_unique<UDGMEEGDriver<1, 3>>(config);
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 3>>(data.udgData, config);
       } else if (compartments == 4) {
-        return Dune::Std::make_unique<UDGMEEGDriver<1, 4>>(config);
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 4>>(data.udgData, config);
       } else if (compartments == 5) {
-        return Dune::Std::make_unique<UDGMEEGDriver<1, 5>>(config);
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 5>>(data.udgData, config);
       } else {
         DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
       }

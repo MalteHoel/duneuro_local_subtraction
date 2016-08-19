@@ -7,9 +7,14 @@
 
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
+#include <duneuro/meeg/udg_meeg_driver_data.hh>
 
 namespace duneuro
 {
+  struct MEEGDriverData {
+    UDGMEEGDriverData udgData;
+  };
+
   class MEEGDriverFactory
   {
   public:
@@ -34,8 +39,9 @@ namespace duneuro
      *
      * The configuration is passed on to the selected driver.
      */
-    static std::unique_ptr<MEEGDriverInterface> make_meeg_driver(const Dune::ParameterTree& config,
-                                                                 DataTree dataTree = DataTree());
+    static std::unique_ptr<MEEGDriverInterface>
+    make_meeg_driver(const Dune::ParameterTree& config, MEEGDriverData data = MEEGDriverData(),
+                     DataTree dataTree = DataTree());
   };
 }
 

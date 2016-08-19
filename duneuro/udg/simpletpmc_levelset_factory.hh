@@ -15,14 +15,20 @@ namespace duneuro
   template <class LGV>
   class ReductionLevelSet;
 
+  template <class T, int dim>
+  struct SimpleTPMCLevelSetData {
+    std::vector<std::shared_ptr<Image<T, dim>>> images;
+  };
+
   template <class LGV>
   struct SimpleTPMCLevelsetFactory {
     using Interface = Dune::UDG::LevelSetFunctionInterface<LGV>;
     using ctype = typename LGV::ctype;
     enum { dim = LGV::dimension };
 
-    static std::unique_ptr<Interface> make_level_set(const LGV& gridView,
-                                                     const Dune::ParameterTree config)
+    static std::unique_ptr<Interface>
+    make_level_set(const LGV& gridView, const Dune::ParameterTree config,
+                   SimpleTPMCLevelSetData<ctype, dim> data = SimpleTPMCLevelSetData<ctype, dim>())
     {
       auto type = config.get<std::string>("type");
       if (type == "sphere") {
@@ -49,8 +55,21 @@ namespace duneuro
       } else if (type == "reduction") {
         return Dune::Std::make_unique<ReductionLevelSet<LGV>>(gridView, config);
       } else if (type == "image") {
-        return Dune::Std::make_unique<SimpleTPMCImageLevelSet<LGV>>(
-            gridView, NiftiImageReader::read<ctype, dim>(config.get<std::string>("filename")));
+        if (config.hasKey("filename")) {
+          return Dune::Std::make_unique<SimpleTPMCImageLevelSet<LGV>>(
+              gridView, NiftiImageReader::read<ctype, dim>(config.get<std::string>("filename")));
+        } else if (config.hasKey("image_index")) {
+          auto index = config.get<unsigned int>("image_index");
+          if (index < data.images.size()) {
+            return Dune::Std::make_unique<SimpleTPMCImageLevelSet<LGV>>(gridView,
+                                                                        data.images[index]);
+          } else {
+            DUNE_THROW(Dune::Exception, "image_index not in valid range");
+          }
+        } else {
+          DUNE_THROW(Dune::Exception,
+                     "could not create image levelset. neither filename nor image_index provided");
+        }
       } else {
         DUNE_THROW(Dune::Exception, "unknown level set type: " << type);
       }
