@@ -119,8 +119,9 @@ namespace duneuro
         , volumeConductorStorage_(config.sub("volume_conductor"), dataTree.sub("volume_conductor"))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
               volumeConductorStorage_.get()->gridView()))
-        , solver_(std::make_shared<typename Traits::Solver>(volumeConductorStorage_.get(),
-                                                            config.sub("solver")))
+        , solver_(std::make_shared<typename Traits::Solver>(
+              volumeConductorStorage_.get(),
+              config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
         , eegForwardSolver_(volumeConductorStorage_.get(), elementSearch_, solver_)
         , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
         , transferMatrixUser_(volumeConductorStorage_.get(), elementSearch_, solver_)
