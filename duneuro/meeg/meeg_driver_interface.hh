@@ -20,7 +20,7 @@ namespace duneuro
      * \brief create a domain function for the given interface
      *
      * This domain function mainly serves as data storage, as the internal data structure is hidden
-     * through type erasure. It can be passed back to the driver which now how to treat it.
+     * through type erasure. It can be passed back to the driver which knows how to treat it.
      */
     virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
 
@@ -29,7 +29,21 @@ namespace duneuro
      *
      * Important: make sure that the given Function object has been created by the same driver.
      * Passing e.g. a Function which has been created by a cg driver to a dg driver will
-     * probably fail, but certainly produce undefined behaviour.
+     * probably fail, but certainly produce undefined behaviour. The solution can be configured
+     * using the given configuration tree. Common parameters are:
+     *
+     * solver.reduction:
+     *     relative reduction of the residual to achieve with the linear solver
+     * source_model.type:
+     *     type of the source_model used for solving (e.g. partial_integration,...). The available
+     *     options depend on the concrete driver type.
+     * post_process:
+     *     true, if the post processing for the given source model should be applied, e.g. if the
+     *     singularity potential should be added to the correction potential.
+     * subtract_mean:
+     *     true, if the mean of the solution should be subtracted. Note that the function will have
+     *     a zero mean, but not the result of evaluateAtElectrodes. Subtracting the mean of the
+     *     solution here can mainly be used for visualization purposes.
      */
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
                                  const Dune::ParameterTree& config,
