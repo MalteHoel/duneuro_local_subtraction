@@ -219,10 +219,31 @@ namespace duneuro
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
         VTKWriter<typename Traits::VC, degree> writer(volumeConductorStorage_.get());
-        writer.addVertexData(
-            eegForwardSolver_,
-            Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
-            "potential");
+        auto gradient_type = config.get<std::string>("gradient.type", "vertex");
+        auto potential_type = config.get<std::string>("potential.type", "vertex");
+
+        if (gradient_type == "vertex") {
+          writer.addVertexDataGradient(
+              eegForwardSolver_,
+              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
+              "gradient_potential");
+        } else {
+          writer.addCellDataGradient(
+              eegForwardSolver_,
+              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
+              "gradient_potential");
+        }
+        if (potential_type == "vertex") {
+          writer.addVertexData(
+              eegForwardSolver_,
+              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
+              "potential");
+        } else {
+          writer.addCellData(
+              eegForwardSolver_,
+              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
+              "potential");
+        }
         writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
         writer.write(config.get<std::string>("filename"), dataTree);
