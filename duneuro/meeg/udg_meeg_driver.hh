@@ -167,7 +167,7 @@ namespace duneuro
             *solution, solver_config, dataTree.sub("solver.electrode_" + std::to_string(i)));
         set_matrix_row(*transferMatrix, i, Dune::PDELab::Backend::native(*solution));
       }
-      return std::move(transferMatrix);
+      return transferMatrix;
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
