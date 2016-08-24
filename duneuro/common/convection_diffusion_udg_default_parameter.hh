@@ -32,7 +32,8 @@ namespace duneuro
     typename Traits::PermTensorType A(unsigned int domainIndex) const
     {
       if (domainIndex >= tensors_.size()) {
-        DUNE_THROW(Dune::Exception, "illegal domain index: " << domainIndex);
+        DUNE_THROW(Dune::Exception, "illegal domain index: " << domainIndex << " (got only "
+                                                             << tensors_.size() << " tensors)");
       }
       return tensors_[domainIndex];
     }
