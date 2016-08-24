@@ -186,7 +186,7 @@ namespace duneuro
       // no need to set acg here back to zero, this is done in matMultmat
       if (reuse == false || firstapply == true) {
         // pmatrix = constructCG2UDGProlongation(native(A));
-        pmatrix = compute_cg_to_udg_prolongation_new(udggfs, st);
+        pmatrix = compute_cg_to_udg_prolongation(udggfs, st);
         //auto pmatrix_new = compute_cg_to_udg_prolongation_new(udggfs, st);
         //*pmatrix_new -= *pmatrix;
         //std::cout << "difference: " << pmatrix_new->frobenius_norm() << "\n";
