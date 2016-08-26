@@ -78,7 +78,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<const GFS> gridFunctionSpace_;
+    std::shared_ptr<GFS> gridFunctionSpace_;
     const unsigned int superIntegrationOrder_;
   };
 
