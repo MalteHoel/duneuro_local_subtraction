@@ -56,7 +56,6 @@ namespace duneuro
 
       /** dimensions **/
       const int dim = EG::Geometry::dimension;
-      const int dimw = EG::Geometry::dimensionworld;
 
       /** select quadrature rule**/
       const int order = FESwitch::basis(lfsv.finiteElement()).order();

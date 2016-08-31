@@ -7,6 +7,8 @@
 #include <dune/common/dynmatrix.hh>
 #include <dune/common/shared_ptr.hh>
 
+#include <duneuro/common/dense_matrix.hh>
+
 #if HAVE_EIGEN
 #include <Eigen/Dense>
 #endif
@@ -151,6 +153,46 @@ namespace duneuro
     std::shared_ptr<Dune::DynamicMatrix<Value>> matrix_;
   };
 
+  template <class T>
+  class DenseMatrixAdapter : public MatrixInterface<T>
+  {
+  public:
+    using Value = typename MatrixInterface<T>::Value;
+    using Index = typename MatrixInterface<T>::Index;
+
+    explicit DenseMatrixAdapter(std::shared_ptr<DenseMatrix<T>> matrix) : matrix_(matrix)
+    {
+      assert(matrix_);
+    }
+
+    virtual const Value& operator()(Index row, Index column) const
+    {
+      assert(row < rows());
+      assert(column < cols());
+      return (*matrix_)(row, column);
+    }
+
+    virtual Value& operator()(Index row, Index column)
+    {
+      assert(row < rows());
+      assert(column < cols());
+      return (*matrix_)(row, column);
+    }
+
+    virtual Index rows() const
+    {
+      return matrix_->rows();
+    }
+
+    virtual Index cols() const
+    {
+      return matrix_->cols();
+    }
+
+  private:
+    std::shared_ptr<DenseMatrix<Value>> matrix_;
+  };
+
 #if HAVE_EIGEN
   template <class T>
   class EigenMatrixAdapter : public MatrixInterface<T>
@@ -204,6 +246,19 @@ namespace duneuro
 
   template <class T>
   std::shared_ptr<MatrixInterface<T>> adapt_matrix(Dune::DynamicMatrix<T>& m)
+  {
+    return adapt_matrix(Dune::stackobject_to_shared_ptr(m));
+  }
+
+  template <class T>
+  std::shared_ptr<MatrixInterface<T>> adapt_matrix(std::shared_ptr<DenseMatrix<T>> matrix)
+  {
+    assert(matrix);
+    return std::make_shared<DenseMatrixAdapter<T>>(matrix);
+  }
+
+  template <class T>
+  std::shared_ptr<MatrixInterface<T>> adapt_matrix(DenseMatrix<T>& m)
   {
     return adapt_matrix(Dune::stackobject_to_shared_ptr(m));
   }

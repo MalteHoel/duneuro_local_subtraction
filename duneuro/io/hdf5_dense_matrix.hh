@@ -8,6 +8,8 @@
 #include <dune/common/dynmatrix.hh>
 #include <dune/istl/bcrsmatrix.hh>
 
+#include <duneuro/common/dense_matrix.hh>
+
 #include <duneuro/common/matrix_adapter.hh>
 
 #if HAVE_HDF5WRAP
@@ -81,6 +83,7 @@ namespace duneuro
     }
   };
 
+#if HAVE_EIGEN
   template <class T, int Rows, int Cols>
   struct DenseMatrixToHDF5Writer<Eigen::Matrix<T, Rows, Cols>> {
     typedef hdf5wrap::AttributeTraits<T> Traits;
@@ -103,6 +106,7 @@ namespace duneuro
       return dataSet;
     }
   };
+#endif
 
   template <class T, int blockSizeRow, int blockSizeCol>
   struct DenseMatrixToHDF5Writer<Dune::BCRSMatrix<Dune::FieldMatrix<T, blockSizeRow,
@@ -249,6 +253,37 @@ namespace duneuro
       return matrix;
     }
   };
+
+  template <class T>
+  struct DenseMatrixToHDF5Reader<DenseMatrix<T>> {
+    typedef hdf5wrap::AttributeTraits<T> Traits;
+
+    static std::unique_ptr<DenseMatrix<T>> read(const std::string& filename,
+                                                const std::string& name = "matrix")
+    {
+      using MatrixType = DenseMatrix<T>;
+
+      H5::H5File file(filename, H5F_ACC_RDONLY);
+      H5::DataSet dataSet = file.openDataSet(name);
+      H5::DataSpace dataSpace = dataSet.getSpace();
+
+      hsize_t dims[2];
+      dataSpace.getSimpleExtentDims(dims, NULL);
+
+      std::unique_ptr<MatrixType> matrix(new MatrixType(dims[0], dims[1]));
+      std::cout << "starting to read dense matrix from HDF" << std::endl;
+      std::vector<T> data(dims[0] * dims[1]);
+      dataSet.read(data.data(), Traits::predType);
+      for (unsigned int r = 0; r < dims[0]; ++r)
+        for (unsigned int c = 0; c < dims[1]; ++c)
+          (*matrix)(r, c) = data[r * dims[1] + c];
+      std::cout << "done reading dense matrix from HDF" << std::endl;
+
+      return matrix;
+    }
+  };
+
+#if HAVE_EIGEN
   template <class T, int Rows, int Cols>
   struct DenseMatrixToHDF5Reader<Eigen::Matrix<T, Rows, Cols, Eigen::ColMajor>> {
     typedef hdf5wrap::AttributeTraits<T> Traits;
@@ -277,6 +312,35 @@ namespace duneuro
       return matrix;
     }
   };
+#endif
+
+#if HAVE_HDF5WRAP
+  template <class M>
+  std::unique_ptr<M> readMatrixFromHDF5(const std::string& filename)
+  {
+    return DenseMatrixToHDF5Reader<M>::read(filename);
+  }
+#endif
+
+  template <class M>
+  std::unique_ptr<M> readMatrixFromFile(const std::string& fileFormat, const std::string& fileName)
+  {
+    if (fileFormat == "hdf5") {
+#if HAVE_HDF5WRAP
+      return readMatrixFromHDF5<M>(fileName);
+#endif
+    } else {
+      DUNE_THROW(Dune::NotImplemented, "reading matrix format " << fileFormat
+                                                                << " not implemented");
+    }
+  }
+
+  template <class M>
+  std::unique_ptr<M> readMatrixFromFile(const Dune::ParameterTree& config)
+  {
+    return readMatrixFromFile<M>(config.get<std::string>("format"),
+                                 config.get<std::string>("filename"));
+  }
 }
 
 #endif

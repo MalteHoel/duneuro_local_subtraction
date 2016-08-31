@@ -32,10 +32,11 @@ namespace duneuro
     using ElementType = typename BaseT::ElementType;
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
+    using SearchType = typename BaseT::SearchType;
 
     SubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
-                           const Dune::ParameterTree& config)
-        : BaseT(fs.getGFS().gridView())
+                           std::shared_ptr<SearchType> search, const Dune::ParameterTree& config)
+        : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
         , edgeNormProvider_()
         , lop_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::SIPG,
@@ -43,7 +44,7 @@ namespace duneuro
                config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)
         , res_(fs.getGFS(), 0.0)
-        , assembler_(fs, lop_)
+        , assembler_(fs, lop_, 1)
         , lfs_(fs.getGFS())
         , cache_(lfs_)
     {
@@ -67,6 +68,21 @@ namespace duneuro
       DOF interp(lfs_.gridFunctionSpace(), 0.0);
       Dune::PDELab::interpolate(problem_.get_u_infty(), lfs_.gridFunctionSpace(), interp);
       vector += interp;
+    }
+
+    virtual void postProcessSolution(const ElementType& element,
+                                     const CoordinateType& localDipolePosition,
+                                     const CoordinateType& dipoleMoment,
+                                     const std::vector<CoordinateType>& electrodes,
+                                     std::vector<typename VectorType::field_type>& vector) const
+    {
+      assert(electrodes.size() == vector.size());
+      problem_.bind(element, localDipolePosition, dipoleMoment);
+      Dune::FieldVector<typename Problem::Traits::RangeFieldType, 1> result;
+      for (unsigned int i = 0; i < electrodes.size(); ++i) {
+        problem_.get_u_infty().evaluateGlobal(electrodes[i], result);
+        vector[i] += result;
+      }
     }
 
   private:

@@ -31,6 +31,10 @@ namespace duneuro
 
     typename Traits::PermTensorType A(unsigned int domainIndex) const
     {
+      if (domainIndex >= tensors_.size()) {
+        DUNE_THROW(Dune::Exception, "illegal domain index: " << domainIndex << " (got only "
+                                                             << tensors_.size() << " tensors)");
+      }
       return tensors_[domainIndex];
     }
 
@@ -51,38 +55,10 @@ namespace duneuro
       }
     }
 
-    template <class EG>
-    typename Traits::RangeType b(const EG& e, const typename Traits::DomainType& x) const
-    {
-      return typename Traits::RangeType(0.0);
-    }
-
-    template <class IG>
-    typename Traits::RangeType b(const IG& ig, const typename Traits::IntersectionDomainType& x,
-                                 ConvectionDiffusion_DG_Side::Type side) const
-    {
-      switch (side) {
-      case ConvectionDiffusion_DG_Side::inside: return typename Traits::RangeType(0.0);
-      default: return typename Traits::RangeType(0.0);
-      }
-    }
-
-    template <class EG>
-    typename Traits::RangeFieldType c(const EG& e, const typename Traits::DomainType& x) const
-    {
-      return typename Traits::RangeFieldType(0.0);
-    }
-
     template <class IG>
     BCType bctype(const IG& is, const typename Traits::IntersectionDomainType& x) const
     {
       return Dune::PDELab::ConvectionDiffusionBoundaryConditions::Neumann;
-    }
-
-    typename Traits::RangeFieldType o(const typename Traits::IntersectionType& is,
-                                      const typename Traits::IntersectionDomainType& local)
-    {
-      return 0.0;
     }
 
     typename Traits::RangeFieldType f(const typename Traits::ElementType& e,

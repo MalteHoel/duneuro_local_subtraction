@@ -44,38 +44,10 @@ namespace duneuro
       }
     }
 
-    template <class EG>
-    typename Traits::RangeType b(const EG&, const typename Traits::DomainType&) const
-    {
-      return typename Traits::RangeType(0.0);
-    }
-
-    template <class IG>
-    typename Traits::RangeType b(const IG&, const typename Traits::IntersectionDomainType&,
-                                 ConvectionDiffusion_DG_Side::Type side) const
-    {
-      switch (side) {
-      case ConvectionDiffusion_DG_Side::inside: return typename Traits::RangeType(0.0);
-      default: return typename Traits::RangeType(0.0);
-      }
-    }
-
-    template <class EG>
-    typename Traits::RangeFieldType c(const EG&, const typename Traits::DomainType&) const
-    {
-      return typename Traits::RangeFieldType(0.0);
-    }
-
     BCType bctype(const typename Traits::IntersectionType&,
                   const typename Traits::IntersectionDomainType&) const
     {
       return Dune::PDELab::ConvectionDiffusionBoundaryConditions::Neumann;
-    }
-
-    typename Traits::RangeFieldType o(const typename Traits::IntersectionType&,
-                                      const typename Traits::IntersectionDomainType&)
-    {
-      return 0.0;
     }
 
     typename Traits::RangeFieldType f(const typename Traits::ElementType&,

@@ -7,7 +7,7 @@
 #include <dune/common/fvector.hh>
 #include <dune/common/timer.hh>
 
-#include <duneuro/common/dipole.hh>>
+#include <duneuro/common/dipole.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro

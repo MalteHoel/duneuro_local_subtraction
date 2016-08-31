@@ -9,7 +9,7 @@ namespace duneuro
 {
   enum class ElementType { hexahedron, tetrahedron };
 
-  std::string to_string(ElementType elementType)
+  static std::string to_string(ElementType elementType)
   {
     switch (elementType) {
     case ElementType::hexahedron: return "hexahedron";
@@ -29,6 +29,8 @@ namespace duneuro
   struct BasicTypeFromElementType<ElementType::tetrahedron> {
     static const Dune::GeometryType::BasicType value = Dune::GeometryType::BasicType::simplex;
   };
+
+  enum class FittedSolverType { cg, dg };
 }
 
 #endif // DUNEURO_FLAGS_HH

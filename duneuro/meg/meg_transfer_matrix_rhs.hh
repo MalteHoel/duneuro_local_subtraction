@@ -28,7 +28,7 @@ namespace duneuro
     void assembleRightHandSide(const Coordinate& coil, const Coordinate& projection, DOF& output)
     {
       LOP lop(volumeConductor_, coil, config_);
-      Assembler assembler(*fs_, lop);
+      Assembler assembler(*fs_, lop, 1);
       lop.setProjection(projection);
       output = 0.0;
       dummyx_ = 0.0;

@@ -42,11 +42,12 @@ namespace duneuro
     typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE, OrderingTag> GFS;
     typedef typename Dune::PDELab::BackendVectorSelector<GFS, N>::Type DOF;
 
-    UDGQkMultiPhaseSpace(const GV& gv, const SubTriangulation& subTriangulation) : gridView_(gv)
+    UDGQkMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
+        : gridView_(gv), entitySet_(gridView_), subTriangulation_(subTriangulation)
     {
       for (unsigned int i = 0; i < phases; ++i) {
-        fems_[i] = std::make_shared<FEM>(lfe_, subTriangulation, i);
-        domainGfss_[i] = std::make_shared<DomainGFS>(gridView_, *(fems_[i]));
+        fems_[i] = std::make_shared<FEM>(lfe_, *subTriangulation_, i);
+        domainGfss_[i] = std::make_shared<DomainGFS>(entitySet_, *(fems_[i]));
       }
       gfs_ = make_power_gfs(domainGfss_, PVBE(), OrderingTag(blockSize));
       gfs_->ordering();
@@ -64,8 +65,12 @@ namespace duneuro
       return *gfs_;
     }
 
+    UDGQkMultiPhaseSpace(const UDGQkMultiPhaseSpace&) = delete;
+    UDGQkMultiPhaseSpace& operator=(const UDGQkMultiPhaseSpace&) = delete;
   private:
     GV gridView_;
+    Dune::PDELab::AllEntitySet<GV> entitySet_;
+    std::shared_ptr<SubTriangulation> subTriangulation_;
     LFE lfe_;
     std::array<std::shared_ptr<FEM>, phases> fems_;
     std::array<std::shared_ptr<DomainGFS>, phases> domainGfss_;

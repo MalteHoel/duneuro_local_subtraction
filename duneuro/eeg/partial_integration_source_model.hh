@@ -22,8 +22,10 @@ namespace duneuro
     using ElementType = typename BaseT::ElementType;
     using LFSType = Dune::PDELab::LocalFunctionSpace<GFS>;
     using CacheType = Dune::PDELab::LFSIndexCache<LFSType>;
+    using SearchType = typename BaseT::SearchType;
 
-    PartialIntegrationSourceModel(const GFS& gfs) : BaseT(gfs.gridView()), lfs_(gfs), cache_(lfs_)
+    PartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<SearchType> search)
+        : BaseT(search), lfs_(gfs), cache_(lfs_)
     {
     }
 

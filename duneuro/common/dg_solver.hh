@@ -70,16 +70,16 @@ namespace duneuro
         , problem_(volumeConductor_)
         , boundaryCondition_(volumeConductor_->gridView(), problem_)
         , functionSpace_(volumeConductor_->gridView())
-        , edgeNormProvider_(config.sub("edge_norm"), 1.0)
+        , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
         , localOperator_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
                                                           config.get<std::string>("scheme")),
                          ConvectionDiffusion_DG_Weights::weightsOn, config.get<DF>("penalty"),
-                         false, config.get<unsigned int>("intorderadd"))
+                         false, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
         , firstOrderSpace_(volumeConductor_->grid(), volumeConductor_->gridView())
-        , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config.sub("amg"))
+        , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config)
         , linearSolverMutex_()
-        , linearSolver_(linearSolverMutex_, *assembler_, config.sub("linear_solver"))
+        , linearSolver_(linearSolverMutex_, *assembler_, config)
     {
       assert(volumeConductor_);
       dataTree.set("degree", degree);
@@ -88,11 +88,12 @@ namespace duneuro
     }
 
     void solve(const typename Traits::RangeDOFVector& rightHandSide,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, rightHandSide, dataTree.sub("linear_solver"));
+      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
@@ -115,7 +116,7 @@ namespace duneuro
     typename Traits::LinearSolver linearSolver_;
 
     template <class V>
-    friend class MakeDOFVectorHelper;
+    friend struct MakeDOFVectorHelper;
   };
 }
 

@@ -5,7 +5,6 @@
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
-#include <duneuro/common/grid_function_mean.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/eeg_forward_solver_interface.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -22,6 +21,7 @@ namespace duneuro
     using RangeDOFVector = typename S::Traits::RangeDOFVector;
     using CoordinateFieldType = typename VolumeConductor::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
+    using ElementSearch = KDTreeElementSearch<typename VolumeConductor::GridView>;
   };
 
   template <class S, class SMF>
@@ -32,57 +32,59 @@ namespace duneuro
     using Traits = ConformingEEGForwardSolverTraits<S>;
 
     ConformingEEGForwardSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                               const Dune::ParameterTree& config)
+                               std::shared_ptr<typename Traits::ElementSearch> search,
+                               std::shared_ptr<typename Traits::Solver> solver)
         : volumeConductor_(volumeConductor)
-        , solver_(volumeConductor, config)
-        , sourceModel_(SMF::template createDense<typename Traits::RangeDOFVector>(
-              volumeConductor, solver_, config.sub("source_model")))
-        , rightHandSideVector_(make_range_dof_vector(solver_, 0.0))
-        , config_(config)
+        , search_(search)
+        , solver_(solver)
+        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
     {
     }
 
     void solve(const typename Traits::DipoleType& dipole,
-               typename Traits::DomainDOFVector& solution, DataTree dataTree = DataTree())
+               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       // assemble right hand side
       Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
-      sourceModel_->assembleRightHandSide(dipole, *rightHandSideVector_);
+      auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
+      sourceModel->assembleRightHandSide(dipole, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_.solve(*rightHandSideVector_, solution, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, config.sub("solver"),
+                     dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solve", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
     }
 
     void postProcessSolution(const typename Traits::DipoleType& dipole,
-                             typename Traits::DomainDOFVector& solution)
+                             typename Traits::DomainDOFVector& solution,
+                             const Dune::ParameterTree& config)
     {
       // post process solution
-      sourceModel_->postProcessSolution(dipole, solution);
-      subtract_mean(solver_, solution);
+      auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
+          volumeConductor_, *solver_, search_, config.sub("source_model"));
+      sourceModel->postProcessSolution(dipole, solution);
     }
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
-      return solver_.functionSpace();
+      return solver_->functionSpace();
     }
 
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    typename Traits::Solver solver_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
-                                         typename Traits::RangeDOFVector>>
-        sourceModel_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
+    std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
-    Dune::ParameterTree config_;
 
     template <class V>
-    friend class MakeDOFVectorHelper;
+    friend struct MakeDOFVectorHelper;
   };
 }
 

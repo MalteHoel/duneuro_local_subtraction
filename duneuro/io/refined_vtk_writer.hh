@@ -49,10 +49,22 @@ namespace duneuro
       writer_.addVertexData(f);
     }
 
-    void write(const std::string& filename, DataTree dataTree = DataTree())
+    void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
-      writer_.write(filename, "appended", 2);
+      Dune::UDGVTKWriteMode mode;
+      auto modeString = config.get<std::string>("mode", "volume");
+      if (modeString == "volume") {
+        mode = Dune::UDGVTKWriteMode::writeVolume;
+      } else if (modeString == "faces") {
+        mode = Dune::UDGVTKWriteMode::writeFaces;
+      } else if (modeString == "boundary") {
+        mode = Dune::UDGVTKWriteMode::writeBoundary;
+      } else {
+        DUNE_THROW(Dune::Exception, "unknown udg mode \"" << modeString << "\"");
+      }
+      writer_.write(config.get<std::string>("filename"), Dune::VTK::OutputType::appendedraw, 2,
+                    mode);
       dataTree.set("time", timer.elapsed());
     }
 

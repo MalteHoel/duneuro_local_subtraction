@@ -126,8 +126,7 @@ namespace duneuro
         }
       }
       for (unsigned int i = 0; i < localRadii.size(); ++i) {
-        levelSets_.push_back(
-            std::unique_ptr<LevelSetType>(new LevelSetType(localCenter, localRadii[i])));
+        levelSets_.push_back(Dune::Std::make_unique<LevelSetType>(localCenter, localRadii[i]));
         domainDef_.addInterface(i, *(levelSets_.back()), 0, DD::nonunique);
       }
     }

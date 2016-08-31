@@ -7,8 +7,8 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/sparse_vector_container.hh>
-#include <duneuro/common/transfer_matrix.hh>
 #include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/eeg/udg_source_model_factory.hh>
@@ -25,9 +25,10 @@ namespace duneuro
     using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
                                                   typename DenseRHSVector::ElementType>;
     using CoordinateFieldType = typename ST::ctype;
+    using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
     using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
-    using TransferMatrix = ISTLTransferMatrix<DomainField>;
+    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
   };
 
   template <class ST, int compartments, int degree, class DF = double, class RF = double,
@@ -38,93 +39,103 @@ namespace duneuro
     using Traits = UDGTransferMatrixUserTraits<ST, compartments, degree, DF, RF, JF>;
 
     UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                          std::shared_ptr<typename Traits::TransferMatrix> transferMatrix,
+                          std::shared_ptr<typename Traits::Solver> solver,
+                          std::shared_ptr<typename Traits::ElementSearch> search,
                           const Dune::ParameterTree& config)
-        : subTriangulation_(subTriangulation)
-        , transferMatrix_(transferMatrix)
-        , solver_(subTriangulation_, config)
-        , density_(source_model_default_density(config.sub("source_model")))
-        , sourceModelDense_(
-              UDGSourceModelFactory::template createDense<compartments - 1,
-                                                          typename Traits::DenseRHSVector>(
-                  solver_, config.sub("source_model")))
-        , sourceModelSparse_(
-              UDGSourceModelFactory::template createSparse<compartments - 1,
-                                                           typename Traits::SparseRHSVector>(
-                  solver_, config.sub("source_model")))
+        : subTriangulation_(subTriangulation), solver_(solver), search_(search)
     {
     }
 
-    std::vector<typename Traits::DomainField> solve(const typename Traits::DipoleType& dipole,
-                                                    DataTree dataTree = DataTree()) const
+    void postProcessPotential(const typename Traits::DipoleType& dipole,
+                              const std::vector<typename Traits::Coordinate>& projectedElectrodes,
+                              std::vector<typename Traits::DomainField>& potential,
+                              const Dune::ParameterTree& config)
+    {
+      auto density = source_model_default_density(config.sub("source_model"));
+      if (density == VectorDensity::sparse) {
+        auto sourceModel =
+            UDGSourceModelFactory::template createSparse<compartments - 1,
+                                                         typename Traits::SparseRHSVector>(
+                *solver_, subTriangulation_, search_, config.sub("source_model"));
+        sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
+      } else {
+        auto sourceModel =
+            UDGSourceModelFactory::template createDense<compartments - 1,
+                                                        typename Traits::DenseRHSVector>(
+                *solver_, subTriangulation_, search_, config.sub("source_model"));
+        sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
+      }
+    }
+
+    template <class M>
+    std::vector<typename Traits::DomainField>
+    solve(const M& transferMatrix, const typename Traits::DipoleType& dipole,
+          const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
-      if (density_ == VectorDensity::sparse) {
+      auto density = source_model_default_density(config.sub("source_model"));
+      std::vector<typename Traits::DomainField> result;
+      if (density == VectorDensity::sparse) {
         dataTree.set("density", "sparse");
-        return solveSparse(dipole);
+        result = solveSparse(transferMatrix, dipole, config);
       } else {
         dataTree.set("density", "dense");
-        return solveDense(dipole);
+        result = solveDense(transferMatrix, dipole, config);
       }
       dataTree.set("time", timer.elapsed());
+      return result;
     }
 
-    std::vector<typename Traits::DomainField>
-    solveSparse(const typename Traits::DipoleType& dipole) const
+    template <class M>
+    std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix,
+                                                          const typename Traits::DipoleType& dipole,
+                                                          const Dune::ParameterTree& config) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
-      sourceModelSparse_->assembleRightHandSide(dipole, rhs);
+      auto sourceModel =
+          UDGSourceModelFactory::template createSparse<compartments - 1,
+                                                       typename Traits::SparseRHSVector>(
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
+      sourceModel->assembleRightHandSide(dipole, rhs);
 
       const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
-
-      std::vector<typename Traits::DomainField> output(transferMatrix_->matrix().rows());
-      if (blockSize == 1) {
-        matrix_sparse_vector_product(transferMatrix_->matrix(), rhs, output,
-                                     [](const typename SVC::Index& c) { return c[0]; });
-      } else {
-        matrix_sparse_vector_product(
-            transferMatrix_->matrix(), rhs, output,
-            [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
-      }
-      return output;
-    }
-
-    std::vector<typename Traits::DomainField>
-    solveDense(const typename Traits::DipoleType& dipole) const
-    {
-      if (!denseRHSVector_) {
-        denseRHSVector_ = make_range_dof_vector(solver_, 0.0);
-      }
-      sourceModelDense_->assembleRightHandSide(dipole, *denseRHSVector_);
 
       std::vector<typename Traits::DomainField> output;
-      output.reserve(transferMatrix_->matrix().rows());
-      const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
-      for (std::size_t k = 0; k < transferMatrix_->matrix().rows(); ++k) {
-        typename Traits::DomainField product = 0.0;
-        for (std::size_t cb = 0; cb < denseRHSVector_->N(); ++cb) {
-          for (std::size_t bi = 0; bi < blockSize; ++bi) {
-            product +=
-                transferMatrix_->matrix()[k][cb * blockSize + bi] * denseRHSVector_->block(cb)[bi];
-          }
-        }
-        output.push_back(product);
+      if (blockSize == 1) {
+        return matrix_sparse_vector_product(transferMatrix, rhs,
+                                            [](const typename SVC::Index& c) { return c[0]; });
+      } else {
+        return matrix_sparse_vector_product(
+            transferMatrix, rhs,
+            [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
       }
-      return output;
+    }
+
+    template <class M>
+    std::vector<typename Traits::DomainField> solveDense(const M& transferMatrix,
+                                                         const typename Traits::DipoleType& dipole,
+                                                         const Dune::ParameterTree& config) const
+    {
+      if (!denseRHSVector_) {
+        denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
+      } else {
+        *denseRHSVector_ = 0.0;
+      }
+      auto sourceModel =
+          UDGSourceModelFactory::template createDense<compartments - 1,
+                                                      typename Traits::DenseRHSVector>(
+              *solver_, subTriangulation_, search_, config.sub("source_model"));
+      sourceModel->assembleRightHandSide(dipole, *denseRHSVector_);
+
+      return matrix_dense_vector_product(transferMatrix,
+                                         Dune::PDELab::Backend::native(*denseRHSVector_));
     }
 
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    std::shared_ptr<typename Traits::TransferMatrix> transferMatrix_;
-    typename Traits::Solver solver_;
-    VectorDensity density_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
-                                         typename Traits::DenseRHSVector>>
-        sourceModelDense_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
-                                         typename Traits::SparseRHSVector>>
-        sourceModelSparse_;
+    std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;
   };
 }

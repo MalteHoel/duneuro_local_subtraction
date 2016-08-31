@@ -36,8 +36,7 @@ namespace duneuro
       }
       for (unsigned int i = 0; i < vertexImages_.size(); ++i) {
         domainConfiguration_.addInterface(
-            {i, std::shared_ptr<Dune::UDG::LevelSetFunctionInterface<LGV>>(
-                    new LevelSetType(gv, vertexImages_[i]))});
+            {i, std::make_shared<LevelSetType>(gv, vertexImages_[i])});
       }
     }
 

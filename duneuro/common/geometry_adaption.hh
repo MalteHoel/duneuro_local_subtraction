@@ -242,7 +242,6 @@ namespace duneuro
     using HostGridView = typename HostGrid::LeafGridView;
     using CoordFunction = DeformationFunction<HostGridView>;
     using ctype = typename HostGrid::ctype;
-    const int dim = HostGrid::dimension;
 
     auto hostGridView = hostGrid->leafGridView();
     auto deformedPosition = compute_deformed_positions(hostGridView, elementLabels, config);
@@ -293,7 +292,7 @@ namespace duneuro
       // geometry adaption
       auto geometryGrid = create_geometry_adapted_grid(std::move(ygrid), labels, config);
       auto ggGv = geometryGrid->leafGridView();
-      assert(labels.size() == ggGv.size(0));
+      assert(labels.size() == static_cast<std::size_t>(ggGv.size(0)));
       // subgrid creation
       auto grid =
           Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);

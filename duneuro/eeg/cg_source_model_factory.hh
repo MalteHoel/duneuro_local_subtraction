@@ -15,21 +15,23 @@ namespace duneuro
     template <class Vector, class VC, class Solver>
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, Vector>>
     createDense(std::shared_ptr<VC> volumeConductor, const Solver& solver,
+                std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
                 const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS());
+            typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS(),
+                                                                  search);
       } else if (type == "venant") {
         return std::make_shared<VenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                  Vector>>(volumeConductor,
-                                                           solver.functionSpace().getGFS(), config);
+                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
                                                        typename Solver::Traits::FunctionSpace,
-                                                       Vector>>(volumeConductor,
-                                                                solver.functionSpace(), config);
+                                                       Vector>>(
+            volumeConductor, solver.functionSpace(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -39,16 +41,18 @@ namespace duneuro
     template <class Vector, class VC, class Solver>
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, Vector>>
     createSparse(std::shared_ptr<VC> volumeConductor, const Solver& solver,
+                 std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
                  const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS());
+            typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS(),
+                                                                  search);
       } else if (type == "venant") {
         return std::make_shared<VenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                  Vector>>(volumeConductor,
-                                                           solver.functionSpace().getGFS(), config);
+                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

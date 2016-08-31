@@ -36,7 +36,7 @@ namespace duneuro
     using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
 
     GridFunctionMean(std::shared_ptr<const GFS> gfs, const Dune::ParameterTree& config)
-        : gridFunctionSpace_(gfs), superIntegrationOrder_(config.get("superIntegrationOrder", 1))
+        : gridFunctionSpace_(gfs), superIntegrationOrder_(config.get("superIntegrationOrder", 0))
     {
       assert(gridFunctionSpace_);
     }
@@ -78,7 +78,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<const GFS> gridFunctionSpace_;
+    std::shared_ptr<GFS> gridFunctionSpace_;
     const unsigned int superIntegrationOrder_;
   };
 

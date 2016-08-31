@@ -5,6 +5,11 @@
 #include <vector>
 
 #include <dune/common/exceptions.hh>
+#include <dune/common/fvector.hh>
+
+#include <dune/istl/bvector.hh>
+
+#include <duneuro/common/dense_matrix.hh>
 
 namespace duneuro
 {
@@ -40,6 +45,14 @@ namespace duneuro
   }
 
   template <class T>
+  void subtract_mean(std::vector<T>& vector)
+  {
+    auto mean = std::accumulate(vector.begin(), vector.end(), 0.0) / vector.size();
+    for (auto& v : vector)
+      v -= mean;
+  }
+
+  template <class T>
   std::vector<T> flatten(const std::vector<std::vector<T>>& v)
   {
     std::vector<T> out;
@@ -62,6 +75,43 @@ namespace duneuro
       }
     }
     return out;
+  }
+
+  template <class T, int blockSize>
+  std::vector<T>
+  matrix_dense_vector_product(const DenseMatrix<T>& matrix,
+                              const Dune::BlockVector<Dune::FieldVector<T, blockSize>>& vector)
+  {
+    std::vector<T> output(matrix.rows(), T(0));
+    for (std::size_t k = 0; k < matrix.rows(); ++k) {
+      for (std::size_t cb = 0; cb < vector.N(); ++cb) {
+        for (std::size_t bi = 0; bi < blockSize; ++bi) {
+          output[k] += matrix(k, cb * blockSize + bi) * vector[cb][bi];
+        }
+      }
+    }
+    return output;
+  }
+
+  template <class T, int blockSize>
+  void set_matrix_row(DenseMatrix<T>& matrix, std::size_t row,
+                      const Dune::BlockVector<Dune::FieldVector<T, blockSize>>& vector)
+  {
+    if (row >= matrix.rows()) {
+      DUNE_THROW(Dune::Exception, "tried to set row " << row << " but only " << matrix.rows()
+                                                      << " rows are present");
+    }
+    if (vector.dim() != matrix.cols()) {
+      DUNE_THROW(Dune::Exception, "tried to set row with " << vector.dim()
+                                                           << " entries, but row has actually "
+                                                           << matrix.cols() << " entries");
+    }
+    for (unsigned int block = 0; block < vector.size(); ++block) {
+      for (unsigned int localIndex = 0; localIndex < blockSize; ++localIndex) {
+        unsigned int flatIndex = block * blockSize + localIndex;
+        matrix(row, flatIndex) = vector[block][localIndex];
+      }
+    }
   }
 }
 

@@ -8,6 +8,7 @@
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/parametertree.hh>
+#include <dune/common/std/memory.hh>
 #include <dune/common/timer.hh>
 
 #include <dune/istl/bcrsmatrix.hh>
@@ -143,15 +144,11 @@ namespace duneuro
                                             bool debug = false)
         : _mutex(mutex)
         , _go(go)
-        , _reduction(reduction)
         , _fixFirstDOF(fixDOF)
         , _fixedDOFEntry(fixedDOFEntry)
         , _verbose(verbose)
         , _debug(debug)
     {
-      if (_reduction <= 0.0) {
-        DUNE_THROW(Dune::Exception, "reduction has to be positive");
-      }
     }
 
     //! Construct a StationaryLinearProblemSolver for the given objects and read parameters from
@@ -183,18 +180,15 @@ namespace duneuro
                                             const Dune::ParameterTree& params)
         : _mutex(mutex)
         , _go(go)
-        , _reduction(params.get<typename RV::ElementType>("reduction"))
-        , _fixFirstDOF(params.get<bool>("fixDOF"))
-        , _fixedDOFEntry(params.get<typename M::field_type>("fixedDOFEntry"))
+        , _fixFirstDOF(params.get<bool>("fixDOF", true))
+        , _fixedDOFEntry(params.get<typename M::field_type>("fixedDOFEntry", 1.0))
         , _verbose(params.get<int>("verbosity", 1))
         , _debug(params.get<bool>("debug", false))
     {
-      if (_reduction <= 0.0) {
-        DUNE_THROW(Dune::Exception, "reduction has to be positive");
-      }
     }
 
-    void apply(LS& ls, DV& x, const RV& rightHandSide, DataTree dataTree = DataTree())
+    void apply(LS& ls, DV& x, const RV& rightHandSide, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
     {
       Dune::Timer timer(false);
       {
@@ -203,7 +197,7 @@ namespace duneuro
           std::cout << "thread with id " << std::this_thread::get_id() << " creates jacobian"
                     << std::endl;
           timer.start();
-          _jacobian = std::unique_ptr<M>(new M(_go));
+          _jacobian = Dune::Std::make_unique<M>(_go);
           timer.stop();
           if (_go.trialGridFunctionSpace().gridView().comm().rank() == 0 && _verbose >= 1)
             std::cout << "=== matrix setup (max) " << timer.lastElapsed() << " s" << std::endl;
@@ -240,7 +234,8 @@ namespace duneuro
       Dune::Timer solutionTimer;
       timer.start();
       DV z(_go.trialGridFunctionSpace(), 0.0);
-      ls.apply(*_jacobian, z, r, _reduction); // solver makes right hand side consistent
+      ls.apply(*_jacobian, z, r, config.get<typename RV::ElementType>(
+                                     "reduction")); // solver makes right hand side consistent
       timer.stop();
       dataTree.set("iterations", ls.result().iterations);
       dataTree.set("reduction", ls.result().reduction);
@@ -265,7 +260,6 @@ namespace duneuro
     std::mutex& _mutex;
     const GO& _go;
     std::unique_ptr<M> _jacobian;
-    typename RV::ElementType _reduction;
     bool _fixFirstDOF;
     typename M::field_type _fixedDOFEntry;
     Result _res;

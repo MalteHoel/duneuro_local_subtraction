@@ -25,9 +25,7 @@ namespace duneuro
 #else
 #error "no grid manager found. provide either dune-alugrid or ug"
 #endif
-    static const ElementType elementType;
   };
-  const ElementType DefaultGrid<ElementType::hexahedron>::elementType = ElementType::hexahedron;
 
   template <>
   struct DefaultGrid<ElementType::tetrahedron> {
@@ -39,9 +37,7 @@ namespace duneuro
 #else
 #error "no grid manager found. provide either dune-alugrid or ug"
 #endif
-    static const ElementType elementType;
   };
-  const ElementType DefaultGrid<ElementType::tetrahedron>::elementType = ElementType::tetrahedron;
 }
 
 #endif // DUNEURO_DEFAULTGRIDS_HH
