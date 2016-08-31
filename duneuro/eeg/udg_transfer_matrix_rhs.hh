@@ -27,8 +27,7 @@ namespace duneuro
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UDGTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st)
-        : st_(st), ulfs_(gfs), ucache_(ulfs_)
+    UDGTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st) : st_(st), gfs_(gfs)
     {
     }
 
@@ -44,7 +43,10 @@ namespace duneuro
 
       UST ust(st_->gridView(), *st_);
 
-      ChildLFS& childLfs = ulfs_.child(child);
+      ULFS ulfs(gfs_);
+      UCache ucache(ulfs);
+
+      ChildLFS& childLfs = ulfs.child(child);
 
       ust.create(electrodeElement);
       if (ust.begin() == ust.end()) {
@@ -54,8 +56,8 @@ namespace duneuro
       for (const auto& ep : ust) {
         if (ep.domainIndex() != child)
           continue;
-        ulfs_.bind(ep.subEntity(), true);
-        ucache_.update();
+        ulfs.bind(ep.subEntity(), true);
+        ucache.update();
         FESwitch::basis(childLfs.finiteElement()).reset();
 
         if (childLfs.size() == 0) {
@@ -68,7 +70,7 @@ namespace duneuro
                 ep.boundingBox().local(electrodeElement.geometry().global(electrodeLocal)), phi);
 
         for (unsigned int i = 0; i < childLfs.size(); ++i) {
-          output[ucache_.containerIndex(childLfs.localIndex(i))] = phi[i];
+          output[ucache.containerIndex(childLfs.localIndex(i))] = phi[i];
         }
         break;
       }
@@ -78,8 +80,8 @@ namespace duneuro
       for (const auto& ep : ust) {
         if (ep.domainIndex() != child)
           continue;
-        ulfs_.bind(ep.subEntity(), true);
-        ucache_.update();
+        ulfs.bind(ep.subEntity(), true);
+        ucache.update();
         FESwitch::basis(childLfs.finiteElement()).reset();
 
         assert(childLfs.size() > 0);
@@ -90,7 +92,7 @@ namespace duneuro
                 ep.boundingBox().local(referenceElement.geometry().global(referenceLocal)), phi);
 
         for (unsigned int i = 0; i < childLfs.size(); ++i) {
-          output[ucache_.containerIndex(childLfs.localIndex(i))] -= phi[i];
+          output[ucache.containerIndex(childLfs.localIndex(i))] -= phi[i];
         }
         break;
       }
@@ -98,8 +100,7 @@ namespace duneuro
 
   private:
     std::shared_ptr<ST> st_;
-    mutable ULFS ulfs_;
-    mutable UCache ucache_;
+    const GFS& gfs_;
   };
 }
 
