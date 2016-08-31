@@ -1,8 +1,6 @@
 #ifndef DUNEURO_UDG_TRANSFER_MATRIX_SOLVER_HH
 #define DUNEURO_UDG_TRANSFER_MATRIX_SOLVER_HH
 
-#include <mutex>
-
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/make_dof_vector.hh>
@@ -39,16 +37,8 @@ namespace duneuro
                             const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
-        , rhsAssembler_(solver_->functionSpace().getGFS(), subTriangulation_)
+        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
         , config_(config)
-    {
-    }
-
-    UDGTransferMatrixSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                            const Dune::ParameterTree& config)
-        : UDGTransferMatrixSolver(
-              subTriangulation, std::make_shared<typename Traits::Solver>(subTriangulation, config),
-              config)
     {
     }
 
@@ -58,16 +48,19 @@ namespace duneuro
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
+      *rightHandSideVector_ = 0.0;
       // assemble right hand side
-      auto rightHandSideVector = make_range_dof_vector(*solver_, 0.0);
-      rhsAssembler_.assembleRightHandSide(reference.element, reference.localPosition,
-                                          electrode.element, electrode.localPosition,
-                                          *rightHandSideVector);
+      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, 0,
+                           typename Traits::SubTriangulation>
+          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_);
+      rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
+                                         electrode.element, electrode.localPosition,
+                                         *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector, solution, config, dataTree.sub("linear_system_solver"));
+      solver_->solve(*rightHandSideVector_, solution, config, dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -81,8 +74,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, 0, typename Traits::SubTriangulation>
-        rhsAssembler_;
+    std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     Dune::ParameterTree config_;
   };
 }
