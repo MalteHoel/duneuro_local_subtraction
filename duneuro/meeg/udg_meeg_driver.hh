@@ -129,7 +129,14 @@ namespace duneuro
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
-        vtkWriter.write(config.get<std::string>("filename"), dataTree);
+        vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                    typename Traits::GridView>>(fundamentalGridView_));
+        auto modeString = config.get<std::string>("mode", "volume");
+        if ((modeString == "faces") || (modeString == "boundary")) {
+          vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                      typename Traits::GridView>>(fundamentalGridView_, false));
+        }
+        vtkWriter.write(config, dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }
@@ -146,7 +153,14 @@ namespace duneuro
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
-        vtkWriter.write(config.get<std::string>("filename"), dataTree);
+        vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                    typename Traits::GridView>>(fundamentalGridView_));
+        auto modeString = config.get<std::string>("mode", "volume");
+        if ((modeString == "faces") || (modeString == "boundary")) {
+          vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                      typename Traits::GridView>>(fundamentalGridView_, false));
+        }
+        vtkWriter.write(config, dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }
