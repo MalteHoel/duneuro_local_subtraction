@@ -63,7 +63,8 @@ namespace duneuro
     virtual bool evaluateOn(const typename Base::EntityPartPointer& part) const
     {
       (part.get())->setLayer(layer_);
-      domainIndex = part->domainIndex();
+      insideDomainIndex_ = part->domainIndex();
+      outsideDomainIndex_ = -1;
       (part.get())->resetLayer();
       return true;
     }
@@ -71,14 +72,19 @@ namespace duneuro
     virtual bool evaluateOn(const typename Base::IntersectionPartPointer& part) const
     {
       (part.get())->setLayer(layer_);
-      domainIndex = part->insideDomainIndex();
+      insideDomainIndex_ = part->insideDomainIndex();
+      outsideDomainIndex_ = part->outsideDomainIndex();
       (part.get())->resetLayer();
       return true;
     }
 
     virtual double evaluate(int comp, const Entity& e, const Dune::FieldVector<DF, n>& xi) const
     {
-      return conductivities_[domainIndex];
+      if (outsideDomainIndex_ == -1) {
+        return conductivities_[insideDomainIndex_];
+      } else {
+        return 0.5 * (conductivities_[insideDomainIndex_] + conductivities_[outsideDomainIndex_]);
+      }
     }
 
     virtual std::string name() const
@@ -90,7 +96,8 @@ namespace duneuro
     const GV& gv_;
     std::vector<DF> conductivities_;
     const int layer_;
-    mutable int domainIndex;
+    mutable int insideDomainIndex_;
+    mutable int outsideDomainIndex_;
   };
 #endif
 }
