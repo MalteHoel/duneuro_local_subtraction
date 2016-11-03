@@ -8,3 +8,4 @@ template class duneuro::UDGMEEGDriver<1, 2>;
 template class duneuro::UDGMEEGDriver<1, 3>;
 template class duneuro::UDGMEEGDriver<1, 4>;
 template class duneuro::UDGMEEGDriver<1, 5>;
+template class duneuro::UDGMEEGDriver<1, 6>;

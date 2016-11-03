@@ -30,6 +30,7 @@ extern template class duneuro::UDGMEEGDriver<1, 2>;
 extern template class duneuro::UDGMEEGDriver<1, 3>;
 extern template class duneuro::UDGMEEGDriver<1, 4>;
 extern template class duneuro::UDGMEEGDriver<1, 5>;
+extern template class duneuro::UDGMEEGDriver<1, 6>;
 #endif
 
 namespace duneuro
@@ -104,6 +105,8 @@ namespace duneuro
         return Dune::Std::make_unique<UDGMEEGDriver<1, 4>>(data.udgData, config);
       } else if (compartments == 5) {
         return Dune::Std::make_unique<UDGMEEGDriver<1, 5>>(data.udgData, config);
+      } else if (compartments == 6) {
+        return Dune::Std::make_unique<UDGMEEGDriver<1, 6>>(data.udgData, config);
       } else {
         DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
       }
