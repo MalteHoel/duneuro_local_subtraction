@@ -71,10 +71,12 @@ namespace duneuro
         , boundaryCondition_(volumeConductor_->gridView(), problem_)
         , functionSpace_(volumeConductor_->gridView())
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
-        , localOperator_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
-                                                          config.get<std::string>("scheme")),
-                         ConvectionDiffusion_DG_Weights::weightsOn, config.get<DF>("penalty"),
-                         false, config.get<unsigned int>("intorderadd", 0))
+        , localOperator_(
+              problem_, edgeNormProvider_,
+              ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),
+              config.get<bool>("weights") ? ConvectionDiffusion_DG_Weights::weightsOn :
+                                            ConvectionDiffusion_DG_Weights::weightsOff,
+              config.get<DF>("penalty"), false, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
         , firstOrderSpace_(volumeConductor_->grid(), volumeConductor_->gridView())
         , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config)
