@@ -30,7 +30,7 @@ namespace duneuro
       addVectorData("moment", momentData);
     }
 
-    void write(const std::string& name, DataTree dataTree = DataTree())
+    void write(const std::string& name, DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
       std::stringstream filename;
@@ -67,7 +67,7 @@ namespace duneuro
     bool writeVertices_;
     const std::string padding_;
 
-    void writeHeader(std::ostream& stream)
+    void writeHeader(std::ostream& stream) const
     {
       // write header
       stream << "# vtk DataFile Version 2.0\n"
@@ -80,7 +80,7 @@ namespace duneuro
       }
     }
 
-    void writeVertices(std::ostream& stream)
+    void writeVertices(std::ostream& stream) const
     {
       if (writeVertices_) {
         stream << "VERTICES " << points_.size() << " " << 2 * points_.size() << "\n";
@@ -90,7 +90,7 @@ namespace duneuro
       }
     }
 
-    void writeData(std::ostream& stream)
+    void writeData(std::ostream& stream) const
     {
       if (vectorData_.size() > 0 || scalarData_.size() > 0) {
         stream << "POINT_DATA " << points_.size() << "\n";
