@@ -6,6 +6,7 @@
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #if HAVE_DUNE_UDG
 #include <duneuro/meeg/udg_meeg_driver_data.hh>
@@ -14,6 +15,7 @@
 namespace duneuro
 {
   struct MEEGDriverData {
+    FittedMEEGDriverData fittedData;
 #if HAVE_DUNE_UDG
     UDGMEEGDriverData udgData;
 #endif
@@ -44,8 +46,8 @@ namespace duneuro
      * The configuration is passed on to the selected driver.
      */
     static std::unique_ptr<MEEGDriverInterface>
-    make_meeg_driver(const Dune::ParameterTree& config, MEEGDriverData data = MEEGDriverData(),
-                     DataTree dataTree = DataTree());
+    make_meeg_driver(const Dune::ParameterTree& config,
+                     const MEEGDriverData& data = MEEGDriverData(), DataTree dataTree = DataTree());
   };
 }
 

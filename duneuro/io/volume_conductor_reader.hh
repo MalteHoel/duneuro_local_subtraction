@@ -13,6 +13,7 @@
 #include <duneuro/common/volume_conductor.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/gmsh_tensor_reader.hh>
+#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
@@ -26,18 +27,78 @@ namespace duneuro
     typedef typename G::ctype ctype;
     enum { dim = G::dimension };
 
-    static std::shared_ptr<VolumeConductor<G>> read(const Dune::ParameterTree& config,
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData& data,
+                                                    const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree())
     {
-      unsigned int offset = config.get("tensors.offset", 0);
-      return read(config.get<std::string>("grid.filename"),
-          config.get<std::string>("tensors.filename"), dataTree,offset);
+      if (data.nodes.size() > 0) {
+        return read(data, dataTree);
+      } else {
+        unsigned int offset = config.get("tensors.offset", 0);
+        return read(config.get<std::string>("grid.filename"),
+                    config.get<std::string>("tensors.filename"), dataTree, offset);
+      }
+    }
+
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData& data,
+                                                    DataTree dataTree = DataTree())
+    {
+      std::cout << "Got " << data.nodes.size() << " nodes, " << data.elements.size()
+                << " elements, " << data.labels.size() << " labels and "
+                << data.conductivities.size() << " conductivities" << std::endl;
+      Dune::GridFactory<G> factory;
+      for (const auto& node : data.nodes) {
+        factory.insertVertex(node);
+      }
+      for (const auto& element : data.elements) {
+        Dune::GeometryType gt;
+        gt.makeFromVertices(dim, element.size());
+        factory.insertElement(gt, element);
+      }
+      std::unique_ptr<G> grid(factory.createGrid());
+      std::vector<std::size_t> reordered_labels(data.labels.size());
+      using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
+      GV gv = grid->leafGridView();
+      Mapper mapper(gv);
+      if (mapper.size() != reordered_labels.size()) {
+        DUNE_THROW(Dune::Exception, "mapper and labels have a different number of entries ("
+                                        << mapper.size() << " vs " << reordered_labels.size()
+                                        << ")");
+      }
+      for (const auto& element : Dune::elements(gv)) {
+        auto label = data.labels[factory.insertionIndex(element)];
+        if (label >= data.conductivities.size()) {
+          DUNE_THROW(Dune::Exception, "label " << label << " out of bounds ("
+                                               << data.conductivities.size() << ")");
+        }
+        auto index = factory.insertionIndex(element);
+        if (index >= data.labels.size()) {
+          DUNE_THROW(Dune::Exception, "insertion index " << index << " out of bounds ("
+                                                         << data.labels.size() << ")");
+        }
+        reordered_labels[mapper.index(element)] = data.labels[index];
+      }
+      std::vector<TensorType> tensors;
+      for (auto value : data.conductivities) {
+        TensorType t;
+        for (unsigned int r = 0; r < t.N(); ++r) {
+          for (unsigned int c = 0; c < t.M(); ++c) {
+            t[r][c] = r == c ? value : 0.0;
+          }
+        }
+        tensors.push_back(t);
+      }
+      std::cout << "returning grid" << std::endl;
+      return std::make_shared<VolumeConductor<G>>(
+          std::move(grid),
+          std::unique_ptr<MappingType>(new MappingType(
+              IndirectEntityMapping<GV, TensorType>(gv, tensors, reordered_labels))));
     }
 
     static std::shared_ptr<VolumeConductor<G>> read(const std::string& gridFilename,
                                                     const std::string& tensorFilename,
                                                     DataTree dataTree = DataTree(),
-                                                    unsigned int offset=0)
+                                                    unsigned int offset = 0)
     {
       Dune::Timer timer(false);
       std::string extension = gridFilename.substr(gridFilename.find_last_of(".") + 1);
@@ -68,13 +129,13 @@ namespace duneuro
         It endit = gv.template end<0>();
         for (; it != endit; ++it) {
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(*it)];
-          if (pe-offset >= static_cast<int>(tensors.size())) {
+          if (pe - offset >= static_cast<int>(tensors.size())) {
             DUNE_THROW(Dune::Exception, "physical entitiy of element "
                                             << factory.insertionIndex(*it) << " is " << pe
                                             << " but only " << tensors.size()
                                             << " tensors have been read");
           }
-          indexToTensor[mapper.index(*it)] = pe-offset;
+          indexToTensor[mapper.index(*it)] = pe - offset;
         }
         timer.stop();
         dataTree.set("time_reordering_indices", timer.lastElapsed());

@@ -23,6 +23,7 @@
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
+#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meg/conforming_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solution.hh>
@@ -53,9 +54,11 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename DefaultGrid<elementType>::GridType>;
 
-    explicit VolumeConductorStorage(const Dune::ParameterTree& config,
+    explicit VolumeConductorStorage(const FittedMEEGDriverData& data,
+                                    const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
-        : volumeConductor_(VolumeConductorReader<typename Type::GridType>::read(config, dataTree))
+        : volumeConductor_(
+              VolumeConductorReader<typename Type::GridType>::read(data, config, dataTree))
     {
     }
 
@@ -76,7 +79,8 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
 
-    explicit VolumeConductorStorage(const Dune::ParameterTree& config,
+    explicit VolumeConductorStorage(const FittedMEEGDriverData& data,
+                                    const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
         : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
         , volumeConductor_(make_geometry_adapted_volume_conductor<3>(
@@ -115,8 +119,15 @@ namespace duneuro
     using Traits = FittedMEEGDriverTraits<elementType, solverType, degree, geometryAdaption>;
 
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+        : FittedMEEGDriver(FittedMEEGDriverData{}, config, dataTree)
+    {
+    }
+
+    explicit FittedMEEGDriver(const FittedMEEGDriverData& data, const Dune::ParameterTree& config,
+                              DataTree dataTree = DataTree())
         : config_(config)
-        , volumeConductorStorage_(config.sub("volume_conductor"), dataTree.sub("volume_conductor"))
+        , volumeConductorStorage_(data, config.sub("volume_conductor"),
+                                  dataTree.sub("volume_conductor"))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
               volumeConductorStorage_.get()->gridView()))
         , solver_(std::make_shared<typename Traits::Solver>(
