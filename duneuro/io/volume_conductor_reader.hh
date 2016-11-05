@@ -31,6 +31,8 @@ namespace duneuro
                                                     const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree())
     {
+      // if the user provided nodes in the data struct, we assume a mesh from the struct should be
+      // used. If there are no nodes, read the mesh and tensors from disk.
       if (data.nodes.size() > 0) {
         return read(data, dataTree);
       } else {
@@ -43,9 +45,7 @@ namespace duneuro
     static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData& data,
                                                     DataTree dataTree = DataTree())
     {
-      std::cout << "Got " << data.nodes.size() << " nodes, " << data.elements.size()
-                << " elements, " << data.labels.size() << " labels and "
-                << data.conductivities.size() << " conductivities" << std::endl;
+      Dune::Timer timer;
       Dune::GridFactory<G> factory;
       for (const auto& node : data.nodes) {
         factory.insertVertex(node);
@@ -56,6 +56,9 @@ namespace duneuro
         factory.insertElement(gt, element);
       }
       std::unique_ptr<G> grid(factory.createGrid());
+      timer.stop();
+      dataTree.set("time_creating_grid", timer.lastElapsed());
+      timer.start();
       std::vector<std::size_t> reordered_labels(data.labels.size());
       using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
       GV gv = grid->leafGridView();
@@ -78,6 +81,9 @@ namespace duneuro
         }
         reordered_labels[mapper.index(element)] = data.labels[index];
       }
+      timer.stop();
+      dataTree.set("time_reordering_labels", timer.lastElapsed());
+      timer.start();
       std::vector<TensorType> tensors;
       for (auto value : data.conductivities) {
         TensorType t;
@@ -88,7 +94,7 @@ namespace duneuro
         }
         tensors.push_back(t);
       }
-      std::cout << "returning grid" << std::endl;
+      dataTree.set("time", timer.elapsed());
       return std::make_shared<VolumeConductor<G>>(
           std::move(grid),
           std::unique_ptr<MappingType>(new MappingType(
