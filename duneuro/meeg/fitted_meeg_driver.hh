@@ -45,16 +45,16 @@ namespace duneuro
     using SourceModelFactoryType = DGSourceModelFactory;
   };
 
-  template <ElementType elementType, bool geometryAdaption>
+  template <int d, ElementType elementType, bool geometryAdaption>
   class VolumeConductorStorage;
 
-  template <ElementType elementType>
-  class VolumeConductorStorage<elementType, false>
+  template <int d, ElementType elementType>
+  class VolumeConductorStorage<d, elementType, false>
   {
   public:
-    using Type = VolumeConductor<typename DefaultGrid<elementType>::GridType>;
+    using Type = VolumeConductor<typename DefaultGrid<d, elementType>::GridType>;
 
-    explicit VolumeConductorStorage(const FittedMEEGDriverData& data,
+    explicit VolumeConductorStorage(const FittedMEEGDriverData<d>& data,
                                     const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
         : volumeConductor_(
@@ -73,13 +73,14 @@ namespace duneuro
   };
 
 #if HAVE_DUNE_SUBGRID
+  // note: geometry adaption currently only available in 3d
   template <>
-  class VolumeConductorStorage<ElementType::hexahedron, true>
+  class VolumeConductorStorage<3, ElementType::hexahedron, true>
   {
   public:
     using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
 
-    explicit VolumeConductorStorage(const FittedMEEGDriverData& data,
+    explicit VolumeConductorStorage(const FittedMEEGDriverData<3>& data,
                                     const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
         : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
@@ -100,9 +101,10 @@ namespace duneuro
   };
 #endif
 
-  template <ElementType elementType, FittedSolverType solverType, int degree, bool geometryAdaption>
+  template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
+            bool geometryAdaption>
   struct FittedMEEGDriverTraits {
-    using VCStorage = VolumeConductorStorage<elementType, geometryAdaption>;
+    using VCStorage = VolumeConductorStorage<dim, elementType, geometryAdaption>;
     using VC = typename VCStorage::Type;
     using Solver = typename SelectFittedSolver<solverType, VC, elementType, degree>::SolverType;
     using SourceModelFactory =
@@ -111,20 +113,20 @@ namespace duneuro
     using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   };
 
-  template <ElementType elementType, FittedSolverType solverType, int degree,
+  template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
             bool geometryAdaption = false>
-  class FittedMEEGDriver : public MEEGDriverInterface
+  class FittedMEEGDriver : public MEEGDriverInterface<dim>
   {
   public:
-    using Traits = FittedMEEGDriverTraits<elementType, solverType, degree, geometryAdaption>;
+    using Traits = FittedMEEGDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
-        : FittedMEEGDriver(FittedMEEGDriverData{}, config, dataTree)
+        : FittedMEEGDriver(FittedMEEGDriverData<dim>{}, config, dataTree)
     {
     }
 
-    explicit FittedMEEGDriver(const FittedMEEGDriverData& data, const Dune::ParameterTree& config,
-                              DataTree dataTree = DataTree())
+    explicit FittedMEEGDriver(const FittedMEEGDriverData<dim>& data,
+                              const Dune::ParameterTree& config, DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))
@@ -140,8 +142,8 @@ namespace duneuro
     {
     }
 
-    virtual void solveEEGForward(const MEEGDriverInterface::DipoleType& dipole, Function& solution,
-                                 const Dune::ParameterTree& config,
+    virtual void solveEEGForward(const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                                 Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), config,
@@ -170,8 +172,9 @@ namespace duneuro
       return Dune::Std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     }
 
-    virtual void setElectrodes(const std::vector<MEEGDriverInterface::CoordinateType>& electrodes,
-                               const Dune::ParameterTree& config) override
+    virtual void
+    setElectrodes(const std::vector<typename MEEGDriverInterface<dim>::CoordinateType>& electrodes,
+                  const Dune::ParameterTree& config) override
     {
       assert(electrodes.size() > 0);
       electrodeProjection_ = ElectrodeProjectionFactory::make_electrode_projection(
@@ -185,17 +188,20 @@ namespace duneuro
     }
 
     virtual void setCoilsAndProjections(
-        const std::vector<MEEGDriverInterface::CoordinateType>& coils,
-        const std::vector<std::vector<MEEGDriverInterface::CoordinateType>>& projections) override
+        const std::vector<typename MEEGDriverInterface<dim>::CoordinateType>& coils,
+        const std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>&
+            projections) override
     {
       if (coils.size() != projections.size()) {
         DUNE_THROW(Dune::Exception,
                    "number of coils (" << coils.size() << ") does not match number of projections ("
                                        << projections.size() << ")");
       }
-      coils_ = Dune::Std::make_unique<std::vector<MEEGDriverInterface::CoordinateType>>(coils);
-      projections_ =
-          Dune::Std::make_unique<std::vector<std::vector<MEEGDriverInterface::CoordinateType>>>(
+      coils_ =
+          Dune::Std::make_unique<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>(
+              coils);
+      projections_ = Dune::Std::
+          make_unique<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>(
               projections);
       megSolution_ = Dune::Std::make_unique<MEGSolution<
           typename Traits::VC, typename Traits::Solver::Traits::FunctionSpace,
@@ -326,10 +332,10 @@ namespace duneuro
       return std::move(transferMatrix);
     }
 
-    virtual std::vector<double> applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
-                                                 const DipoleType& dipole,
-                                                 const Dune::ParameterTree& config,
-                                                 DataTree dataTree = DataTree()) override
+    virtual std::vector<double>
+    applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
+                     const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       auto result = transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
       if (config.get<bool>("post_process")) {
@@ -342,10 +348,10 @@ namespace duneuro
       return result;
     }
 
-    virtual std::vector<double> applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
-                                                 const DipoleType& dipole,
-                                                 const Dune::ParameterTree& config,
-                                                 DataTree dataTree = DataTree()) override
+    virtual std::vector<double>
+    applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
+                     const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       return transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
     }
@@ -369,8 +375,9 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    std::unique_ptr<std::vector<MEEGDriverInterface::CoordinateType>> coils_;
-    std::unique_ptr<std::vector<std::vector<MEEGDriverInterface::CoordinateType>>> projections_;
+    std::unique_ptr<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>> coils_;
+    std::unique_ptr<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>
+        projections_;
   };
 }
 

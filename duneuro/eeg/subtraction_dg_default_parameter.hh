@@ -159,17 +159,18 @@ namespace duneuro
       typename Traits::DomainType global_x = e.geometry().global(x);
 
       /* evaluate graduinfty*/
-      Dune::FieldVector<typename Traits::RangeFieldType, 3> graduinfty;
+      Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> graduinfty;
       grad_u_infty.evaluateGlobal(global_x, graduinfty);
 
       /* temporary variable for the calculations */
-      Dune::FieldVector<typename Traits::RangeFieldType, 3> temp;
+      Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> temp;
 
       /* sigma^{\infty}\cdot\nabla u^{\infty} */
       sigma_infty.mv(graduinfty, temp);
 
       /* normal vector at the integration point */
-      Dune::FieldVector<typename Traits::RangeFieldType, 3> normal = e.unitOuterNormal(x);
+      Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> normal =
+          e.unitOuterNormal(x);
 
       return temp * normal;
     }

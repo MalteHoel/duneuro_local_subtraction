@@ -10,8 +10,9 @@
 
 namespace duneuro
 {
+  template <int dim>
   struct MEEGDriverInterface {
-    static const int dimension = 3;
+    static const int dimension = dim;
     using FieldType = double;
     using DipoleType = Dipole<FieldType, dimension>;
     using CoordinateType = Dune::FieldVector<FieldType, dimension>;

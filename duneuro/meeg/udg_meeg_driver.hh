@@ -35,7 +35,7 @@ namespace duneuro
   };
 
   template <int degree, int compartments>
-  class UDGMEEGDriver : public MEEGDriverInterface
+  class UDGMEEGDriver : public MEEGDriverInterface<3>
   {
   public:
     using Traits = UDGMEEGDriverTraits<degree, compartments>;

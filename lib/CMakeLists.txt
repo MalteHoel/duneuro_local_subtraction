@@ -1,6 +1,4 @@
-set(duneuro_SOURCES
-  ${CMAKE_SOURCE_DIR}/duneuro/meeg/fitted_meeg_driver.cc
-  ${CMAKE_SOURCE_DIR}/duneuro/meeg/meeg_driver_factory.cc)
+set(duneuro_SOURCES ${CMAKE_SOURCE_DIR}/duneuro/meeg/fitted_meeg_driver.cc)
 
 if (dune-udg_FOUND)
   set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/meeg/udg_meeg_driver.cc)
