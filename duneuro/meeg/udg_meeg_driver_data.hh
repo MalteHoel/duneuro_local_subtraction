@@ -5,8 +5,9 @@
 
 namespace duneuro
 {
+  template <int dim>
   struct UDGMEEGDriverData {
-    SimpleTPMCLevelSetData<double, 3> levelSetData;
+    SimpleTPMCLevelSetData<double, dim> levelSetData;
   };
 }
 

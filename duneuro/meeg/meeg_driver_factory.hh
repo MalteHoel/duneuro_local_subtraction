@@ -18,7 +18,7 @@ namespace duneuro
   struct MEEGDriverData {
     FittedMEEGDriverData<dim> fittedData;
 #if HAVE_DUNE_UDG
-    UDGMEEGDriverData udgData;
+    UDGMEEGDriverData<dim> udgData;
 #endif
   };
 

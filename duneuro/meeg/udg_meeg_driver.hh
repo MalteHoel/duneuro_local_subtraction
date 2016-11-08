@@ -20,10 +20,10 @@
 
 namespace duneuro
 {
-  template <int degree, int compartments>
+  template <int dim, int degree, int compartments>
   struct UDGMEEGDriverTraits {
-    using Grid = Dune::YaspGrid<3, Dune::EquidistantOffsetCoordinates<double, 3>>;
-    using GridView = Grid::LevelGridView;
+    using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
+    using GridView = typename Grid::LevelGridView;
     using ElementSearch = KDTreeElementSearch<GridView>;
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
     using Solver = UDGSolver<SubTriangulation, compartments, degree>;
@@ -34,19 +34,19 @@ namespace duneuro
     using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
   };
 
-  template <int degree, int compartments>
-  class UDGMEEGDriver : public MEEGDriverInterface<3>
+  template <int dim, int degree, int compartments>
+  class UDGMEEGDriver : public MEEGDriverInterface<dim>
   {
   public:
-    using Traits = UDGMEEGDriverTraits<degree, compartments>;
+    using Traits = UDGMEEGDriverTraits<dim, degree, compartments>;
 
     explicit UDGMEEGDriver(const Dune::ParameterTree& config)
-        : UDGMEEGDriver(UDGMEEGDriverData{}, config)
+        : UDGMEEGDriver(UDGMEEGDriverData<dim>{}, config)
     {
     }
 
-    explicit UDGMEEGDriver(UDGMEEGDriverData data, const Dune::ParameterTree& config)
-        : grid_(make_structured_grid<3>(config.sub("volume_conductor.grid")))
+    explicit UDGMEEGDriver(UDGMEEGDriverData<dim> data, const Dune::ParameterTree& config)
+        : grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
         , domain_(levelSetGridView_, data.levelSetData, config.sub("domain"))
@@ -63,8 +63,8 @@ namespace duneuro
     {
     }
 
-    virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
-                                 const Dune::ParameterTree& config,
+    virtual void solveEEGForward(const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                                 Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), config,
@@ -87,8 +87,9 @@ namespace duneuro
       return Dune::Std::make_unique<Function>(make_domain_dof_vector(eegForwardSolver_, 0.0));
     }
 
-    virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
-                               const Dune::ParameterTree& config) override
+    virtual void
+    setElectrodes(const std::vector<typename MEEGDriverInterface<dim>::CoordinateType>& electrodes,
+                  const Dune::ParameterTree& config) override
     {
       projectedElectrodes_ = Dune::Std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
           electrodes, eegForwardSolver_.functionSpace().getGFS(), *subTriangulation_);
@@ -109,9 +110,10 @@ namespace duneuro
                                             solution.cast<typename Traits::DomainDOFVector>());
     }
 
-    virtual void
-    setCoilsAndProjections(const std::vector<CoordinateType>& coils,
-                           const std::vector<std::vector<CoordinateType>>& projections) override
+    virtual void setCoilsAndProjections(
+        const std::vector<typename MEEGDriverInterface<dim>::CoordinateType>& coils,
+        const std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>&
+            projections) override
     {
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
@@ -126,6 +128,9 @@ namespace duneuro
             vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
         vtkWriter.addVertexData(eegForwardSolver_,
                                 solution.cast<typename Traits::DomainDOFVector>(), "potential");
+        vtkWriter.addVertexDataGradient(eegForwardSolver_,
+                                        solution.cast<typename Traits::DomainDOFVector>(),
+                                        "gradient_potential");
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
@@ -191,10 +196,10 @@ namespace duneuro
       DUNE_THROW(Dune::NotImplemented, "currently not implemented");
     }
 
-    virtual std::vector<double> applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
-                                                 const DipoleType& dipole,
-                                                 const Dune::ParameterTree& config,
-                                                 DataTree dataTree = DataTree()) override
+    virtual std::vector<double>
+    applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
+                     const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       auto result = transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
       if (config.get<bool>("post_process")) {
@@ -207,10 +212,10 @@ namespace duneuro
       return result;
     }
 
-    virtual std::vector<double> applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
-                                                 const DipoleType& dipole,
-                                                 const Dune::ParameterTree& config,
-                                                 DataTree dataTree = DataTree()) override
+    virtual std::vector<double>
+    applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
+                     const typename MEEGDriverInterface<dim>::DipoleType& dipole,
+                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       return transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
     }
