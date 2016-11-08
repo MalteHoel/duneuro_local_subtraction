@@ -35,6 +35,17 @@ namespace duneuro
     }
 
     template <class Solver>
+    void addVertexDataGradient(const Solver& solver,
+                               const typename Solver::Traits::DomainDOFVector& v,
+                               const std::string& name)
+    {
+      using UMVGF = Dune::UDG::UnfittedMultiDomainVTKGridFunction<ST>;
+      auto umgf = std::make_shared<UMVGF>(name);
+      subSpaceList_.addGradient(*umgf, v, solver.subTriangulation());
+      writer_.addVertexData(umgf);
+    }
+
+    template <class Solver>
     void addVertexData(const Solver& solver, const typename Solver::Traits::DomainDOFVector& v,
                        const std::string& name)
     {
