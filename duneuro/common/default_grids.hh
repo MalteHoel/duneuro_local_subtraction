@@ -12,12 +12,12 @@
 
 namespace duneuro
 {
-  template <ElementType et>
+  template <int dim, ElementType et>
   struct DefaultGrid;
 
-  template <>
-  struct DefaultGrid<ElementType::hexahedron> {
-    enum { dim = 3 };
+  template <int d>
+  struct DefaultGrid<d, ElementType::hexahedron> {
+    enum { dim = d };
 #if HAVE_DUNE_ALUGRID
     using GridType = Dune::ALUGrid<dim, dim, Dune::cube, Dune::nonconforming>;
 #elif HAVE_UG
@@ -27,9 +27,9 @@ namespace duneuro
 #endif
   };
 
-  template <>
-  struct DefaultGrid<ElementType::tetrahedron> {
-    enum { dim = 3 };
+  template <int d>
+  struct DefaultGrid<d, ElementType::tetrahedron> {
+    enum { dim = d };
 #if HAVE_DUNE_ALUGRID
     using GridType = Dune::ALUGrid<dim, dim, Dune::simplex, Dune::conforming>;
 #elif HAVE_UG

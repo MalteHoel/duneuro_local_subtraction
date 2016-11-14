@@ -27,7 +27,7 @@ namespace duneuro
     typedef typename G::ctype ctype;
     enum { dim = G::dimension };
 
-    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData& data,
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData<dim>& data,
                                                     const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree())
     {
@@ -42,7 +42,7 @@ namespace duneuro
       }
     }
 
-    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData& data,
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData<dim>& data,
                                                     DataTree dataTree = DataTree())
     {
       Dune::Timer timer;

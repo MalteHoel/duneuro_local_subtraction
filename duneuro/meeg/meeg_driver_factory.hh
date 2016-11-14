@@ -14,13 +14,15 @@
 
 namespace duneuro
 {
+  template <int dim>
   struct MEEGDriverData {
-    FittedMEEGDriverData fittedData;
+    FittedMEEGDriverData<dim> fittedData;
 #if HAVE_DUNE_UDG
-    UDGMEEGDriverData udgData;
+    UDGMEEGDriverData<dim> udgData;
 #endif
   };
 
+  template <int dim>
   class MEEGDriverFactory
   {
   public:
@@ -45,10 +47,13 @@ namespace duneuro
      *
      * The configuration is passed on to the selected driver.
      */
-    static std::unique_ptr<MEEGDriverInterface>
+    static std::unique_ptr<MEEGDriverInterface<dim>>
     make_meeg_driver(const Dune::ParameterTree& config,
-                     const MEEGDriverData& data = MEEGDriverData(), DataTree dataTree = DataTree());
+                     const MEEGDriverData<dim>& data = MEEGDriverData<dim>(),
+                     DataTree dataTree = DataTree());
   };
 }
+
+#include <duneuro/meeg/meeg_driver_factory_impl.hh>
 
 #endif // DUNEURO_MEEG_DRIVER_FACTORY_HH

@@ -34,6 +34,9 @@ namespace duneuro
     /*** constructor(s) ***/
     explicit InfinityPotential(const GV& gv_) : B(gv_)
     {
+      if (GV::dimension != 3) {
+        DUNE_THROW(Dune::Exception, "infinity potential currently only correct for dim == 3");
+      }
     }
 
     /*** functions ***/
@@ -55,8 +58,9 @@ namespace duneuro
     }
 
     /** set the parameters for the function **/
-    void set_parameters(DomainType M_, DomainType x_0_, Dune::FieldMatrix<RF, 3, 3> sigma_infty_,
-                        Dune::FieldMatrix<RF, 3, 3> sigma_infty_inv_)
+    void set_parameters(DomainType M_, DomainType x_0_,
+                        Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_,
+                        Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_inv_)
     {
       M = M_;
       x_0 = x_0_;
@@ -68,19 +72,20 @@ namespace duneuro
     /*** dipole position, moment and sigma_infty ***/
     DomainType M;
     DomainType x_0;
-    Dune::FieldMatrix<RF, 3, 3> sigma_infty;
-    Dune::FieldMatrix<RF, 3, 3> sigma_infty_inv;
+    Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty;
+    Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_inv;
   };
 
   /*** grad_u_infty ***/
   template <typename GV, typename RF>
   class InfinityPotentialGradient
       : public Dune::PDELab::
-            AnalyticGridFunctionBase<Dune::PDELab::AnalyticGridFunctionTraits<GV, RF, 3>,
+            AnalyticGridFunctionBase<Dune::PDELab::AnalyticGridFunctionTraits<GV, RF,
+                                                                              GV::dimension>,
                                      InfinityPotentialGradient<GV, RF>>
   {
   public:
-    typedef Dune::PDELab::AnalyticGridFunctionTraits<GV, RF, 3> Traits;
+    typedef Dune::PDELab::AnalyticGridFunctionTraits<GV, RF, GV::dimension> Traits;
     typedef typename Traits::DomainType DomainType;
     typedef typename Traits::RangeType RangeType;
     typedef Dune::PDELab::AnalyticGridFunctionBase<Traits, InfinityPotentialGradient<GV, RF>> B;
@@ -88,6 +93,9 @@ namespace duneuro
     /*** constructor(s) ***/
     explicit InfinityPotentialGradient(const GV& gv_) : B(gv_)
     {
+      if (GV::dimension != 3) {
+        DUNE_THROW(Dune::Exception, "infinity potential currently only correct for dim == 3");
+      }
     }
 
     /** evaluate the gradient for global coordinates **/
@@ -109,8 +117,9 @@ namespace duneuro
     }
 
     /** set the parameters for the function **/
-    void set_parameters(DomainType M_, DomainType x_0_, Dune::FieldMatrix<RF, 3, 3> sigma_infty_,
-                        Dune::FieldMatrix<RF, 3, 3> sigma_infty_inv_)
+    void set_parameters(DomainType M_, DomainType x_0_,
+                        Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_,
+                        Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_inv_)
     {
       M = M_;
       x_0 = x_0_;
@@ -122,8 +131,8 @@ namespace duneuro
     /*** dipole position, moment and sigma_infty ***/
     DomainType M;
     DomainType x_0;
-    Dune::FieldMatrix<RF, 3, 3> sigma_infty;
-    Dune::FieldMatrix<RF, 3, 3> sigma_infty_inv;
+    Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty;
+    Dune::FieldMatrix<RF, GV::dimension, GV::dimension> sigma_infty_inv;
   };
 }
 

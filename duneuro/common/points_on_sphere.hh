@@ -100,6 +100,21 @@ namespace duneuro
     }
   };
 
+  // two dimensional spcialization of the random points on unit sphere
+  // generator. Uses polar coordinates.
+  template <class ctype>
+  struct PointOnUnitSphereGenerator<Dune::FieldVector<ctype, 2>> {
+    typedef Dune::FieldVector<ctype, 2> Vector;
+
+    Vector operator()() const
+    {
+      // generate random polar coordinates between [0,2*PI]
+      auto phi = 2.0 * M_PI * static_cast<ctype>(std::rand()) / RAND_MAX;
+      // transform polar coordinates to cartesian
+      return {std::cos(phi), std::sin(phi)};
+    }
+  };
+
   // perform the operation axpy on a vector
   template <class Vector>
   struct AffineFunctor {

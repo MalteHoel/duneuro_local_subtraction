@@ -13,8 +13,9 @@ namespace duneuro {
    * is to provide mesh data which has not been read from a file but provide from outside. This is
    * used when creating a mesh from python or Matlab data.
    */
+  template <int dim>
   struct FittedMEEGDriverData {
-    using Coordinate = Dune::FieldVector<double,3>;
+    using Coordinate = Dune::FieldVector<double, dim>;
     //! \brief nodes of the mesh
     std::vector<Coordinate> nodes;
     //! \brief elements of the mesh, defined by the indices of their nodes in the `nodes` vector
