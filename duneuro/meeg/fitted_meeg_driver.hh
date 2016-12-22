@@ -10,6 +10,7 @@
 #if HAVE_DUNE_SUBGRID
 #include <duneuro/common/geometry_adaption.hh>
 #endif
+#include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/grid_function_mean.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
@@ -23,7 +24,6 @@
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
-#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meg/conforming_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solution.hh>
@@ -54,7 +54,7 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename DefaultGrid<d, elementType>::GridType>;
 
-    explicit VolumeConductorStorage(const FittedMEEGDriverData<d>& data,
+    explicit VolumeConductorStorage(const FittedDriverData<d>& data,
                                     const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
         : volumeConductor_(
@@ -80,7 +80,7 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
 
-    explicit VolumeConductorStorage(const FittedMEEGDriverData<3>& data,
+    explicit VolumeConductorStorage(const FittedDriverData<3>& data,
                                     const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
         : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
@@ -121,12 +121,12 @@ namespace duneuro
     using Traits = FittedMEEGDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
-        : FittedMEEGDriver(FittedMEEGDriverData<dim>{}, config, dataTree)
+        : FittedMEEGDriver(FittedDriverData<dim>{}, config, dataTree)
     {
     }
 
-    explicit FittedMEEGDriver(const FittedMEEGDriverData<dim>& data,
-                              const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    explicit FittedMEEGDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
+                              DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))

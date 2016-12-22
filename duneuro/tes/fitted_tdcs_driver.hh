@@ -5,12 +5,12 @@
 
 #include <duneuro/common/default_grids.hh>
 #include <duneuro/common/dg_solver.hh>
+#include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
-#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 #include <duneuro/tes/fitted_tdcs_solver.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #if HAVE_DUNE_SUBGRID
@@ -36,7 +36,7 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename DefaultGrid<d, elementType>::GridType>;
 
-    explicit TDCSVolumeConductorStorage(const FittedMEEGDriverData<d>& data,
+    explicit TDCSVolumeConductorStorage(const FittedDriverData<d>& data,
                                         const Dune::ParameterTree& config,
                                         DataTree dataTree = DataTree())
         : volumeConductor_(
@@ -62,7 +62,7 @@ namespace duneuro
   public:
     using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
 
-    explicit TDCSVolumeConductorStorage(const FittedMEEGDriverData<3>& data,
+    explicit TDCSVolumeConductorStorage(const FittedDriverData<3>& data,
                                         const Dune::ParameterTree& config,
                                         DataTree dataTree = DataTree())
         : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
@@ -100,12 +100,12 @@ namespace duneuro
     using Traits = FittedTDCSDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
     explicit FittedTDCSDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
-        : FittedTDCSDriver(FittedMEEGDriverData<dim>{}, config, dataTree)
+        : FittedTDCSDriver(FittedDriverData<dim>{}, config, dataTree)
     {
     }
 
-    explicit FittedTDCSDriver(const FittedMEEGDriverData<dim>& data,
-                              const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    explicit FittedTDCSDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
+                              DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))
