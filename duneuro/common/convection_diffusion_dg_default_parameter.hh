@@ -10,9 +10,8 @@ namespace duneuro
   template <typename VC>
   class ConvectionDiffusion_DG_DefaultParameter
   {
-    typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
-
   public:
+    typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
     typedef typename VC::GridType::LeafGridView GV;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, typename GV::ctype> Traits;
 
@@ -58,6 +57,13 @@ namespace duneuro
 
     typename Traits::RangeFieldType g(const typename Traits::ElementType&,
                                       const typename Traits::DomainType&) const
+    {
+      return 0.0;
+    }
+
+    template <class IG>
+    typename Traits::RangeFieldType g(const IG& ig,
+                                      const typename Traits::IntersectionDomainType&) const
     {
       return 0.0;
     }
