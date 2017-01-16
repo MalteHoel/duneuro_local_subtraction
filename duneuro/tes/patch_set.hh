@@ -35,20 +35,26 @@ namespace duneuro
       }
     }
 
-    T accumulate(const GlobalCoordinate& global, const GlobalCoordinate& normal) const
+    T accumulate(const GlobalCoordinate& global, const GlobalCoordinate& normal,
+                 PatchBoundaryType boundaryType) const
     {
       T result(0.0);
       for (const auto& patch : patches_) {
-        if (patch->contains(global, normal)) {
+        if ((boundaryType == PatchBoundaryType::Any || patch->boundaryType() == boundaryType)
+            && patch->contains(global, normal)) {
           result += patch->value(global, normal);
         }
       }
       return result;
     }
 
-    bool anyContains(const GlobalCoordinate& global, const GlobalCoordinate& normal) const
+    bool anyContains(const GlobalCoordinate& global, const GlobalCoordinate& normal,
+                     PatchBoundaryType boundaryType) const
     {
-      auto predicate = [&](const PatchPointer& patch) { return patch->contains(global, normal); };
+      auto predicate = [&](const PatchPointer& patch) {
+        return (boundaryType == PatchBoundaryType::Any || patch->boundaryType() == boundaryType)
+               && patch->contains(global, normal);
+      };
       return std::any_of(patches_.begin(), patches_.end(), predicate);
     }
 

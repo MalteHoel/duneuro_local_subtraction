@@ -15,6 +15,7 @@
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/volume_conductor.hh>
+#include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
 #include <duneuro/eeg/conforming_eeg_forward_solver.hh>
 #include <duneuro/eeg/conforming_transfer_matrix_solver.hh>
@@ -44,62 +45,6 @@ namespace duneuro
     using SolverType = DGSolver<VC, et, degree>;
     using SourceModelFactoryType = DGSourceModelFactory;
   };
-
-  template <int d, ElementType elementType, bool geometryAdaption>
-  class VolumeConductorStorage;
-
-  template <int d, ElementType elementType>
-  class VolumeConductorStorage<d, elementType, false>
-  {
-  public:
-    using Type = VolumeConductor<typename DefaultGrid<d, elementType>::GridType>;
-
-    explicit VolumeConductorStorage(const FittedDriverData<d>& data,
-                                    const Dune::ParameterTree& config,
-                                    DataTree dataTree = DataTree())
-        : volumeConductor_(
-              VolumeConductorReader<typename Type::GridType>::read(data, config, dataTree))
-    {
-    }
-
-    std::shared_ptr<Type> get() const
-    {
-      assert(volumeConductor_);
-      return volumeConductor_;
-    }
-
-  private:
-    std::shared_ptr<Type> volumeConductor_;
-  };
-
-#if HAVE_DUNE_SUBGRID
-  // note: geometry adaption currently only available in 3d
-  template <>
-  class VolumeConductorStorage<3, ElementType::hexahedron, true>
-  {
-  public:
-    using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
-
-    explicit VolumeConductorStorage(const FittedDriverData<3>& data,
-                                    const Dune::ParameterTree& config,
-                                    DataTree dataTree = DataTree())
-        : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
-        , volumeConductor_(make_geometry_adapted_volume_conductor<3>(
-              std::move(adaptedGrid_.grid), std::move(adaptedGrid_.labels), config))
-    {
-    }
-
-    std::shared_ptr<Type> get() const
-    {
-      assert(volumeConductor_);
-      return volumeConductor_;
-    }
-
-  private:
-    GeometryAdaptedGrid<3> adaptedGrid_;
-    std::shared_ptr<Type> volumeConductor_;
-  };
-#endif
 
   template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
             bool geometryAdaption>

@@ -82,6 +82,18 @@ namespace duneuro
     Dune::FieldMatrix<T, 2, 2> invProjection_;
   };
 
+  enum class PatchBoundaryType { Dirichlet, Neumann, Any };
+  static PatchBoundaryType patchBoundaryTypeFromString(const std::string& type)
+  {
+    if (type == "dirichlet") {
+      return PatchBoundaryType::Dirichlet;
+    } else if (type == "neumann") {
+      return PatchBoundaryType::Neumann;
+    } else {
+      DUNE_THROW(Dune::Exception, "unknown patch boundary type \"" << type << "\"");
+    }
+  }
+
   template <class T, int dim>
   class PatchInterface
   {
@@ -92,31 +104,58 @@ namespace duneuro
     virtual bool contains(const GlobalCoordinate& global, const GlobalCoordinate& normal) const = 0;
     virtual T value(const GlobalCoordinate& global, const GlobalCoordinate& normal) const = 0;
     virtual LocalCoordinate project(const GlobalCoordinate& global) const = 0;
+    virtual PatchBoundaryType boundaryType() const = 0;
     virtual ~PatchInterface()
     {
     }
   };
 
   template <class T, int dim>
+  class PatchBase : public PatchInterface<T, dim>
+  {
+  public:
+    virtual ~PatchBase()
+    {
+    }
+
+    explicit PatchBase(PatchBoundaryType boundaryType) : boundaryType_(boundaryType)
+    {
+    }
+
+    virtual PatchBoundaryType boundaryType() const override
+    {
+      return boundaryType_;
+    }
+
+  private:
+    PatchBoundaryType boundaryType_;
+  };
+
+  template <class T, int dim>
   class RectangularPatch;
 
   template <class T>
-  class RectangularPatch<T, 2> : public PatchInterface<T, 2>
+  class RectangularPatch<T, 2> : public PatchBase<T, 2>
   {
   public:
     enum { dim = 2 };
-    using BaseT = PatchInterface<T, dim>;
+    using BaseT = PatchBase<T, dim>;
     using GlobalCoordinate = typename BaseT::GlobalCoordinate;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
 
-    RectangularPatch(T value, T firstLength, const GlobalCoordinate& center,
-                     const GlobalCoordinate& firstAxis, const GlobalCoordinate& normal)
-        : value_(value), firstLength_(firstLength), plane_(center, firstAxis, normal)
+    RectangularPatch(PatchBoundaryType boundaryType, T value, T firstLength,
+                     const GlobalCoordinate& center, const GlobalCoordinate& firstAxis,
+                     const GlobalCoordinate& normal)
+        : BaseT(boundaryType)
+        , value_(value)
+        , firstLength_(firstLength)
+        , plane_(center, firstAxis, normal)
     {
     }
 
     RectangularPatch(const Dune::ParameterTree& config)
-        : RectangularPatch(config.get<T>("strength"), config.get<T>("size0"),
+        : RectangularPatch(patchBoundaryTypeFromString(config.get<std::string>("boundaryType")),
+                           config.get<T>("strength"), config.get<T>("size0"),
                            config.get<GlobalCoordinate>("center"),
                            config.get<GlobalCoordinate>("axis0"),
                            config.get<GlobalCoordinate>("normal"))
@@ -148,18 +187,19 @@ namespace duneuro
   };
 
   template <class T>
-  class RectangularPatch<T, 3> : public PatchInterface<T, 3>
+  class RectangularPatch<T, 3> : public PatchBase<T, 3>
   {
   public:
     enum { dim = 3 };
-    using BaseT = PatchInterface<T, dim>;
+    using BaseT = PatchBase<T, dim>;
     using GlobalCoordinate = typename BaseT::GlobalCoordinate;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
 
-    RectangularPatch(T value, T firstLength, T secondLength, const GlobalCoordinate& center,
-                     const GlobalCoordinate& firstAxis, const GlobalCoordinate& secondAxis,
-                     const GlobalCoordinate& normal)
-        : value_(value)
+    RectangularPatch(PatchBoundaryType boundaryType, T value, T firstLength, T secondLength,
+                     const GlobalCoordinate& center, const GlobalCoordinate& firstAxis,
+                     const GlobalCoordinate& secondAxis, const GlobalCoordinate& normal)
+        : BaseT(boundaryType)
+        , value_(value)
         , firstLength_(firstLength)
         , secondLength_(secondLength)
         , plane_(center, firstAxis, secondAxis, normal)
@@ -168,6 +208,7 @@ namespace duneuro
 
     RectangularPatch(const Dune::ParameterTree& config)
         : RectangularPatch(
+              patchBoundaryTypeFromString(config.get<std::string>("boundaryType")),
               config.get<T>("strength"), config.get<T>("size0"), config.get<T>("size1"),
               config.get<GlobalCoordinate>("center"), config.get<GlobalCoordinate>("axis0"),
               config.get<GlobalCoordinate>("axis1"), config.get<GlobalCoordinate>("normal"))
@@ -204,23 +245,27 @@ namespace duneuro
   class CircularPatch;
 
   template <class T>
-  class CircularPatch<T, 3> : public PatchInterface<T, 3>
+  class CircularPatch<T, 3> : public PatchBase<T, 3>
   {
   public:
     enum { dim = 3 };
-    using BaseT = PatchInterface<T, dim>;
+    using BaseT = PatchBase<T, dim>;
     using GlobalCoordinate = typename BaseT::GlobalCoordinate;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
 
-    CircularPatch(T value, T radius, const GlobalCoordinate& center,
+    CircularPatch(PatchBoundaryType boundaryType, T value, T radius, const GlobalCoordinate& center,
                   const GlobalCoordinate& firstAxis, const GlobalCoordinate& secondAxis,
                   const GlobalCoordinate& normal)
-        : value_(value), radius_(radius), plane_(center, firstAxis, secondAxis, normal)
+        : BaseT(boundaryType)
+        , value_(value)
+        , radius_(radius)
+        , plane_(center, firstAxis, secondAxis, normal)
     {
     }
 
     CircularPatch(const Dune::ParameterTree& config)
         : CircularPatch(
+              patchBoundaryTypeFromString(config.get<std::string>("boundaryType")),
               config.get<T>("strength"), config.get<T>("radius"),
               config.get<GlobalCoordinate>("center"), config.get<GlobalCoordinate>("axis0"),
               config.get<GlobalCoordinate>("axis1"), config.get<GlobalCoordinate>("normal"))
@@ -252,22 +297,23 @@ namespace duneuro
   };
 
   template <class T>
-  class CircularPatch<T, 2> : public PatchInterface<T, 2>
+  class CircularPatch<T, 2> : public PatchBase<T, 2>
   {
   public:
     enum { dim = 2 };
-    using BaseT = PatchInterface<T, dim>;
+    using BaseT = PatchBase<T, dim>;
     using GlobalCoordinate = typename BaseT::GlobalCoordinate;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
 
-    CircularPatch(T value, T radius, const GlobalCoordinate& center,
+    CircularPatch(PatchBoundaryType boundaryType, T value, T radius, const GlobalCoordinate& center,
                   const GlobalCoordinate& firstAxis, const GlobalCoordinate& normal)
-        : value_(value), radius_(radius), plane_(center, firstAxis, normal)
+        : BaseT(boundaryType), value_(value), radius_(radius), plane_(center, firstAxis, normal)
     {
     }
 
     CircularPatch(const Dune::ParameterTree& config)
-        : CircularPatch(config.get<T>("strength"), config.get<T>("radius"),
+        : CircularPatch(patchBoundaryTypeFromString(config.get<std::string>("boundaryType")),
+                        config.get<T>("strength"), config.get<T>("radius"),
                         config.get<GlobalCoordinate>("center"),
                         config.get<GlobalCoordinate>("axis0"),
                         config.get<GlobalCoordinate>("normal"))

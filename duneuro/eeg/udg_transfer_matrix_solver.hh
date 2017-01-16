@@ -14,7 +14,9 @@ namespace duneuro
   template <class ST, int compartments, int degree, class DF, class RF, class JF>
   struct UDGTransferMatrixSolverTraits {
     static const unsigned int dimension = ST::dim;
-    using Solver = UDGSolver<ST, compartments, degree, DF, RF, JF>;
+    using Solver =
+        UDGSolver<ST, compartments, degree,
+                  ConvectionDiffusion_UDG_DefaultParameter<typename ST::GridView>, DF, RF, JF>;
     using SubTriangulation = ST;
     using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;

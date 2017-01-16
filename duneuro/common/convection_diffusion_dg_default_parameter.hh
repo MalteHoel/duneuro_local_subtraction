@@ -74,6 +74,25 @@ namespace duneuro
       return 0.0;
     }
 
+    typename Traits::RangeType b(const typename Traits::ElementType&,
+                                 const typename Traits::DomainType&) const
+    {
+      return {0.0};
+    }
+
+    typename Traits::RangeFieldType c(const typename Traits::ElementType&,
+                                      const typename Traits::DomainType&) const
+    {
+      return 0.0;
+    }
+
+    template <class IG>
+    typename Traits::RangeFieldType o(const IG& ig,
+                                      const typename Traits::IntersectionDomainType&) const
+    {
+      return 0.0;
+    }
+
   private:
     std::shared_ptr<VC> volumeConductor_;
   };

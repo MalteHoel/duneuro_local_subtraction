@@ -1,32 +1,34 @@
-#ifndef DUNEURO_TDCS_PATCH_DG_PARAMETER_HH
-#define DUNEURO_TDCS_PATCH_DG_PARAMETER_HH
+#ifndef DUNEURO_TDCS_PATCH_UDG_PARAMETER_HH
+#define DUNEURO_TDCS_PATCH_UDG_PARAMETER_HH
 
-#include <duneuro/common/convection_diffusion_dg_default_parameter.hh>
+#include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
 #include <duneuro/tes/patch_set.hh>
 
 namespace duneuro
 {
-  template <typename VC>
-  class TDCSPatchDGParameter : public ConvectionDiffusion_DG_DefaultParameter<VC>
+  template <typename GV>
+  class TDCSPatchUDGParameter : public ConvectionDiffusion_UDG_DefaultParameter<GV>
   {
   public:
-    using BaseT = ConvectionDiffusion_DG_DefaultParameter<VC>;
+    using BaseT = ConvectionDiffusion_UDG_DefaultParameter<GV>;
     using Traits = typename BaseT::Traits;
 
-    TDCSPatchDGParameter(std::shared_ptr<VC> volumeConductor,
-                         const PatchSet<typename VC::ctype, VC::dim>& patchSet)
-        : BaseT(volumeConductor), patchSet_(patchSet)
+    TDCSPatchUDGParameter(const std::vector<double>& conductivities,
+                          const PatchSet<typename GV::ctype, GV::dimension>& patchSet)
+        : BaseT(conductivities), patchSet_(patchSet)
     {
     }
 
-    typename Traits::RangeFieldType j(const typename Traits::IntersectionType& ig,
+    template <class IG>
+    typename Traits::RangeFieldType j(const IG& ig,
                                       const typename Traits::IntersectionDomainType& local) const
     {
       return patchSet_.accumulate(ig.geometry().global(local), ig.unitOuterNormal(local),
                                   PatchBoundaryType::Neumann);
     }
 
-    typename BaseT::BCType bctype(const typename Traits::IntersectionType& ig,
+    template <class IG>
+    typename BaseT::BCType bctype(const IG& ig,
                                   const typename Traits::IntersectionDomainType& local) const
     {
       if (patchSet_.anyContains(ig.geometry().global(local), ig.unitOuterNormal(local),
@@ -46,8 +48,8 @@ namespace duneuro
     }
 
   private:
-    PatchSet<typename VC::ctype, VC::dim> patchSet_;
+    PatchSet<typename GV::ctype, GV::dimension> patchSet_;
   };
 }
 
-#endif // DUNEURO_TDCS_PATCH_DG_PARAMETER_HH
+#endif // DUNEURO_TDCS_PATCH_UDG_PARAMETER_HH

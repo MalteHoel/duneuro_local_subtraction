@@ -739,7 +739,6 @@ namespace duneuro
       // evaluate boundary condition type (see also (***))
       const Dune::FieldVector<DF, dim - 1> face_local =
           Dune::ReferenceElements<DF, dim - 1>::general(gtface).position(0, 0);
-      const BCType bctype = param.bctype(ig.intersection(), face_local);
 
       // face diameter
       RF h_F;
@@ -782,8 +781,6 @@ namespace duneuro
         // use them for the evaluation of data functions in order to make the code
         // compatible with both the PDELab assembler and the UDG assembler
         const Dune::FieldVector<DF, dim> ipglobal = ig.geometry().global(qp.position());
-        const Dune::FieldVector<DF, dim> hostentity_iplocal_s =
-            insideEntity.geometry().local(ipglobal);
 
         // evaluate basis functions
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
@@ -791,6 +788,7 @@ namespace duneuro
         // integration factor
         const RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
 
+        const BCType bctype = param.bctype(ig.intersection(), qp.position());
         if (bctype == Dune::PDELab::ConvectionDiffusionBoundaryConditions::Neumann) {
           // evaluate flux boundary condition
           const RF j = param.j(ig.intersection(), qp.position());
