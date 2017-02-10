@@ -6,6 +6,7 @@
 
 #include <duneuro/common/dg_solver.hh>
 #include <duneuro/common/dipole.hh>
+#include <duneuro/common/element_neighborhood_map.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/matrix_utilities.hh>
@@ -44,52 +45,68 @@ namespace duneuro
     {
     }
 
-    void postProcessPotential(const typename Traits::DipoleType& dipole,
-                              const std::vector<typename Traits::Coordinate>& projectedElectrodes,
-                              std::vector<typename Traits::DomainField>& potential,
-                              const Dune::ParameterTree& config)
+    void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      auto density = source_model_default_density(config.sub("source_model"));
-      if (density == VectorDensity::sparse) {
-        auto sourceModel = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            volumeConductor_, *solver_, search_, config.sub("source_model"));
-        sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
+      sparseSourceModel_.reset();
+      denseSourceModel_.reset();
+      density_ = source_model_default_density(config);
+      if (density_ == VectorDensity::sparse) {
+        sparseSourceModel_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
+            volumeConductor_, *solver_, search_, config);
       } else {
-        auto sourceModel = SMF::template createDense<typename Traits::DenseRHSVector>(
-            volumeConductor_, *solver_, search_, config.sub("source_model"));
-        sourceModel->postProcessSolution(dipole, projectedElectrodes, potential);
+        denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
+            volumeConductor_, *solver_, search_, config);
+      }
+    }
+
+    void bind(const typename Traits::DipoleType& dipole, DataTree dataTree = DataTree())
+    {
+      if (density_ == VectorDensity::sparse) {
+        if (!sparseSourceModel_) {
+          DUNE_THROW(Dune::Exception, "source model not set");
+        }
+        sparseSourceModel_->bind(dipole, dataTree);
+      } else {
+        if (!denseSourceModel_) {
+          DUNE_THROW(Dune::Exception, "source model not set");
+        }
+        denseSourceModel_->bind(dipole, dataTree);
+      }
+    }
+
+    void postProcessPotential(const std::vector<typename Traits::Coordinate>& projectedElectrodes,
+                              std::vector<typename Traits::DomainField>& potential)
+    {
+      if (density_ == VectorDensity::sparse) {
+        sparseSourceModel_->postProcessSolution(projectedElectrodes, potential);
+      } else {
+        denseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       }
     }
 
     template <class M>
-    std::vector<typename Traits::DomainField>
-    solve(const M& transferMatrix, const typename Traits::DipoleType& dipole,
-          const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const
+    std::vector<typename Traits::DomainField> solve(const M& transferMatrix,
+                                                    DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
       std::vector<typename Traits::DomainField> result;
-      auto density = source_model_default_density(config.sub("source_model"));
-      if (density == VectorDensity::sparse) {
+      if (density_ == VectorDensity::sparse) {
         dataTree.set("density", "sparse");
-        result = solveSparse(transferMatrix, dipole, config);
+        result = solveSparse(transferMatrix);
       } else {
         dataTree.set("density", "dense");
-        result = solveDense(transferMatrix, dipole, config);
+        result = solveDense(transferMatrix);
       }
       dataTree.set("time", timer.elapsed());
       return result;
     }
 
     template <class M>
-    std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix,
-                                                          const typename Traits::DipoleType& dipole,
-                                                          const Dune::ParameterTree& config) const
+    std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
-      auto sourceModel = SMF::template createSparse<typename Traits::SparseRHSVector>(
-          volumeConductor_, *solver_, search_, config.sub("source_model"));
-      sourceModel->assembleRightHandSide(dipole, rhs);
+      sparseSourceModel_->assembleRightHandSide(rhs);
 
       const auto blockSize =
           Traits::EEGForwardSolver::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
@@ -105,18 +122,14 @@ namespace duneuro
     }
 
     template <class M>
-    std::vector<typename Traits::DomainField> solveDense(const M& transferMatrix,
-                                                         const typename Traits::DipoleType& dipole,
-                                                         const Dune::ParameterTree& config) const
+    std::vector<typename Traits::DomainField> solveDense(const M& transferMatrix) const
     {
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
       } else {
         *denseRHSVector_ = 0.0;
       }
-      auto sourceModel = SMF::template createDense<typename Traits::DenseRHSVector>(
-          volumeConductor_, *solver_, search_, config.sub("source_model"));
-      sourceModel->assembleRightHandSide(dipole, *denseRHSVector_);
+      denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
 
       return matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));
@@ -126,6 +139,13 @@ namespace duneuro
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
     std::shared_ptr<typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::EEGForwardSolver> solver_;
+    VectorDensity density_;
+    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+                                         typename Traits::SparseRHSVector>>
+        sparseSourceModel_;
+    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+                                         typename Traits::DenseRHSVector>>
+        denseSourceModel_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;
   };
 }

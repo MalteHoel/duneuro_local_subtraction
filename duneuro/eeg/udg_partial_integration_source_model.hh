@@ -39,9 +39,7 @@ namespace duneuro
     {
     }
 
-    virtual void assembleRightHandSide(const ElementType& element,
-                                       const CoordinateType& localDipolePosition,
-                                       const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void assembleRightHandSide(VectorType& vector) const
     {
       using ChildLFS = typename ULFS::template Child<child>::Type;
       using FESwitch =
@@ -51,7 +49,7 @@ namespace duneuro
       ChildLFS& childLfs = ulfs_.child(child);
 
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
-      ust.create(element);
+      ust.create(this->dipoleElement());
 
       bool foundCompartment = false;
       for (const auto& ep : ust) {
@@ -73,8 +71,8 @@ namespace duneuro
         // reset basis transformations
         FESwitch::basis(childLfs.finiteElement()).reset();
 
-        auto boundingBoxLocal =
-            ep.subEntity().boundingBox().local(element.geometry().global(localDipolePosition));
+        auto boundingBoxLocal = ep.subEntity().boundingBox().local(
+            this->dipoleElement().geometry().global(this->localDipolePosition()));
 
         // evaluate gradiant in local bounding box coordinates
         std::vector<Dune::FieldMatrix<Real, 1, dim>> gradpsi(childLfs.size());
@@ -92,7 +90,8 @@ namespace duneuro
         }
 
         for (unsigned int i = 0; i < childLfs.size(); ++i) {
-          vector[ucache_.containerIndex(childLfs.localIndex(i))] = (dipoleMoment * gradpsi[i][0]);
+          vector[ucache_.containerIndex(childLfs.localIndex(i))] =
+              (this->dipole().moment() * gradpsi[i][0]);
         }
         break;
       }

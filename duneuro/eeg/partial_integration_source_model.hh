@@ -29,25 +29,23 @@ namespace duneuro
     {
     }
 
-    virtual void assembleRightHandSide(const ElementType& element,
-                                       const CoordinateType& localDipolePosition,
-                                       const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void assembleRightHandSide(VectorType& vector) const
     {
       using FESwitch =
           Dune::FiniteElementInterfaceSwitch<typename LFSType::Traits::FiniteElementType>;
       using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
 
-      lfs_.bind(element);
+      lfs_.bind(this->dipoleElement());
       cache_.update();
 
       std::vector<Dune::FieldMatrix<typename CoordinateType::field_type, 1,
                                     GFS::Traits::GridViewType::dimension>>
           gradpsi(lfs_.size());
-      BasisSwitch::gradient(FESwitch::basis(lfs_.finiteElement()), element.geometry(),
-                            localDipolePosition, gradpsi);
+      BasisSwitch::gradient(FESwitch::basis(lfs_.finiteElement()), this->dipoleElement().geometry(),
+                            this->localDipolePosition(), gradpsi);
 
       for (unsigned int i = 0; i < lfs_.size(); ++i) {
-        vector[cache_.containerIndex(i)] = (dipoleMoment * gradpsi[i][0]);
+        vector[cache_.containerIndex(i)] = (this->dipole().moment() * gradpsi[i][0]);
       }
     }
 

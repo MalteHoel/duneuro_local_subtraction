@@ -41,16 +41,27 @@ namespace duneuro
     {
     }
 
-    void solve(const typename Traits::DipoleType& dipole,
-               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+    void bind(const typename Traits::DipoleType& dipole, DataTree dataTree = DataTree())
+    {
+      if (!denseSourceModel_) {
+        DUNE_THROW(Dune::Exception, "source model not set");
+      }
+      denseSourceModel_->bind(dipole, dataTree);
+    }
+
+    void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    {
+      denseSourceModel_ = SMF::template createDense<typename Traits::RangeDOFVector>(
+          volumeConductor_, *solver_, search_, config);
+    }
+
+    void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       // assemble right hand side
       Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
-      auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
-          volumeConductor_, *solver_, search_, config.sub("source_model"));
-      sourceModel->assembleRightHandSide(dipole, *rightHandSideVector_);
+      denseSourceModel_->assembleRightHandSide(*rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
@@ -62,14 +73,10 @@ namespace duneuro
       dataTree.set("time", timer.elapsed());
     }
 
-    void postProcessSolution(const typename Traits::DipoleType& dipole,
-                             typename Traits::DomainDOFVector& solution,
-                             const Dune::ParameterTree& config)
+    void postProcessSolution(typename Traits::DomainDOFVector& solution) const
     {
       // post process solution
-      auto sourceModel = SMF::template createDense<typename Traits::RangeDOFVector>(
-          volumeConductor_, *solver_, search_, config.sub("source_model"));
-      sourceModel->postProcessSolution(dipole, solution);
+      denseSourceModel_->postProcessSolution(solution);
     }
 
     const typename Traits::FunctionSpace& functionSpace() const
@@ -82,6 +89,9 @@ namespace duneuro
     std::shared_ptr<typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
+    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+                                         typename Traits::RangeDOFVector>>
+        denseSourceModel_;
 
     template <class V>
     friend struct MakeDOFVectorHelper;

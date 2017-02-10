@@ -95,6 +95,9 @@ namespace duneuro
     setCoilsAndProjections(const std::vector<CoordinateType>& coils,
                            const std::vector<std::vector<CoordinateType>>& projections) = 0;
 
+    virtual void setSourceModel(const Dune::ParameterTree& config,
+                                DataTree dataTree = DataTree()) = 0;
+
     /**
      * \brief write the given solution to a file
      */
