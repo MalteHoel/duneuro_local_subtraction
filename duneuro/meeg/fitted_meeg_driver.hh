@@ -146,11 +146,10 @@ namespace duneuro
                                  Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
-      eegForwardSolver_.solve(dipole, solution.cast<typename Traits::DomainDOFVector>(), config,
-                              dataTree);
+      eegForwardSolver_.bind(dipole, dataTree);
+      eegForwardSolver_.solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
       if (config.get<bool>("post_process")) {
-        eegForwardSolver_.postProcessSolution(
-            dipole, solution.cast<typename Traits::DomainDOFVector>(), config);
+        eegForwardSolver_.postProcessSolution(solution.cast<typename Traits::DomainDOFVector>());
       }
       if (config.get<bool>("subtract_mean")) {
         subtract_mean(*solver_, solution.cast<typename Traits::DomainDOFVector>());
@@ -337,10 +336,10 @@ namespace duneuro
                      const typename MEEGDriverInterface<dim>::DipoleType& dipole,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
-      auto result = transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
+      transferMatrixUser_.bind(dipole, dataTree);
+      auto result = transferMatrixUser_.solve(transferMatrix, dataTree);
       if (config.get<bool>("post_process")) {
-        transferMatrixUser_.postProcessPotential(dipole, projectedGlobalElectrodes_, result,
-                                                 config);
+        transferMatrixUser_.postProcessPotential(projectedGlobalElectrodes_, result);
       }
       if (config.get<bool>("subtract_mean")) {
         subtract_mean(result);
@@ -348,12 +347,20 @@ namespace duneuro
       return result;
     }
 
+    virtual void setSourceModel(const Dune::ParameterTree& config,
+                                DataTree dataTree = DataTree()) override
+    {
+      transferMatrixUser_.setSourceModel(config, dataTree);
+      eegForwardSolver_.setSourceModel(config, dataTree);
+    }
+
     virtual std::vector<double>
     applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const typename MEEGDriverInterface<dim>::DipoleType& dipole,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
-      return transferMatrixUser_.solve(transferMatrix, dipole, config, dataTree);
+      transferMatrixUser_.bind(dipole, dataTree);
+      return transferMatrixUser_.solve(transferMatrix, dataTree);
     }
 
   private:

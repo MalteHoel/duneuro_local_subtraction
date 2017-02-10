@@ -114,15 +114,12 @@ namespace duneuro
       }
     }
 
-    virtual void assembleRightHandSide(const ElementType& element,
-                                       const CoordinateType& localDipolePosition,
-                                       const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void assembleRightHandSide(VectorType& vector) const
     {
       using VertexMapper = Dune::SingleCodimSingleGeomTypeMapper<GV, GV::dimension>;
-      const GV& gridView = gfs_.gridView();
-      VertexMapper mapper(gridView);
+      VertexMapper mapper(gfs_.gridView());
 
-      auto global = element.geometry().global(localDipolePosition);
+      auto global = this->dipoleElement().geometry().global(this->localDipolePosition());
 
       using Element = typename GV::template Codim<0>::Entity;
       std::vector<Element> elements;
@@ -147,7 +144,7 @@ namespace duneuro
           }
         }
       }
-      interpolate(vertices, Dipole<Real, dim>(global, dipoleMoment), vector);
+      interpolate(vertices, Dipole<Real, dim>(global, this->dipole().moment()), vector);
     }
 
   private:

@@ -5,8 +5,6 @@
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
-#include <dune/pdelab/gridfunctionspace/lfsindexcache.hh>
-#include <dune/pdelab/gridfunctionspace/localfunctionspace.hh>
 
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -27,8 +25,6 @@ namespace duneuro
     using LOP = SubtractionDG<Problem, EdgeNormProvider>;
     using DOF = typename FS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
-    using LFS = Dune::PDELab::LocalFunctionSpace<typename FS::GFS>;
-    using Cache = Dune::PDELab::LFSIndexCache<LFS>;
     using ElementType = typename BaseT::ElementType;
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
@@ -44,40 +40,38 @@ namespace duneuro
                config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)
         , res_(fs.getGFS(), 0.0)
+        , interp_(fs.getGFS(), 0.0)
         , assembler_(fs, lop_, 1)
-        , lfs_(fs.getGFS())
-        , cache_(lfs_)
     {
     }
 
-    virtual void assembleRightHandSide(const ElementType& element,
-                                       const CoordinateType& localDipolePosition,
-                                       const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void bind(const typename BaseT::DipoleType& dipole,
+                      DataTree dataTree = DataTree()) override
     {
-      problem_.bind(element, localDipolePosition, dipoleMoment);
+      BaseT::bind(dipole);
+      problem_.bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
+    }
+
+    virtual void assembleRightHandSide(VectorType& vector) const override
+    {
       x_ = 0.0;
       assembler_->residual(x_, vector);
       vector *= -1.0;
     }
 
-    virtual void postProcessSolution(const ElementType& element,
-                                     const CoordinateType& localDipolePosition,
-                                     const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void postProcessSolution(VectorType& vector) const override
     {
-      problem_.bind(element, localDipolePosition, dipoleMoment);
-      DOF interp(lfs_.gridFunctionSpace(), 0.0);
-      Dune::PDELab::interpolate(problem_.get_u_infty(), lfs_.gridFunctionSpace(), interp);
-      vector += interp;
+      interp_ = 0.0;
+      Dune::PDELab::interpolate(problem_.get_u_infty(), assembler_->trialGridFunctionSpace(),
+                                interp_);
+      vector += interp_;
     }
 
-    virtual void postProcessSolution(const ElementType& element,
-                                     const CoordinateType& localDipolePosition,
-                                     const CoordinateType& dipoleMoment,
-                                     const std::vector<CoordinateType>& electrodes,
-                                     std::vector<typename VectorType::field_type>& vector) const
+    virtual void
+    postProcessSolution(const std::vector<CoordinateType>& electrodes,
+                        std::vector<typename VectorType::field_type>& vector) const override
     {
       assert(electrodes.size() == vector.size());
-      problem_.bind(element, localDipolePosition, dipoleMoment);
       Dune::FieldVector<typename Problem::Traits::RangeFieldType, 1> result;
       for (unsigned int i = 0; i < electrodes.size(); ++i) {
         problem_.get_u_infty().evaluateGlobal(electrodes[i], result);
@@ -86,14 +80,13 @@ namespace duneuro
     }
 
   private:
-    mutable Problem problem_;
+    Problem problem_;
     EdgeNormProvider edgeNormProvider_;
     LOP lop_;
     mutable DOF x_;
     mutable DOF res_;
+    mutable DOF interp_;
     mutable AS assembler_;
-    mutable LFS lfs_;
-    mutable Cache cache_;
   };
 }
 

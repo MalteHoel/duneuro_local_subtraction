@@ -3,6 +3,7 @@
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/kdtree.hh>
+#include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
@@ -12,12 +13,13 @@ namespace duneuro
     using DipoleType = Dipole<ctype, dim>;
     using VectorType = V;
 
-    virtual void assembleRightHandSide(const DipoleType& dipole, VectorType& vector) const = 0;
+    virtual void bind(const DipoleType& dipole, DataTree dataTree = DataTree()) = 0;
 
-    virtual void postProcessSolution(const DipoleType& dipole, VectorType& vector) const = 0;
+    virtual void assembleRightHandSide(VectorType& vector) const = 0;
 
-    virtual void postProcessSolution(const DipoleType& dipole,
-                                     const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
+    virtual void postProcessSolution(VectorType& vector) const = 0;
+
+    virtual void postProcessSolution(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
                                      std::vector<typename V::field_type>& vector) const = 0;
 
     virtual ~SourceModelInterface()
@@ -39,46 +41,20 @@ namespace duneuro
     {
     }
 
-    virtual void assembleRightHandSide(const DipoleType& dipole, VectorType& vector) const
+    virtual void bind(const DipoleType& dipole, DataTree dataTree = DataTree()) override
     {
-      auto e = search_->findEntity(dipole.position());
-      auto local = e.geometry().local(dipole.position());
-      assembleRightHandSide(e, local, dipole.moment(), vector);
+      dipole_ = std::make_shared<DipoleType>(dipole);
+      dipoleElement_ = search_->findEntity(dipole_->position());
+      localDipolePosition_ = dipoleElement_.geometry().local(dipole_->position());
     }
 
-    virtual void assembleRightHandSide(const ElementType& element,
-                                       const CoordinateType& localDipolePosition,
-                                       const CoordinateType& dipoleMoment,
-                                       VectorType& vector) const = 0;
-
-    virtual void postProcessSolution(const DipoleType& dipole, VectorType& vector) const
-    {
-      auto e = search_->findEntity(dipole.position());
-      auto local = e.geometry().local(dipole.position());
-      postProcessSolution(e, local, dipole.moment(), vector);
-    }
-
-    virtual void postProcessSolution(const DipoleType& dipole,
-                                     const std::vector<CoordinateType>& electrodes,
-                                     std::vector<typename V::field_type>& vector) const
-    {
-      auto e = search_->findEntity(dipole.position());
-      auto local = e.geometry().local(dipole.position());
-      postProcessSolution(e, local, dipole.moment(), electrodes, vector);
-    }
-
-    virtual void postProcessSolution(const ElementType& element,
-                                     const CoordinateType& localDipolePosition,
-                                     const CoordinateType& dipoleMoment, VectorType& vector) const
+    virtual void postProcessSolution(VectorType& vector) const override
     {
       // as a default: no post processing
     }
 
-    virtual void postProcessSolution(const ElementType& element,
-                                     const CoordinateType& localDipolePosition,
-                                     const CoordinateType& dipoleMoment,
-                                     const std::vector<CoordinateType>& electrodes,
-                                     std::vector<typename V::field_type>& vector) const
+    virtual void postProcessSolution(const std::vector<CoordinateType>& electrodes,
+                                     std::vector<typename V::field_type>& vector) const override
     {
       // as a default: no post processing
     }
@@ -88,12 +64,30 @@ namespace duneuro
       return *search_;
     }
 
+    const DipoleType& dipole() const
+    {
+      return *dipole_;
+    }
+
+    const ElementType& dipoleElement() const
+    {
+      return dipoleElement_;
+    }
+
+    const CoordinateType& localDipolePosition() const
+    {
+      return localDipolePosition_;
+    }
+
     virtual ~SourceModelBase()
     {
     }
 
   private:
     std::shared_ptr<SearchType> search_;
+    std::shared_ptr<DipoleType> dipole_;
+    ElementType dipoleElement_;
+    CoordinateType localDipolePosition_;
   };
 }
 
