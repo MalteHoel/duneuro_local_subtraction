@@ -6,22 +6,23 @@
 #include <dune/udg/pdelab/subtriangulation.hh>
 
 #include <dune/pdelab/backend/istl.hh>
+#include <dune/pdelab/stationary/linearproblem.hh>
 
-#include <duneuro/common/random.hh>
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/random.hh>
 #include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/common/udg_multi_phase_space.hh>
 
 namespace duneuro
 {
-  template <class ST, int compartments, int degree, class DF, class RF, class JF>
+  template <class ST, int compartments, int degree, class P, class DF, class RF, class JF>
   struct UDGSolverTraits {
     using SubTriangulation = ST;
     using FundamentalGridView = typename ST::BaseT::GridView;
     static const int dimension = FundamentalGridView::dimension;
-    using Problem = ConvectionDiffusion_UDG_DefaultParameter<FundamentalGridView>;
+    using Problem = P;
     using FunctionSpace = UDGQkMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
     using DomainField = DF;
     using RangeField = RF;
@@ -39,23 +40,34 @@ namespace duneuro
     using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
     using LinearSolver = ThreadSafeStationaryLinearProblemSolver<GridOperator, SolverBackend,
                                                                  DomainDOFVector, RangeDOFVector>;
+    using PDELabLinearSolver =
+        Dune::PDELab::StationaryLinearProblemSolver<GridOperator, SolverBackend, DomainDOFVector>;
   };
 
-  template <class ST, int compartments, int degree, class DF = double, class RF = double,
-            class JF = double>
+  template <class ST, int compartments, int degree,
+            class P = ConvectionDiffusion_UDG_DefaultParameter<typename ST::BaseT::GridView>,
+            class DF = double, class RF = double, class JF = double>
   class UDGSolver
   {
   public:
-    using Traits = UDGSolverTraits<ST, compartments, degree, DF, RF, JF>;
+    using Traits = UDGSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
     UDGSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
               const Dune::ParameterTree& config)
+        : UDGSolver(subTriangulation, std::make_shared<typename Traits::Problem>(
+                                          config.get<std::vector<double>>("conductivities")),
+                    config)
+    {
+    }
+
+    UDGSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+              std::shared_ptr<typename Traits::Problem> problem, const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
-        , problem_(config.get<std::vector<double>>("conductivities"))
+        , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
-        , localOperator_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
-                                                          config.get<std::string>("scheme")),
+        , localOperator_(*problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
+                                                           config.get<std::string>("scheme")),
                          ConvectionDiffusion_DG_Weights::weightsOn, config.get<RF>("penalty"))
         , wrappedLocalOperator_(localOperator_)
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
@@ -65,6 +77,8 @@ namespace duneuro
         , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
                          config.get<unsigned int>("verbose", 0))
         , linearSolver_(linearSolverMutex_, gridOperator_, config)
+        , pdeLabLinearSolver_(gridOperator_, solverBackend_, config)
+        , pdeLabMatrixComputed_(false)
     {
     }
 
@@ -78,6 +92,16 @@ namespace duneuro
       dataTree.set("time", timer.elapsed());
     }
 
+    void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
+               DataTree dataTree = DataTree())
+    {
+      Dune::Timer timer;
+      randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
+      pdeLabLinearSolver_.apply(solution, pdeLabMatrixComputed_);
+      pdeLabMatrixComputed_ = true;
+      dataTree.set("time", timer.elapsed());
+    }
+
     const typename Traits::FunctionSpace& functionSpace() const
     {
       return functionSpace_;
@@ -88,9 +112,14 @@ namespace duneuro
       return *subTriangulation_;
     }
 
+    typename Traits::Problem& problem()
+    {
+      return *problem_;
+    }
+
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    typename Traits::Problem problem_;
+    std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;
     typename Traits::LocalOperator localOperator_;
@@ -100,6 +129,8 @@ namespace duneuro
     typename Traits::SolverBackend solverBackend_;
     std::mutex linearSolverMutex_;
     typename Traits::LinearSolver linearSolver_;
+    typename Traits::PDELabLinearSolver pdeLabLinearSolver_;
+    bool pdeLabMatrixComputed_;
   };
 }
 

@@ -52,6 +52,27 @@ namespace duneuro
               x.axpy(-proj, direction);
               return std::max(std::abs(proj) - length * .5, x.two_norm() - radius);
             });
+      } else if (type == "plane") {
+        auto center = config.get<Dune::FieldVector<ctype, dim>>("center");
+        auto normal = config.get<Dune::FieldVector<ctype,dim>>("normal");
+        return Dune::Std::make_unique<Dune::UDG::GlobalLevelSetFunction<LGV>>(
+            [center, normal](Dune::FieldVector<ctype, dim> x) {
+              x -= center;
+              return x*normal;
+            });
+      } else if (type == "plate") {
+        auto center = config.get<Dune::FieldVector<ctype, dim>>("center");
+        auto normal = config.get<Dune::FieldVector<ctype, dim>>("normal");
+        auto width = config.get<ctype>("width");
+        return Dune::Std::make_unique<Dune::UDG::GlobalLevelSetFunction<LGV>>(
+            [center, normal, width](Dune::FieldVector<ctype, dim> x) {
+              x -= center;
+              auto p1 = x;
+              p1.axpy(-0.5 * width, normal);
+              auto p2 = x;
+              p2.axpy(0.5 * width, normal);
+              return std::max(p1 * normal, -(p2 * normal));
+            });
       } else if (type == "reduction") {
         return Dune::Std::make_unique<ReductionLevelSet<LGV>>(gridView, config);
       } else if (type == "image") {
@@ -96,6 +117,9 @@ namespace duneuro
       if (transformation == "minimum") {
         reduction_ = [](Range x, Range y) { return std::min(x, y); };
         init_ = std::numeric_limits<Range>::max();
+      } else if (transformation == "maximum") {
+        reduction_ = [](Range x, Range y) { return std::max(x, y); };
+        init_ = -std::numeric_limits<Range>::max();
       } else {
         DUNE_THROW(Dune::Exception, "unknown reduction type " << transformation);
       }

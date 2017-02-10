@@ -10,10 +10,12 @@
 #if HAVE_DUNE_SUBGRID
 #include <duneuro/common/geometry_adaption.hh>
 #endif
+#include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/grid_function_mean.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/volume_conductor.hh>
+#include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
 #include <duneuro/eeg/conforming_eeg_forward_solver.hh>
 #include <duneuro/eeg/conforming_transfer_matrix_solver.hh>
@@ -23,7 +25,6 @@
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
-#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meg/conforming_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solution.hh>
@@ -45,62 +46,6 @@ namespace duneuro
     using SourceModelFactoryType = DGSourceModelFactory;
   };
 
-  template <int d, ElementType elementType, bool geometryAdaption>
-  class VolumeConductorStorage;
-
-  template <int d, ElementType elementType>
-  class VolumeConductorStorage<d, elementType, false>
-  {
-  public:
-    using Type = VolumeConductor<typename DefaultGrid<d, elementType>::GridType>;
-
-    explicit VolumeConductorStorage(const FittedMEEGDriverData<d>& data,
-                                    const Dune::ParameterTree& config,
-                                    DataTree dataTree = DataTree())
-        : volumeConductor_(
-              VolumeConductorReader<typename Type::GridType>::read(data, config, dataTree))
-    {
-    }
-
-    std::shared_ptr<Type> get() const
-    {
-      assert(volumeConductor_);
-      return volumeConductor_;
-    }
-
-  private:
-    std::shared_ptr<Type> volumeConductor_;
-  };
-
-#if HAVE_DUNE_SUBGRID
-  // note: geometry adaption currently only available in 3d
-  template <>
-  class VolumeConductorStorage<3, ElementType::hexahedron, true>
-  {
-  public:
-    using Type = VolumeConductor<typename GeometryAdaptedGrid<3>::GridType>;
-
-    explicit VolumeConductorStorage(const FittedMEEGDriverData<3>& data,
-                                    const Dune::ParameterTree& config,
-                                    DataTree dataTree = DataTree())
-        : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
-        , volumeConductor_(make_geometry_adapted_volume_conductor<3>(
-              std::move(adaptedGrid_.grid), std::move(adaptedGrid_.labels), config))
-    {
-    }
-
-    std::shared_ptr<Type> get() const
-    {
-      assert(volumeConductor_);
-      return volumeConductor_;
-    }
-
-  private:
-    GeometryAdaptedGrid<3> adaptedGrid_;
-    std::shared_ptr<Type> volumeConductor_;
-  };
-#endif
-
   template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
             bool geometryAdaption>
   struct FittedMEEGDriverTraits {
@@ -121,12 +66,12 @@ namespace duneuro
     using Traits = FittedMEEGDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
     explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
-        : FittedMEEGDriver(FittedMEEGDriverData<dim>{}, config, dataTree)
+        : FittedMEEGDriver(FittedDriverData<dim>{}, config, dataTree)
     {
     }
 
-    explicit FittedMEEGDriver(const FittedMEEGDriverData<dim>& data,
-                              const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    explicit FittedMEEGDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
+                              DataTree dataTree = DataTree())
         : config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))

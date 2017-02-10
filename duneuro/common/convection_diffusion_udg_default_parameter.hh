@@ -10,9 +10,8 @@ namespace duneuro
   template <typename GV>
   class ConvectionDiffusion_UDG_DefaultParameter
   {
-    typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
-
   public:
+    typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, typename GV::ctype> Traits;
 
     explicit ConvectionDiffusion_UDG_DefaultParameter(const std::vector<double>& conductivities)

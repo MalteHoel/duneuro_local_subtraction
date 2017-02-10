@@ -1,5 +1,5 @@
-#ifndef DUNEURO_FITTED_MEEG_DRIVER_DATA_HH
-#define DUNEURO_FITTED_MEEG_DRIVER_DATA_HH
+#ifndef DUNEURO_FITTED_DRIVER_DATA_HH
+#define DUNEURO_FITTED_DRIVER_DATA_HH
 
 #include <vector>
 
@@ -7,14 +7,14 @@
 
 namespace duneuro {
   /**
-   * \brief data storage for fitted meeg methods
+   * \brief data storage for fitted methods
    *
    * This class stores data used for initialization of fitted methods, e.g. CG or DG. Its main use
    * is to provide mesh data which has not been read from a file but provide from outside. This is
    * used when creating a mesh from python or Matlab data.
    */
   template <int dim>
-  struct FittedMEEGDriverData {
+  struct FittedDriverData {
     using Coordinate = Dune::FieldVector<double, dim>;
     //! \brief nodes of the mesh
     std::vector<Coordinate> nodes;
@@ -27,4 +27,4 @@ namespace duneuro {
   };
 }
 
-#endif // DUNEURO_FITTED_MEEG_DRIVER_DATA_HH
+#endif // DUNEURO_FITTED_DRIVER_DATA_HH

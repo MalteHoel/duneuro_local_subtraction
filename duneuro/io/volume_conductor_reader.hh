@@ -10,10 +10,10 @@
 
 #include <dune/alugrid/dgf.hh>
 
+#include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/volume_conductor.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/gmsh_tensor_reader.hh>
-#include <duneuro/meeg/fitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
@@ -27,7 +27,7 @@ namespace duneuro
     typedef typename G::ctype ctype;
     enum { dim = G::dimension };
 
-    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData<dim>& data,
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedDriverData<dim>& data,
                                                     const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree())
     {
@@ -43,7 +43,7 @@ namespace duneuro
       }
     }
 
-    static std::shared_ptr<VolumeConductor<G>> read(const FittedMEEGDriverData<dim>& data,
+    static std::shared_ptr<VolumeConductor<G>> read(const FittedDriverData<dim>& data,
                                                     DataTree dataTree = DataTree(),
                                                     unsigned int refinements = 0)
     {
