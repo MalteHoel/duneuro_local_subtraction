@@ -7,6 +7,9 @@
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_source_model.hh>
+#if HAVE_DUNE_SUBGRID
+#include <duneuro/eeg/localized_subtraction_source_model.hh>
+#endif
 
 namespace duneuro
 {
@@ -27,6 +30,12 @@ namespace duneuro
                                                        typename Solver::Traits::FunctionSpace, V,
                                                        SubtractionContinuityType::discontinuous>>(
             volumeConductor, solver.functionSpace(), search, config);
+#if HAVE_DUNE_SUBGRID
+      } else if (type == "localized_subtraction") {
+        return std::make_shared<LocalizedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
+            volumeConductor, solver.functionSpace(), search, config);
+#endif
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -44,6 +53,12 @@ namespace duneuro
         return std::make_shared<PartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
                                                              search);
+#if HAVE_DUNE_SUBGRID
+      } else if (type == "localized_subtraction") {
+        return std::make_shared<LocalizedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
+            volumeConductor, solver.functionSpace(), search, config);
+#endif
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
