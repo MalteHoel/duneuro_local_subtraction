@@ -275,6 +275,66 @@ namespace duneuro
     std::unique_ptr<std::vector<char>> labels;
   };
 
+  template <int dim>
+  GeometryAdaptedGrid<dim> make_geometry_adapted_grid(const FittedDriverData<dim>& data,
+                                                      const Dune::ParameterTree& config)
+  {
+    auto ygrid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
+        config.get<Dune::FieldVector<double, dim>>("lower_left"),
+        config.get<Dune::FieldVector<double, dim>>("upper_right"),
+        config.get<std::array<int, dim>>("cells"));
+    auto geometryGrid = create_geometry_adapted_grid(std::move(ygrid), data.labels, config);
+    auto ggGv = geometryGrid->leafGridView();
+    if (data.labels.size() != static_cast<std::size_t>(ggGv.size(0))) {
+      DUNE_THROW(Dune::Exception, "number of labels (" << data.labels.size()
+                                                       << ") does not match number of cells ("
+                                                       << ggGv.size(0) << ")");
+    }
+    // subgrid creation
+    auto grid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);
+    grid->createBegin();
+    for (const auto& hostElement : Dune::elements(ggGv)) {
+      if (data.labels[ggGv.indexSet().index(hostElement)] != 0) {
+        grid->insert(hostElement);
+      }
+    }
+    grid->createEnd();
+    auto sgGv = grid->leafGridView();
+    auto subLabels = Dune::Std::make_unique<std::vector<char>>(grid->size(0));
+    for (const auto& subElement : Dune::elements(sgGv)) {
+      (*subLabels)[sgGv.indexSet().index(subElement)] =
+          data.labels[ggGv.indexSet().index(grid->template getHostEntity<0>(subElement))] - 1;
+    }
+    return GeometryAdaptedGrid<dim>{std::move(geometryGrid), std::move(grid), std::move(subLabels)};
+  }
+
+  template <int dim>
+  std::shared_ptr<VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>>
+  make_geometry_adapted_volume_conductor(
+      std::unique_ptr<typename GeometryAdaptedGrid<dim>::GridType> grid,
+      std::unique_ptr<std::vector<char>> labels, const std::vector<double>& conductivities,
+      const Dune::ParameterTree& config)
+  {
+    using VC = VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>;
+    using Tensor = typename VC::TensorType;
+    using MappingType = typename VC::MappingType;
+    std::vector<Tensor> tensors;
+    for (auto value : conductivities) {
+      Tensor t;
+      for (unsigned int r = 0; r < t.N(); ++r) {
+        for (unsigned int c = 0; c < t.M(); ++c) {
+          t[r][c] = r == c ? value : 0.0;
+        }
+      }
+      tensors.push_back(t);
+    }
+    typename VC::GridView gv = grid->leafGridView();
+    return std::make_shared<VC>(
+        std::move(grid),
+        Dune::Std::make_unique<MappingType>(
+            IndirectEntityMapping<typename VC::GridView, Tensor, char>(gv, tensors, *labels)));
+  }
+
 #if HAVE_NIFTI
   template <int dim>
   struct GeometryAdaptedGridReader {
@@ -304,7 +364,6 @@ namespace duneuro
       }
       grid->createEnd();
       auto sgGv = grid->leafGridView();
-      std::cout << "hostgv.size = " << ggGv.size(0) << " subgv.size = " << sgGv.size(0) << "\n";
       auto subLabels = Dune::Std::make_unique<std::vector<char>>(grid->size(0));
       for (const auto& subElement : Dune::elements(sgGv)) {
         (*subLabels)[sgGv.indexSet().index(subElement)] =
@@ -315,24 +374,6 @@ namespace duneuro
     }
   };
 
-  template <int dim>
-  std::shared_ptr<VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>>
-  make_geometry_adapted_volume_conductor(
-      std::unique_ptr<typename GeometryAdaptedGrid<dim>::GridType> grid,
-      std::unique_ptr<std::vector<char>> labels, const Dune::ParameterTree& config)
-  {
-    using VC = VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>;
-    using Tensor = typename VC::TensorType;
-    using MappingType = typename VC::MappingType;
-    std::vector<Tensor> tensors;
-    GmshTensorReader<typename VC::GridType>::read(config.get<std::string>("tensors.filename"),
-                                                  tensors);
-    typename VC::GridView gv = grid->leafGridView();
-    return std::make_shared<VC>(
-        std::move(grid),
-        Dune::Std::make_unique<MappingType>(
-            IndirectEntityMapping<typename VC::GridView, Tensor, char>(gv, tensors, *labels)));
-  }
 #endif
 #endif
 }

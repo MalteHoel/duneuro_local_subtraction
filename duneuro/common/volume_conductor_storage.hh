@@ -40,8 +40,8 @@ namespace duneuro
     std::shared_ptr<Type> volumeConductor_;
   };
 
-#if HAVE_DUNE_SUBGRID && HAVE_NIFTI
-  // note: geometry adaption currently only available in 3d using nifti
+#if HAVE_DUNE_SUBGRID
+  // note: geometry adaption currently only available in 3d
   template <>
   class VolumeConductorStorage<3, ElementType::hexahedron, true>
   {
@@ -51,9 +51,10 @@ namespace duneuro
     explicit VolumeConductorStorage(const FittedDriverData<3>& data,
                                     const Dune::ParameterTree& config,
                                     DataTree dataTree = DataTree())
-        : adaptedGrid_(GeometryAdaptedGridReader<3>::read(config.sub("grid")))
-        , volumeConductor_(make_geometry_adapted_volume_conductor<3>(
-              std::move(adaptedGrid_.grid), std::move(adaptedGrid_.labels), config))
+        : adaptedGrid_(make_geometry_adapted_grid(data, config.sub("grid")))
+        , volumeConductor_(make_geometry_adapted_volume_conductor<3>(std::move(adaptedGrid_.grid),
+                                                                     std::move(adaptedGrid_.labels),
+                                                                     data.conductivities, config))
     {
     }
 
