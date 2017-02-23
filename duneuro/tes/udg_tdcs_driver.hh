@@ -50,9 +50,7 @@ namespace duneuro
         , domain_(levelSetGridView_, data.levelSetData, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
-              config.get<bool>("udg.force_refinement", false),
-              config.get<std::string>("udg.tpmc_type", "full") == "full" ? tpmc::fullTPMC :
-                                                                           tpmc::simpleMC))
+              config.get<bool>("udg.force_refinement", false)))
         , problem_(std::make_shared<typename Traits::Problem>(
               config_.get<std::vector<double>>("solver.conductivities"), patchSet))
         , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, problem_,
