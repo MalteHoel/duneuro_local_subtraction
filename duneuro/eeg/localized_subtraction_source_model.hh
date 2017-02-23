@@ -395,14 +395,14 @@ namespace duneuro
         const int intorder = intorderadd_lb_ + 2 * degree;
 
         const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
+        std::vector<RangeType> phi_s(lfsCacheInside_.size());
+        std::vector<RangeType> phi_n(lfsCacheOutside_.size());
         for (const auto& qp : rule) {
+          auto qp_inside = is.geometryInInside().global(qp.position());
+          auto qp_outside = is.geometryInOutside().global(qp.position());
           /** evaluate test and ansatz functions **/
-          std::vector<RangeType> phi_s(lfsCacheInside_.size());
-          FESwitch::basis(lfsInside_.finiteElement())
-              .evaluateFunction(is.geometryInInside().global(qp.position()), phi_s);
-          std::vector<RangeType> phi_n(lfsCacheOutside_.size());
-          FESwitch::basis(lfsOutside_.finiteElement())
-              .evaluateFunction(is.geometryInOutside().global(qp.position()), phi_n);
+          FESwitch::basis(lfsInside_.finiteElement()).evaluateFunction(qp_inside, phi_s);
+          FESwitch::basis(lfsOutside_.finiteElement()).evaluateFunction(qp_outside, phi_n);
 
           RF factor = qp.weight() * geo.integrationElement(qp.position());
 

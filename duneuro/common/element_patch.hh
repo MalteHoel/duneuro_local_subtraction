@@ -8,6 +8,7 @@
 #include <dune/common/std/memory.hh>
 
 #include <dune/grid/common/scsgmapper.hh>
+#include <dune/grid/io/file/vtk/vtkwriter.hh>
 
 #include <duneuro/common/element_neighborhood_map.hh>
 
@@ -20,6 +21,7 @@ namespace duneuro
   class ElementPatch
   {
   public:
+    using GridView = GV;
     using Coordinate = Dune::FieldVector<typename GV::ctype, GV::dimension>;
     using Element = typename GV::template Codim<0>::Entity;
     using Intersection = typename GV::Intersection;
@@ -221,6 +223,46 @@ namespace duneuro
       }
     }
     return patch;
+  }
+
+  template <class EP>
+  class ElementPatchVTKFunction : public Dune::VTKFunction<typename EP::GridView>
+  {
+    using GV = typename EP::GridView;
+    typedef typename GV::ctype DF;
+    enum { n = GV::dimension };
+    typedef typename GV::template Codim<0>::Entity Entity;
+
+  public:
+    ElementPatchVTKFunction(const EP& ep, std::string name) : ep_(ep), name_(name)
+    {
+    }
+
+    virtual int ncomps() const
+    {
+      return 1;
+    }
+
+    virtual double evaluate(int comp, const Entity& e, const Dune::FieldVector<DF, n>& xi) const
+    {
+      return ep_.contains(e) ? 1 : 0;
+    }
+
+    virtual std::string name() const
+    {
+      return name_;
+    }
+
+  private:
+    const EP& ep_;
+    std::string name_;
+  };
+
+  template <class EP>
+  std::unique_ptr<ElementPatchVTKFunction<EP>>
+  make_element_patch_vtk_function(const EP& patch, const std::string& name = "patch")
+  {
+    return Dune::Std::make_unique<ElementPatchVTKFunction<EP>>(patch, name);
   }
 }
 

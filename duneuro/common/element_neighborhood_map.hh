@@ -12,6 +12,7 @@ namespace duneuro
   {
   public:
     using Entity = typename GV::template Codim<0>::Entity;
+    using Vertex = typename GV::template Codim<GV::dimension>::Entity;
     using EntitySeed = typename Entity::EntitySeed;
 
     explicit ElementNeighborhoodMap(const GV& gv)
@@ -36,6 +37,18 @@ namespace duneuro
       }
     }
 
+    std::vector<Entity> getNeighborsOfVertex(unsigned int vertex) const
+    {
+      std::vector<Entity> result;
+      getNeighborsOfVertex(vertex, std::back_inserter(result));
+      return result;
+    }
+
+    std::vector<Entity> getNeighborsOfVertex(const Vertex& vertex) const
+    {
+      return getNeighborsOfVertex(vertexMapper_.index(vertex));
+    }
+
     template <typename I>
     void getVertexNeighbors(const Entity& element, I out) const
     {
@@ -56,7 +69,9 @@ namespace duneuro
     void getIntersectionNeighbors(const Entity& element, I out) const
     {
       for (const auto& intersection : Dune::intersections(gridView_, element)) {
-        *out++ = intersection.outside();
+        if (intersection.neighbor()) {
+          *out++ = intersection.outside();
+        }
       }
     }
 
