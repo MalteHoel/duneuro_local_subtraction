@@ -6,7 +6,6 @@
 
 #include <duneuro/common/dg_solver.hh>
 #include <duneuro/common/dipole.hh>
-#include <duneuro/common/element_neighborhood_map.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/matrix_utilities.hh>
