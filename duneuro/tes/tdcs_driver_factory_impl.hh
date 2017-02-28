@@ -11,6 +11,8 @@ extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::tetrahe
                                                 duneuro::FittedSolverType::dg, 1>;
 extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::dg, 1>;
+extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::hexahedron,
+                                                duneuro::FittedSolverType::dg, 1, true>;
 
 #if HAVE_DUNE_UDG
 extern template class duneuro::UDGTDCSDriver<2, 1, 1>;
@@ -46,9 +48,20 @@ namespace duneuro
                                                          FittedSolverType::dg, 1>>(
               data.fittedData, patchSet, config, dataTree);
         } else if (elementType == "hexahedron") {
-          return Dune::Std::make_unique<FittedTDCSDriver<3, ElementType::hexahedron,
-                                                         FittedSolverType::dg, 1, false>>(
-              data.fittedData, patchSet, config, dataTree);
+          auto geometryAdapted = config.get<bool>("geometry_adapted", false);
+          if (geometryAdapted) {
+#if HAVE_DUNE_SUBGRID
+            return Dune::Std::make_unique<FittedTDCSDriver<3, ElementType::hexahedron,
+                                                           FittedSolverType::dg, 1, true>>(
+                data.fittedData, patchSet, config, dataTree);
+#else
+            DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
+          } else {
+            return Dune::Std::make_unique<FittedTDCSDriver<3, ElementType::hexahedron,
+                                                           FittedSolverType::dg, 1, false>>(
+                data.fittedData, patchSet, config, dataTree);
+          }
         } else {
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
