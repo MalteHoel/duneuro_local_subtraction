@@ -18,6 +18,7 @@
 #endif
 
 #include <duneuro/common/volume_conductor.hh>
+#include <duneuro/common/fitted_driver_data.hh>
 #if HAVE_NIFTI
 #include <duneuro/io/nifti_image_reader.hh>
 #endif
