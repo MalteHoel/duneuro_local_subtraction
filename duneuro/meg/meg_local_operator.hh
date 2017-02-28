@@ -87,7 +87,7 @@ namespace duneuro
         /* compute the crossproduct between flux density and relative position of the source */
         std::vector<Dune::FieldVector<RF, dim>> cp(lfsv.size());
         for (size_type i = 0; i < lfsv.size(); ++i)
-          Dune::PDELab::CrossProduct<3, 3>(cp[i], jsec_phi[i], rel);
+          Dune::PDELab::CrossProduct<dim, dim>(cp[i], jsec_phi[i], rel);
 
         /* integrate cp */
         RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
