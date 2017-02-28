@@ -52,7 +52,7 @@ namespace duneuro
     {
       sparseSourceModel_.reset();
       denseSourceModel_.reset();
-      density_ = source_model_default_density(config.sub("source_model"));
+      density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_ =
             UDGSourceModelFactory::template createSparse<compartments - 1,
