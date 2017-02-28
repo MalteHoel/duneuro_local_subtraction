@@ -1,11 +1,15 @@
 #ifndef DUNEURO_FITTED_DRIVER_DATA_HH
 #define DUNEURO_FITTED_DRIVER_DATA_HH
 
+#include <memory>
 #include <vector>
 
 #include <dune/common/fvector.hh>
 
-namespace duneuro {
+#include <duneuro/common/simple_structured_grid.hh>
+
+namespace duneuro
+{
   /**
    * \brief data storage for fitted methods
    *
