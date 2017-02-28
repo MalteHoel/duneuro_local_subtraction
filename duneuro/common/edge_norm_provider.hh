@@ -202,6 +202,10 @@ namespace duneuro
                   typename Dune::PDELab::IntersectionGeometry<Impl>::Geometry::ctype& h,
                   const bool boundary = false) const
     {
+      if (!boundary && !ig.neighbor()) {
+        DUNE_THROW(Dune::Exception,
+                   "tried to get outside element of intersection without neighbor");
+      }
       // Houston's choice:
       // {minimum of inside and outside volume}/{volume of domain cell face}
       typedef Dune::PDELab::IntersectionGeometry<Impl> IG;

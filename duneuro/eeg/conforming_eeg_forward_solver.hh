@@ -61,6 +61,9 @@ namespace duneuro
       // assemble right hand side
       Dune::Timer timer;
       *rightHandSideVector_ = 0.0;
+      if (!denseSourceModel_) {
+        DUNE_THROW(Dune::Exception, "source model not set");
+      }
       denseSourceModel_->assembleRightHandSide(*rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
@@ -75,6 +78,9 @@ namespace duneuro
 
     void postProcessSolution(typename Traits::DomainDOFVector& solution) const
     {
+      if (!denseSourceModel_) {
+        DUNE_THROW(Dune::Exception, "source model not set");
+      }
       // post process solution
       denseSourceModel_->postProcessSolution(solution);
     }

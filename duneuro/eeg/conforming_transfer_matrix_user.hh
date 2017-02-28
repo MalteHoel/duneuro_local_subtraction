@@ -77,8 +77,14 @@ namespace duneuro
                               std::vector<typename Traits::DomainField>& potential)
     {
       if (density_ == VectorDensity::sparse) {
+        if (!sparseSourceModel_) {
+          DUNE_THROW(Dune::Exception, "source model not set");
+        }
         sparseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       } else {
+        if (!denseSourceModel_) {
+          DUNE_THROW(Dune::Exception, "source model not set");
+        }
         denseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       }
     }
@@ -105,6 +111,9 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
+      if (!sparseSourceModel_) {
+        DUNE_THROW(Dune::Exception, "source model not set");
+      }
       sparseSourceModel_->assembleRightHandSide(rhs);
 
       const auto blockSize =
@@ -127,6 +136,9 @@ namespace duneuro
         denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
       } else {
         *denseRHSVector_ = 0.0;
+      }
+      if (!denseSourceModel_) {
+        DUNE_THROW(Dune::Exception, "source model not set");
       }
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
 
