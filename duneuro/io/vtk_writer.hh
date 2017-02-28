@@ -42,6 +42,11 @@ namespace duneuro
           name));
     }
 
+    void addVertexData(std::shared_ptr<typename Writer::VTKFunction> vtkf)
+    {
+      writer_.addVertexData(vtkf);
+    }
+
     template <class Solver>
     void addVertexData(const Solver& solver,
                        std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
