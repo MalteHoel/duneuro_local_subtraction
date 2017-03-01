@@ -11,8 +11,10 @@ extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::tetrahe
                                                 duneuro::FittedSolverType::dg, 1>;
 extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::dg, 1>;
+#if HAVE_DUNE_SUBGRID
 extern template class duneuro::FittedTDCSDriver<3, duneuro::ElementType::hexahedron,
                                                 duneuro::FittedSolverType::dg, 1, true>;
+#endif
 
 #if HAVE_DUNE_UDG
 extern template class duneuro::UDGTDCSDriver<2, 1, 1>;
