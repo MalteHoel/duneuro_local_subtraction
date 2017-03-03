@@ -66,7 +66,7 @@ namespace duneuro
       GV gv = grid->leafGridView();
       Mapper mapper(gv);
       std::vector<std::size_t> reordered_labels(gv.size(0));
-      if (mapper.size() != reordered_labels.size()) {
+      if (std::size_t(mapper.size()) != reordered_labels.size()) {
         DUNE_THROW(Dune::Exception, "mapper and labels have a different number of entries ("
                                         << mapper.size() << " vs " << reordered_labels.size()
                                         << ")");
@@ -81,7 +81,7 @@ namespace duneuro
                                                          << data.labels.size() << ")");
         }
         auto label = data.labels[index];
-        if (label >= data.conductivities.size()) {
+        if (label < 0 || std::size_t(label) >= data.conductivities.size()) {
           DUNE_THROW(Dune::Exception, "label " << label << " out of bounds ("
                                                << data.conductivities.size() << ")");
         }
@@ -141,7 +141,7 @@ namespace duneuro
           while (root.hasFather())
             root = root.father();
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(root)];
-          if (pe - offset >= static_cast<int>(tensors.size())) {
+          if (pe - offset >= tensors.size()) {
             DUNE_THROW(Dune::Exception, "physical entitiy of element "
                                             << factory.insertionIndex(root) << " is " << pe
                                             << " but only " << tensors.size()

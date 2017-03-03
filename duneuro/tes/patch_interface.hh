@@ -83,7 +83,7 @@ namespace duneuro
   };
 
   enum class PatchBoundaryType { Dirichlet, Neumann, Any };
-  static PatchBoundaryType patchBoundaryTypeFromString(const std::string& type)
+  static inline PatchBoundaryType patchBoundaryTypeFromString(const std::string& type)
   {
     if (type == "dirichlet") {
       return PatchBoundaryType::Dirichlet;
