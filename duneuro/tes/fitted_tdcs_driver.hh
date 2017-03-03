@@ -73,7 +73,7 @@ namespace duneuro
     }
 
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
-                                  DataTree dataTree = DataTree())
+                                  DataTree dataTree = DataTree()) override
     {
       solver_->solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
     }

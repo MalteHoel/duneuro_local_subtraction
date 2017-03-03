@@ -768,19 +768,9 @@ namespace duneuro
 
       // loop over quadrature points and integrate normal flux
       for (auto&& qp : rule) {
-        // local normal
-        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
-
         // position of quadrature point in local coordinates of inside element
         // UDG assembler: local coordinates of the inside bounding box
         const Dune::FieldVector<DF, dim> iplocal_s = ig.geometryInInside().global(qp.position());
-
-        // position of quadrature point in local coordinates of inside element
-        // PDELab assembler: local coordinates are the same as iplocal_s
-        // UDG assembler: local coordinates of the inside host entity
-        // use them for the evaluation of data functions in order to make the code
-        // compatible with both the PDELab assembler and the UDG assembler
-        const Dune::FieldVector<DF, dim> ipglobal = ig.geometry().global(qp.position());
 
         // evaluate basis functions
         FESwitch::basis(lfsu_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);

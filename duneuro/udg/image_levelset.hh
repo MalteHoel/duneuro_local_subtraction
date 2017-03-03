@@ -29,7 +29,7 @@ namespace duneuro
     SimpleTPMCImageLevelSet(const GV& gv, std::shared_ptr<Image<ctype, dim>> vertexImage)
         : gridView_(gv), vertexImage_(vertexImage), vertexMapper_(gridView_), fem_(gridView_)
     {
-      if (gv.size(dim) != vertexImage->grid().elements()) {
+      if (std::size_t(gv.size(dim)) != vertexImage->grid().elements()) {
         DUNE_THROW(Dune::Exception, "number of grid vertices ("
                                         << gv.size(dim)
                                         << ") has to match number of elements in the vertex image ("
