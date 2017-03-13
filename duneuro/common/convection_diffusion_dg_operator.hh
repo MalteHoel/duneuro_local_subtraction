@@ -957,7 +957,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-      const int dim = EG::Geometry::dimension;
+      const int dim = EG::Geometry::mydimension;
       // const int order = lfsv.finiteElement().localBasis().order();
       const int order = FESwitch::basis(lfsv.finiteElement()).order();
       const int intorder = intorderadd + 2 * order;

@@ -2,7 +2,7 @@
 #define DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 
 #include <dune/pdelab/backend/istl.hh>
-#include <dune/pdelab/finiteelementmap/l2orthonormal.hh>
+#include <dune/pdelab/finiteelement/l2orthonormal.hh>
 #include <dune/pdelab/finiteelementmap/qkdg.hh>
 #include <dune/pdelab/ordering/chunkedblockordering.hh>
 
@@ -40,7 +40,7 @@ namespace duneuro
     typedef Dune::PDELab::istl::VectorBackend<> PVBE;
     typedef Dune::PDELab::ordering::Chunked<Dune::PDELab::EntityBlockedOrderingTag> OrderingTag;
     typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE, OrderingTag> GFS;
-    typedef typename Dune::PDELab::BackendVectorSelector<GFS, N>::Type DOF;
+    typedef typename Dune::PDELab::Backend::Vector<GFS, N> DOF;
 
     UDGQkMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
         : gridView_(gv), entitySet_(gridView_), subTriangulation_(subTriangulation)

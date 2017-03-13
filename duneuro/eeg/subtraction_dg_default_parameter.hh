@@ -37,7 +37,6 @@ namespace duneuro
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
     typedef typename Traits::GridViewType::Traits::IndexSet IndexSet;
     typedef typename Traits::GridViewType::Traits::Grid GridType;
-    typedef typename GridType::template Codim<0>::EntityPointer EntityPointer;
 
     /*** Constructor ***/
     SubtractionDGDefaultParameter(const typename Traits::GridViewType& gv_,

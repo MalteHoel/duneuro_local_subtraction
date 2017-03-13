@@ -4,8 +4,8 @@
 
 #Name of the module
 Module: duneuro
-Version: 0.1
+Version: 2.5-dev
 Maintainer: andreas.nuessing@uni-muenster.de
 #depending on
-Depends: dune-common dune-grid dune-istl dune-pdelab
-Suggests: dune-udg dune-subgrid dune-mc dune-alugrid
+Depends: dune-common (>= 2.5) dune-grid (>= 2.5) dune-istl (>= 2.5) dune-pdelab (>= 2.5)
+Suggests: dune-udg dune-subgrid dune-mc dune-alugrid (>= 2.5)
