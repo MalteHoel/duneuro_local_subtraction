@@ -20,7 +20,6 @@
 #include <dune/localfunctions/common/interfaceswitch.hh>
 
 #include <dune/pdelab/common/crossproduct.hh>
-#include <dune/pdelab/finiteelement/localbasiscache.hh>
 #include <dune/pdelab/localoperator/flags.hh>
 
 namespace duneuro
@@ -70,6 +69,7 @@ namespace duneuro
 
       typename VC::TensorType sigma(volumeConductor_->tensor(eg.entity()));
 
+      std::vector<typename BasisSwitch::Range> phi(lfsv.size());
       std::vector<Dune::FieldVector<RF, dim>> cp(lfsv.size());
 
       /** loop over quadrature points **/
@@ -77,8 +77,7 @@ namespace duneuro
         const auto global = geo.global(qp.position());
 
         /* evaluate gradient of basis functions on reference element */
-        const auto& phi =
-            cache_.evaluateFunction(qp.position(), FESwitch::basis(lfsv.finiteElement()));
+        FESwitch::basis(lfsv.finiteElement()).evaluateFunction(qp.position(), phi);
 
         /*evaluate the relative position of the source */
         Dune::FieldVector<RF, dim> rel = sensor_;
@@ -117,7 +116,6 @@ namespace duneuro
 
   private:
     std::shared_ptr<const VC> volumeConductor_;
-    Cache cache_;
     DomainType sensor_;
     DomainType projection_;
     unsigned int intorderadd;
