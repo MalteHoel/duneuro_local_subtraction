@@ -12,13 +12,13 @@
 
 namespace duneuro
 {
-  template <class VC, unsigned int degree>
+  template <class VC>
   class VTKWriter
   {
   public:
     using Writer = Dune::SubsamplingVTKWriter<typename VC::GridView>;
 
-    explicit VTKWriter(std::shared_ptr<VC> volumeConductor, unsigned int subsampling = degree - 1)
+    explicit VTKWriter(std::shared_ptr<VC> volumeConductor, unsigned int subsampling)
         : writer_(volumeConductor->gridView(), subsampling), volumeConductor_(volumeConductor)
     {
     }
@@ -61,13 +61,13 @@ namespace duneuro
           name));
     }
 
-
     template <class Solver>
     void addCellDataGradient(const Solver& solver,
-                     std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                     const std::string& name)
+                             std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
+                             const std::string& name)
     {
-      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
+      using DGF =
+          Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
                                                      typename Solver::Traits::DomainDOFVector>;
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
       writer_.addCellData(
@@ -76,10 +76,11 @@ namespace duneuro
 
     template <class Solver>
     void addVertexDataGradient(const Solver& solver,
-                       std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                       const std::string& name)
+                               std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
+                               const std::string& name)
     {
-      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
+      using DGF =
+          Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS,
                                                      typename Solver::Traits::DomainDOFVector>;
       using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
       writer_.addVertexData(
