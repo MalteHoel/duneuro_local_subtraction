@@ -10,16 +10,26 @@ namespace duneuro
 {
   template <int dim>
   std::unique_ptr<Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>>
-  make_structured_grid(const Dune::ParameterTree& config)
+  make_structured_grid(const Dune::FieldVector<double, dim>& lower_left,
+                       const Dune::FieldVector<double, dim>& upper_right,
+                       const std::array<int, dim>& cells, unsigned int refinements)
   {
     auto grid =
         Dune::Std::make_unique<Dune::YaspGrid<dim,
                                               Dune::EquidistantOffsetCoordinates<double, dim>>>(
-            config.get<Dune::FieldVector<double, dim>>("lower_left"),
-            config.get<Dune::FieldVector<double, dim>>("upper_right"),
-            config.get<std::array<int, dim>>("cells"));
-    grid->globalRefine(config.get<unsigned int>("refinements"));
-    return std::move(grid);
+            lower_left, upper_right, cells);
+    grid->globalRefine(refinements);
+    return grid;
+  }
+
+  template <int dim>
+  std::unique_ptr<Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>>
+  make_structured_grid(const Dune::ParameterTree& config)
+  {
+    return make_structured_grid<dim>(config.get<Dune::FieldVector<double, dim>>("lower_left"),
+                                     config.get<Dune::FieldVector<double, dim>>("upper_right"),
+                                     config.get<std::array<int, dim>>("cells"),
+                                     config.get<unsigned int>("refinements"));
   }
 }
 
