@@ -1,0 +1,27 @@
+#ifndef DUNEURO_MEG_SOLVER_INTERFACE_HH
+#define DUNEURO_MEG_SOLVER_INTERFACE_HH
+
+#include <dune/common/fvector.hh>
+
+#include <dune/pdelab/backend/interface.hh>
+
+#include <duneuro/io/vtk_writer.hh>
+
+namespace duneuro
+{
+  template <class VC, class V>
+  class MEGSolverInterface
+  {
+  public:
+    using DomainType = Dune::FieldVector<typename VC::ctype, VC::dim>;
+
+    virtual void bind(const DomainType& sensor, const DomainType& projection) = 0;
+    virtual void bind(const V& eegSolution) = 0;
+    virtual typename Dune::FieldTraits<Dune::PDELab::Backend::Native<V>>::field_type
+    solve() const = 0;
+    virtual void assembleTransferMatrixRHS(V& rhs) const = 0;
+    virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const = 0;
+  };
+}
+
+#endif // DUNEURO_MEG_SOLVER_INTERFACE_HH
