@@ -101,7 +101,14 @@ namespace duneuro
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.bind(dipole, dataTree);
-      eegForwardSolver_.solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
+
+      if (config.get<bool>("only_post_process")) {
+        solution.cast<typename Traits::DomainDOFVector>() = 0.0;
+      } else {
+        // eegForwardSolver_.bind(dipole, dataTree);
+        eegForwardSolver_.solve(solution.cast<typename Traits::DomainDOFVector>(), config,
+                                dataTree);
+      }
       if (config.get<bool>("post_process")) {
         eegForwardSolver_.postProcessSolution(solution.cast<typename Traits::DomainDOFVector>());
       }
