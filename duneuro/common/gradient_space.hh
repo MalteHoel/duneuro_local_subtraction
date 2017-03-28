@@ -6,11 +6,9 @@
 #include <dune/istl/solvercategory.hh>
 
 #include <dune/pdelab/backend/istl.hh>
-#include <dune/pdelab/finiteelementmap/powerfem.hh>
-#include <dune/pdelab/finiteelementmap/qkdg.hh>
 #include <dune/pdelab/gridfunctionspace/gridfunctionspace.hh>
 
-#include <duneuro/common/local_to_global_fem.hh>
+#include <duneuro/common/q1gradientfem.hh>
 
 namespace duneuro
 {
@@ -29,11 +27,7 @@ namespace duneuro
     static const int dim = T::dimension;
     static const int dimworld = T::dimensionworld;
     typedef N NT;
-    typedef Dune::PDELab::QkDGLocalFiniteElementMap<ctype, NT, degree, dim> LFEM;
-    typedef Dune::PDELab::LocalToGlobalFiniteElementMap<LFEM,
-                                                        typename GV::template Codim<0>::Geometry>
-        GFEM;
-    typedef Dune::PDELab::PowerFiniteElementMap<GFEM, dim> FEM;
+    typedef duneuro::Q1GradientLocalFiniteElementMap<GV, NT, NT> FEM;
     typedef VBET VBE;
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE> GFS;
     typedef typename GFS::template ConstraintsContainer<N>::Type CC;
@@ -42,8 +36,7 @@ namespace duneuro
     typedef Dune::PDELab::VTKGridFunctionAdapter<DGF> VTKF;
 
     // constructor making the grid function space an all that is needed
-    DGQkGradientSpace(const GV& gridview)
-        : gv(gridview), lfem(), gfem(lfem), fem(gfem), gfs(gv, fem), cc()
+    DGQkGradientSpace(const GV& gridview) : gv(gridview), fem(), gfs(gv, fem), cc()
     {
       // initialize ordering
       gfs.update();
@@ -84,8 +77,6 @@ namespace duneuro
 
   private:
     GV gv; // need this object here because FEM and GFS store a const reference !!
-    LFEM lfem;
-    GFEM gfem;
     FEM fem;
     GFS gfs;
     CC cc;
