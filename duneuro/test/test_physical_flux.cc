@@ -2,9 +2,11 @@
 
 #include <dune/common/array.hh>
 
+#include <dune/grid/io/file/vtk.hh>
 #include <dune/grid/yaspgrid.hh>
 
 #include <dune/pdelab/boilerplate/pdelab.hh>
+#include <dune/pdelab/gridfunctionspace/vtk.hh>
 #include <dune/pdelab/test/l2difference.hh>
 
 #include <duneuro/common/gradient_space.hh>
@@ -52,8 +54,9 @@ int run(bool useJacobian)
   // interpolate physical flux
   using Flux = duneuro::PhysicalFlux<VC, FS, duneuro::ElementType::hexahedron, 1>;
   Dune::ParameterTree config;
+  Dune::ParameterTree megconfig;
   Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor), Dune::stackobject_to_shared_ptr(fs),
-            useJacobian, config);
+            useJacobian, megconfig, config);
   typename GradientFS::DOF fluxdof(gradientfs.getGFS(), 0.0);
   flux.interpolate(dof, fluxdof);
 
