@@ -126,15 +126,14 @@ namespace duneuro
       }
       megSolver_->bind(eegSolution.cast<typename Traits::DomainDOFVector>());
       std::vector<double> output;
-      for (unsigned int i = 0; i < coils_->size(); ++i) {
-        for (unsigned int j = 0; j < (*projections_)[i].size(); ++j) {
+      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
+        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
           std::stringstream name;
           name << "coil_" << i << "_projection_" << j;
           Dune::Timer timer;
-          megSolver_->bind((*coils_)[i], (*projections_)[i][j]);
           double time_bind = timer.elapsed();
           timer.reset();
-          output.push_back(megSolver_->solve());
+          output.push_back(megSolver_->solve(i, j));
           double time_solve = timer.elapsed();
           dataTree.set(name.str() + ".time", time_bind + time_solve);
           dataTree.set(name.str() + ".time_bind", time_bind);
@@ -174,12 +173,11 @@ namespace duneuro
                    "number of coils (" << coils.size() << ") does not match number of projections ("
                                        << projections.size() << ")");
       }
-      coils_ =
-          Dune::Std::make_unique<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>(
-              coils);
-      projections_ = Dune::Std::
-          make_unique<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>(
-              projections);
+      megSolver_->bind(coils, projections);
+      numberOfCoils_ = coils.size();
+      numberOfProjections_.resize(numberOfCoils_);
+      for (unsigned int i = 0; i < numberOfCoils_; ++i)
+        numberOfProjections_[i] = projections[i].size();
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
@@ -285,30 +283,24 @@ namespace duneuro
     computeMEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      if (!(coils_ && projections_)) {
-        DUNE_THROW(Dune::Exception,
-                   "please call setCoilsAndProjections before computing the MEG transfer matrix");
-      }
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "meg solver not created");
       }
       auto solution = duneuro::make_domain_dof_vector(eegForwardSolver_, 0.0);
-      std::size_t numberOfProjections = 0;
-      for (const auto& p : *projections_)
-        numberOfProjections += p.size();
+      std::size_t numberOfProjections =
+          std::accumulate(numberOfProjections_.begin(), numberOfProjections_.end(), 0);
       auto transferMatrix =
           Dune::Std::make_unique<DenseMatrix<double>>(numberOfProjections, solution->flatsize());
       unsigned int offset = 0;
       auto solver_config = config.sub("solver");
-      for (unsigned int i = 0; i < coils_->size(); ++i) {
+      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
         auto coilDT = dataTree.sub("solver.coil_" + std::to_string(i));
-        for (unsigned int j = 0; j < (*projections_)[i].size(); ++j) {
-          megTransferMatrixSolver_.solve((*coils_)[i], (*projections_)[i][j], *solution,
-                                         solver_config,
+        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
+          megTransferMatrixSolver_.solve(i, j, *solution, solver_config,
                                          coilDT.sub("projection_" + std::to_string(j)));
           set_matrix_row(*transferMatrix, offset + j, Dune::PDELab::Backend::native(*solution));
         }
-        offset += (*projections_)[i].size();
+        offset += numberOfProjections_[i];
       }
       return std::move(transferMatrix);
     }
@@ -369,9 +361,8 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    std::unique_ptr<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>> coils_;
-    std::unique_ptr<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>
-        projections_;
+    std::size_t numberOfCoils_;
+    std::vector<std::size_t> numberOfProjections_;
   };
 }
 

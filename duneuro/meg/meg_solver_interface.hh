@@ -15,11 +15,13 @@ namespace duneuro
   public:
     using DomainType = Dune::FieldVector<typename VC::ctype, VC::dim>;
 
-    virtual void bind(const DomainType& sensor, const DomainType& projection) = 0;
+    virtual void bind(const std::vector<DomainType>& sensor,
+                      const std::vector<std::vector<DomainType>>& projection) = 0;
     virtual void bind(const V& eegSolution) = 0;
     virtual typename Dune::FieldTraits<Dune::PDELab::Backend::Native<V>>::field_type
-    solve() const = 0;
-    virtual void assembleTransferMatrixRHS(V& rhs) const = 0;
+    solve(std::size_t coil, std::size_t projection) const = 0;
+    virtual void assembleTransferMatrixRHS(std::size_t coil, std::size_t projection,
+                                           V& rhs) const = 0;
     virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const = 0;
   };
 }

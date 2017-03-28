@@ -48,17 +48,14 @@ namespace duneuro
     {
     }
 
-    void solve(const typename Traits::Coordinate& coil,
-               const typename Traits::Coordinate& projection,
-               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    void solve(std::size_t coil, std::size_t projection, typename Traits::DomainDOFVector& solution,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       assert(megSolver_);
       Dune::Timer timer;
       // assemble right hand side
       *rightHandSideVector_ = 0.0;
-      megSolver_->bind(coil, projection);
-      megSolver_->assembleTransferMatrixRHS(*rightHandSideVector_);
+      megSolver_->assembleTransferMatrixRHS(coil, projection, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
