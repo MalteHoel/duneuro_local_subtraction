@@ -334,6 +334,10 @@ namespace duneuro
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       transferMatrixUser_.bind(dipole, dataTree);
+      dataTree.set("dipole_conductivity",
+                   volumeConductorStorage_.get()
+                       ->tensor(elementSearch_->findEntity(dipole.position()))
+                       .infinity_norm());
       return transferMatrixUser_.solve(transferMatrix, dataTree);
     }
 
