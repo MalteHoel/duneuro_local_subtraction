@@ -7,9 +7,9 @@
 #include <duneuro/common/assembler.hh>
 #include <duneuro/common/convection_diffusion_cg_default_parameter.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/random.hh>
-#include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro

@@ -11,8 +11,8 @@
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/random.hh>
-#include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
