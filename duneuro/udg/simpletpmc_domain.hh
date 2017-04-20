@@ -43,8 +43,8 @@ namespace duneuro
       auto levelsets = config.get<std::vector<std::string>>("level_sets");
       for (unsigned int i = 0; i < levelsets.size(); ++i) {
         domainConfiguration_.addInterface(
-            {i, make_shared_from_unique(SimpleTPMCLevelsetFactory<LGV>::make_level_set(
-                    gridView, config.sub(levelsets[i]), levelSetData))});
+            {i, SimpleTPMCLevelsetFactory<LGV>::make_level_set(gridView, config.sub(levelsets[i]),
+                                                               levelSetData)});
       }
     }
 
