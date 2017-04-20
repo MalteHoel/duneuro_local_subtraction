@@ -38,10 +38,8 @@ namespace duneuro
                                    WrappedLocalOperator, MatrixBackend, DF, RF, JF,
                                    UnfittedSubTriangulation>;
     using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
-    using LinearSolver = ThreadSafeStationaryLinearProblemSolver<GridOperator, SolverBackend,
-                                                                 DomainDOFVector, RangeDOFVector>;
-    using PDELabLinearSolver =
-        Dune::PDELab::StationaryLinearProblemSolver<GridOperator, SolverBackend, DomainDOFVector>;
+    using LinearSolver =
+        LinearProblemSolver<GridOperator, SolverBackend, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class ST, int compartments, int degree,
@@ -76,9 +74,7 @@ namespace duneuro
                         typename Traits::MatrixBackend(2 * Traits::dimension + 1))
         , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
                          config.get<unsigned int>("verbose", 0))
-        , linearSolver_(linearSolverMutex_, gridOperator_, config)
-        , pdeLabLinearSolver_(gridOperator_, solverBackend_, config)
-        , pdeLabMatrixComputed_(false)
+        , linearSolver_(gridOperator_, config)
     {
     }
 
@@ -97,8 +93,7 @@ namespace duneuro
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      pdeLabLinearSolver_.apply(solution, pdeLabMatrixComputed_);
-      pdeLabMatrixComputed_ = true;
+      linearSolver_.apply(solverBackend_, solution, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
@@ -127,10 +122,7 @@ namespace duneuro
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::SolverBackend solverBackend_;
-    std::mutex linearSolverMutex_;
     typename Traits::LinearSolver linearSolver_;
-    typename Traits::PDELabLinearSolver pdeLabLinearSolver_;
-    bool pdeLabMatrixComputed_;
   };
 }
 
