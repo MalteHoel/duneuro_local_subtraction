@@ -16,6 +16,9 @@ namespace duneuro
     if (t == "localized_subtraction") {
       return VectorDensity::sparse;
     }
+    if (t == "whitney") {
+      return VectorDensity::sparse;
+    }
     if (t == "venant") {
       return VectorDensity::sparse;
     }
