@@ -397,6 +397,10 @@ namespace duneuro
         const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
         std::vector<RangeType> phi_s(lfsCacheInside_.size());
         std::vector<RangeType> phi_n(lfsCacheOutside_.size());
+        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_s(lfsCacheInside_.size());
+        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_n(lfsCacheOutside_.size());
+        std::vector<Dune::FieldVector<RF, dim>> Agradpsi_s(lfsCacheInside_.size());
+        std::vector<Dune::FieldVector<RF, dim>> Agradpsi_n(lfsCacheOutside_.size());
         for (const auto& qp : rule) {
           auto qp_inside = is.geometryInInside().global(qp.position());
           auto qp_outside = is.geometryInOutside().global(qp.position());
@@ -429,6 +433,23 @@ namespace duneuro
           }
           for (unsigned int i = 0; i < lfsCacheOutside_.size(); i++) {
             vector[lfsCacheOutside_.containerIndex(i)] += phi_n[i] * term2 * cf_jump;
+          }
+
+          BasisSwitch::gradient(FESwitch::basis(lfsInside_.finiteElement()), inside.geometry(),
+                                qp_inside, gradpsi_s);
+          for (unsigned int i = 0; i < gradpsi_s.size(); ++i)
+            A_s.mv(gradpsi_s[i][0], Agradpsi_s[i]);
+          BasisSwitch::gradient(FESwitch::basis(lfsOutside_.finiteElement()), outside.geometry(),
+                                qp_outside, gradpsi_n);
+          for (unsigned int i = 0; i < gradpsi_n.size(); ++i)
+            A_n.mv(gradpsi_n[i][0], Agradpsi_n[i]);
+          for (unsigned int i = 0; i < lfsCacheInside_.size(); i++) {
+            vector[lfsCacheInside_.containerIndex(i)] +=
+                factor * (Agradpsi_s[i] * n_F) * omega_s * uinfty;
+          }
+          for (unsigned int i = 0; i < lfsCacheOutside_.size(); i++) {
+            vector[lfsCacheOutside_.containerIndex(i)] +=
+                factor * (Agradpsi_n[i] * n_F) * omega_n * uinfty;
           }
         }
       }
