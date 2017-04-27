@@ -14,7 +14,7 @@
 #include <duneuro/common/entityset_volume_conductor.hh>
 #include <duneuro/common/logged_timer.hh>
 #include <duneuro/common/sub_function_space.hh>
-#include <duneuro/common/subsetentityset.hh>
+#include <duneuro/common/subset_entityset.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>

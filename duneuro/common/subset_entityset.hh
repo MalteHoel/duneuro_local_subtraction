@@ -13,7 +13,7 @@
 #include <dune/grid/common/partitionset.hh>
 #include <dune/grid/common/scsgmapper.hh>
 
-#include <duneuro/common/intersectionwrapper.hh>
+#include <duneuro/common/intersection_wrapper.hh>
 
 namespace duneuro
 {
