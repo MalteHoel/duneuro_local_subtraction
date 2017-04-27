@@ -13,6 +13,7 @@
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/common/entityset_volume_conductor.hh>
 #include <duneuro/common/logged_timer.hh>
+#include <duneuro/common/sub_function_space.hh>
 #include <duneuro/common/subsetentityset.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
@@ -20,106 +21,6 @@
 
 namespace duneuro
 {
-  template <class HostFS, class SubVC>
-  class SubFunctionSpace
-  {
-  public:
-    using ES = typename SubVC::EntitySet;
-    using FEM = typename HostFS::FEM;
-    using CONB = typename HostFS::CONB;
-    using CON = typename HostFS::CON;
-    using VBE = typename HostFS::VBE;
-    using GFS = Dune::PDELab::GridFunctionSpace<ES, FEM, CON, VBE>;
-    using DOF = Dune::PDELab::Backend::Vector<GFS, typename HostFS::NT>;
-    using DGF = Dune::PDELab::DiscreteGridFunction<GFS, DOF>;
-    using CC = typename GFS::template ConstraintsContainer<typename HostFS::NT>::Type;
-    using NT = typename HostFS::NT;
-
-    explicit SubFunctionSpace(std::shared_ptr<SubVC> subVolumeConductor)
-        : subVolumeConductor_(subVolumeConductor)
-        , femp(std::make_shared<FEM>())
-        , gfsp(std::make_shared<GFS>(subVolumeConductor->entitySet(), femp))
-        , ccp(std::make_shared<CC>())
-    {
-      gfsp->update();
-    }
-
-    FEM& getFEM()
-    {
-      return *femp;
-    }
-    const FEM& getFEM() const
-    {
-      return *femp;
-    }
-
-    // return gfs reference
-    GFS& getGFS()
-    {
-      return *gfsp;
-    }
-
-    // return gfs reference const version
-    const GFS& getGFS() const
-    {
-      return *gfsp;
-    }
-    // return gfs reference
-    CC& getCC()
-    {
-      return *ccp;
-    }
-
-    // return gfs reference const version
-    const CC& getCC() const
-    {
-      return *ccp;
-    }
-
-    template <class BCTYPE>
-    void assembleConstraints(const BCTYPE& bctype)
-    {
-      ccp->clear();
-      constraints(bctype, *gfsp, *ccp);
-    }
-
-    void clearConstraints()
-    {
-      ccp->clear();
-    }
-
-    void setConstrainedDOFS(DOF& x, typename HostFS::NT nt) const
-    {
-      set_constrained_dofs(*ccp, nt, x);
-      conb.make_consistent(*gfsp, x);
-    }
-
-    void setNonConstrainedDOFS(DOF& x, typename HostFS::NT nt) const
-    {
-      set_nonconstrained_dofs(*ccp, nt, x);
-      conb.make_consistent(*gfsp, x);
-    }
-
-    void copyConstrainedDOFS(const DOF& xin, DOF& xout) const
-    {
-      copy_constrained_dofs(*ccp, xin, xout);
-      conb.make_consistent(*gfsp, xout);
-    }
-
-    void copyNonConstrainedDOFS(const DOF& xin, DOF& xout) const
-    {
-      copy_nonconstrained_dofs(*ccp, xin, xout);
-      conb.make_consistent(*gfsp, xout);
-    }
-
-  private:
-    std::shared_ptr<SubVC> subVolumeConductor_;
-    CONB conb;
-    std::shared_ptr<FEM> femp;
-    std::shared_ptr<GFS> gfsp;
-    std::shared_ptr<CC> ccp;
-  };
-
   template <class VC, class FS, class V>
   class LocalizedSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
