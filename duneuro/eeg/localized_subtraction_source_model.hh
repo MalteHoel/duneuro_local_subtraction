@@ -8,39 +8,37 @@
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
-#include <dune/subgrid/subgrid.hh>
-
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/element_patch.hh>
+#include <duneuro/common/entityset_volume_conductor.hh>
 #include <duneuro/common/logged_timer.hh>
+#include <duneuro/common/subsetentityset.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
-#include <duneuro/io/vtk_writer.hh>
 
 namespace duneuro
 {
-  template <class SubGrid, class HostFS>
+  template <class HostFS, class SubVC>
   class SubFunctionSpace
   {
   public:
-    using Grid = SubGrid;
-    using GV = typename Grid::LeafGridView;
+    using ES = typename SubVC::EntitySet;
     using FEM = typename HostFS::FEM;
     using CONB = typename HostFS::CONB;
     using CON = typename HostFS::CON;
     using VBE = typename HostFS::VBE;
-    using GFS = Dune::PDELab::GridFunctionSpace<GV, FEM, CON, VBE>;
+    using GFS = Dune::PDELab::GridFunctionSpace<ES, FEM, CON, VBE>;
     using DOF = Dune::PDELab::Backend::Vector<GFS, typename HostFS::NT>;
     using DGF = Dune::PDELab::DiscreteGridFunction<GFS, DOF>;
     using CC = typename GFS::template ConstraintsContainer<typename HostFS::NT>::Type;
     using NT = typename HostFS::NT;
 
-    explicit SubFunctionSpace(const GV& gridView)
-        : gv(gridView)
+    explicit SubFunctionSpace(std::shared_ptr<SubVC> subVolumeConductor)
+        : subVolumeConductor_(subVolumeConductor)
         , femp(std::make_shared<FEM>())
-        , gfsp(std::make_shared<GFS>(gv, *femp))
+        , gfsp(std::make_shared<GFS>(subVolumeConductor->entitySet(), femp))
         , ccp(std::make_shared<CC>())
     {
       gfsp->update();
@@ -115,7 +113,7 @@ namespace duneuro
     }
 
   private:
-    GV gv; // need this object here because FEM and GFS store a const reference !!
+    std::shared_ptr<SubVC> subVolumeConductor_;
     CONB conb;
     std::shared_ptr<FEM> femp;
     std::shared_ptr<GFS> gfsp;
@@ -133,15 +131,14 @@ namespace duneuro
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
-    using SubGrid = Dune::SubGrid<dim, typename VC::GridType>;
     using HostGridView = typename VC::GridView;
-    using SubGridView = typename SubGrid::LeafGridView;
-    using SubVolumeConductor = VolumeConductor<SubGrid>;
+    using SubEntitySet = SubSetEntitySet<HostGridView>;
+    using SubVolumeConductor = EntitySetVolumeConductor<SubEntitySet>;
+    using SUBFS = SubFunctionSpace<FS, SubVolumeConductor>;
     using Problem =
-        SubtractionDGDefaultParameter<SubGridView, typename V::field_type, SubVolumeConductor>;
+        SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using LOP = SubtractionDG<Problem, EdgeNormProvider>;
-    using SUBFS = SubFunctionSpace<SubGrid, FS>;
     using DOF = typename SUBFS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
@@ -152,21 +149,24 @@ namespace duneuro
 
     LocalizedSubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
                                     std::shared_ptr<SearchType> search,
-                                    const Dune::ParameterTree& config)
+                                    const Dune::ParameterTree& config,
+                                    const Dune::ParameterTree& solverConfig)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
               volumeConductor_->gridView()))
-        , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
+        , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
         , config_(config)
         , lfsInside_(fs.getGFS())
         , lfsCacheInside_(lfsInside_)
         , lfsOutside_(fs.getGFS())
         , lfsCacheOutside_(lfsOutside_)
         , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
-        , weights_(config.get<bool>("weights") ? ConvectionDiffusion_DG_Weights::weightsOn :
-                                                 ConvectionDiffusion_DG_Weights::weightsOff)
-        , penalty_(config.get<double>("penalty"))
+        , scheme_(
+              ConvectionDiffusion_DG_Scheme::fromString(solverConfig.get<std::string>("scheme")))
+        , weights_(solverConfig.get<bool>("weights") ? ConvectionDiffusion_DG_Weights::weightsOn :
+                                                       ConvectionDiffusion_DG_Weights::weightsOff)
+        , penalty_(solverConfig.get<double>("penalty"))
     {
     }
 
@@ -187,62 +187,32 @@ namespace duneuro
       patchBoundaryIntersections_ = elementPatch->extractBoundaryIntersections();
       timer.lap("extract_boundary_intersection");
 
-      // create subgrid for selected elements
-      std::unique_ptr<SubGrid> subGrid;
-      if (!subVolumeConductor_) {
-        subGrid = Dune::Std::make_unique<SubGrid>(volumeConductor_->grid());
-      } else {
-        subGrid.reset(subVolumeConductor_->releaseGrid());
-      }
-      timer.lap("sub_grid_init");
-      subGrid->createBegin();
-      timer.lap("sub_grid_create_begin");
-      for (const auto& element : elementPatch->elements()) {
-        subGrid->insert(element);
-      }
-      timer.lap("sub_grid_insert_elements");
-      subGrid->createEnd(false);
-      timer.lap("sub_grid_create_end");
-      auto subGridView = subGrid->leafGridView();
-      timer.lap("sub_grid_create_view");
+      SubEntitySet subEntitySet(volumeConductor_->gridView(), elementPatch->elements());
+      timer.lap("create_sub_entity_set");
 
       // extract conductivity tensors to create a local volume conductor
-      Dune::SingleCodimSingleGeomTypeMapper<SubGridView, 0> subGridElementMapper(subGridView);
-      std::vector<typename VC::TensorType> tensors(subGridElementMapper.size());
-      for (const auto& subElement : Dune::elements(subGridView)) {
-        tensors[subGridElementMapper.index(subElement)] =
-            volumeConductor_->tensor(subGrid->template getHostEntity<0>(subElement));
+      Dune::MultipleCodimMultipleGeomTypeMapper<SubEntitySet, Dune::MCMGElementLayout> mapper(
+          subEntitySet);
+      std::vector<typename VC::TensorType> tensors(mapper.size());
+      for (const auto& subElement : elementPatch->elements()) {
+        tensors[mapper.index(subElement)] = volumeConductor_->tensor(subElement);
       }
       timer.lap("extract_sub_tensors");
 
       // create sub grid volume conductor
-      subVolumeConductor_ = std::make_shared<SubVolumeConductor>(
-          std::move(subGrid),
-          Dune::Std::make_unique<typename SubVolumeConductor::MappingType>(
-              DirectEntityMapping<SubGridView, typename VC::TensorType>(subGridView, tensors)));
+      subVolumeConductor_ = std::make_shared<SubVolumeConductor>(subEntitySet, tensors);
       timer.lap("sub_volume_conductor");
-
-      if (config_.hasSub("vtk")) {
-        if (config_.get("vtk.enable", false)) {
-          VTKWriter<SubVolumeConductor, 1> writer(subVolumeConductor_,
-                                                  config_.get("vtk.subsampling", 0));
-          writer.write(config_.get<std::string>("vtk.filename"));
-          timer.lap("vtk");
-        }
-      }
 
       hostProblem_ = std::make_shared<HostProblem>(volumeConductor_->gridView(), volumeConductor_);
       hostProblem_->bind(this->dipoleElement(), this->localDipolePosition(),
                          this->dipole().moment());
-      problem_ = std::make_shared<Problem>(subVolumeConductor_->gridView(), subVolumeConductor_);
-      problem_->bind(
-          subVolumeConductor_->grid().template getSubGridEntity<0>(this->dipoleElement()),
-          this->localDipolePosition(), this->dipole().moment());
-      lop_ = std::make_shared<LOP>(
-          *problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::SIPG,
-          ConvectionDiffusion_DG_Weights::weightsOn, 1.0, config_.get<unsigned int>("intorderadd"),
-          config_.get<unsigned int>("intorderadd_lb"));
-      subFS_ = std::make_shared<SUBFS>(subVolumeConductor_->gridView());
+      problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
+      problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
+      lop_ = std::make_shared<LOP>(*problem_, edgeNormProvider_, scheme_, weights_, penalty_,
+                                   config_.get<unsigned int>("intorderadd"),
+                                   config_.get<unsigned int>("intorderadd_lb"));
+      subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
+      dataTree.set("sub_dofs", subFS_->getGFS().size());
       sublfsInside_ = std::make_shared<SubLFS>(subFS_->getGFS());
       sublfsCacheInside_ = std::make_shared<SubLFSCache>(*sublfsInside_);
       x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
@@ -265,16 +235,10 @@ namespace duneuro
       Dune::PDELab::interpolate(problem_->get_u_infty(), (*assembler_)->trialGridFunctionSpace(),
                                 *x_);
 
-      Dune::SingleCodimSingleGeomTypeMapper<SubGridView, 0> subGridElementMapper(
-          subVolumeConductor_->gridView());
-      Dune::SingleCodimSingleGeomTypeMapper<HostGridView, 0> hostGridElementMapper(
-          volumeConductor_->gridView());
-      using Dune::PDELab::Backend::native;
-      for (const auto& e : Dune::elements(subVolumeConductor_->gridView())) {
+      for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
         sublfsInside_->bind(e);
         sublfsCacheInside_->update();
-        const auto& hostEntity = subVolumeConductor_->grid().template getHostEntity<0>(e);
-        lfsInside_.bind(hostEntity);
+        lfsInside_.bind(e);
         lfsCacheInside_.update();
         for (unsigned int i = 0; i < lfsInside_.size(); ++i) {
           vector[lfsCacheInside_.containerIndex(i)] += (*x_)[sublfsCacheInside_->containerIndex(i)];
@@ -311,6 +275,7 @@ namespace duneuro
     mutable std::shared_ptr<SubLFS> sublfsInside_;
     mutable std::shared_ptr<SubLFSCache> sublfsCacheInside_;
     unsigned int intorderadd_lb_;
+    ConvectionDiffusion_DG_Scheme::Type scheme_;
     ConvectionDiffusion_DG_Weights::Type weights_;
     double penalty_;
 
@@ -321,15 +286,10 @@ namespace duneuro
       (*assembler_)->residual(*x_, *r_);
       *r_ *= -1.;
 
-      Dune::SingleCodimSingleGeomTypeMapper<SubGridView, 0> subGridElementMapper(
-          subVolumeConductor_->gridView());
-      Dune::SingleCodimSingleGeomTypeMapper<HostGridView, 0> hostGridElementMapper(
-          volumeConductor_->gridView());
-      for (const auto& e : Dune::elements(subVolumeConductor_->gridView())) {
+      for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
         sublfsInside_->bind(e);
         sublfsCacheInside_->update();
-        const auto& hostEntity = subVolumeConductor_->grid().template getHostEntity<0>(e);
-        lfsInside_.bind(hostEntity);
+        lfsInside_.bind(e);
         lfsCacheInside_.update();
         for (unsigned int i = 0; i < lfsInside_.size(); ++i) {
           vector[lfsCacheInside_.containerIndex(i)] = (*r_)[sublfsCacheInside_->containerIndex(i)];
@@ -394,62 +354,54 @@ namespace duneuro
 
         const int intorder = intorderadd_lb_ + 2 * degree;
 
-        const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
         std::vector<RangeType> phi_s(lfsCacheInside_.size());
         std::vector<RangeType> phi_n(lfsCacheOutside_.size());
         std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_s(lfsCacheInside_.size());
         std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_n(lfsCacheOutside_.size());
         std::vector<Dune::FieldVector<RF, dim>> Agradpsi_s(lfsCacheInside_.size());
         std::vector<Dune::FieldVector<RF, dim>> Agradpsi_n(lfsCacheOutside_.size());
+        const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
         for (const auto& qp : rule) {
           auto qp_inside = is.geometryInInside().global(qp.position());
           auto qp_outside = is.geometryInOutside().global(qp.position());
-          /** evaluate test and ansatz functions **/
+          // evaluate basis function and their gradients
           FESwitch::basis(lfsInside_.finiteElement()).evaluateFunction(qp_inside, phi_s);
+          BasisSwitch::gradient(FESwitch::basis(lfsInside_.finiteElement()), inside.geometry(),
+                                qp_inside, gradpsi_s);
           FESwitch::basis(lfsOutside_.finiteElement()).evaluateFunction(qp_outside, phi_n);
+          BasisSwitch::gradient(FESwitch::basis(lfsOutside_.finiteElement()), outside.geometry(),
+                                qp_outside, gradpsi_n);
+          // compute sigma*gradient_psi
+          for (unsigned int i = 0; i < gradpsi_s.size(); ++i)
+            A_s.mv(gradpsi_s[i][0], Agradpsi_s[i]);
+          for (unsigned int i = 0; i < gradpsi_n.size(); ++i)
+            A_n.mv(gradpsi_n[i][0], Agradpsi_n[i]);
 
           RF factor = qp.weight() * geo.integrationElement(qp.position());
 
+          // compute infinity potential and its gradient
           auto global = geo.global(qp.position());
-
-          Dune::FieldVector<RF, VC::dim> A_s_graduinfty;
-          auto graduinfty = hostProblem_->get_grad_u_infty(global);
-          A_s.mv(graduinfty, A_s_graduinfty);
-          auto n_F_A_s_graduinfty = n_F * A_s_graduinfty;
-          auto term1 = n_F_A_s_graduinfty * factor;
-          auto cf_flux = config_.get<double>("cf_flux");
-          for (unsigned int i = 0; i < lfsCacheInside_.size(); i++) {
-            vector[lfsCacheInside_.containerIndex(i)] += phi_s[i] * term1;
-            vector[lfsCacheInside_.containerIndex(i)] += -phi_s[i] * omega_n * term1 * cf_flux;
-          }
-          for (unsigned int i = 0; i < lfsCacheOutside_.size(); i++) {
-            vector[lfsCacheOutside_.containerIndex(i)] += -phi_n[i] * omega_s * term1 * cf_flux;
-          }
-          auto cf_jump = config_.get<double>("cf_jump");
           auto uinfty = hostProblem_->get_u_infty(global);
-          auto term2 = factor * penalty_factor * uinfty;
-          for (unsigned int i = 0; i < lfsCacheInside_.size(); i++) {
-            vector[lfsCacheInside_.containerIndex(i)] += -phi_s[i] * term2 * cf_jump;
-          }
-          for (unsigned int i = 0; i < lfsCacheOutside_.size(); i++) {
-            vector[lfsCacheOutside_.containerIndex(i)] += phi_n[i] * term2 * cf_jump;
-          }
+          auto graduinfty = hostProblem_->get_grad_u_infty(global);
+          Dune::FieldVector<RF, VC::dim> A_s_graduinfty;
+          A_s.mv(graduinfty, A_s_graduinfty);
 
-          BasisSwitch::gradient(FESwitch::basis(lfsInside_.finiteElement()), inside.geometry(),
-                                qp_inside, gradpsi_s);
-          for (unsigned int i = 0; i < gradpsi_s.size(); ++i)
-            A_s.mv(gradpsi_s[i][0], Agradpsi_s[i]);
-          BasisSwitch::gradient(FESwitch::basis(lfsOutside_.finiteElement()), outside.geometry(),
-                                qp_outside, gradpsi_n);
-          for (unsigned int i = 0; i < gradpsi_n.size(); ++i)
-            A_n.mv(gradpsi_n[i][0], Agradpsi_n[i]);
+          // assemble the integrals
+          auto term1 = factor * (n_F * A_s_graduinfty);
+          auto term2 = factor * uinfty;
+          auto term3 = term2 * penalty_factor;
           for (unsigned int i = 0; i < lfsCacheInside_.size(); i++) {
-            vector[lfsCacheInside_.containerIndex(i)] +=
-                factor * (Agradpsi_s[i] * n_F) * omega_s * uinfty;
+            auto index = lfsCacheInside_.containerIndex(i);
+            vector[index] += phi_s[i] * term1;
+            vector[index] += -phi_s[i] * omega_n * term1;
+            vector[index] += (Agradpsi_s[i] * n_F) * term2 * omega_s; // symmetry term
+            vector[index] += -phi_s[i] * term3; // penalty term
           }
           for (unsigned int i = 0; i < lfsCacheOutside_.size(); i++) {
-            vector[lfsCacheOutside_.containerIndex(i)] +=
-                factor * (Agradpsi_n[i] * n_F) * omega_n * uinfty;
+            auto index = lfsCacheOutside_.containerIndex(i);
+            vector[index] += -phi_n[i] * omega_s * term1;
+            vector[index] += (Agradpsi_n[i] * n_F) * term2 * omega_n; // symmetry term
+            vector[index] += phi_n[i] * term3; // penalty term
           }
         }
       }
