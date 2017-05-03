@@ -55,8 +55,7 @@ namespace duneuro
             volumeConductor_, *solver_, search_, config, solverConfig);
       } else {
         denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
-            volumeConductor_, *solver_, search_, config, solverConfig),
-        solverConfig;
+            volumeConductor_, *solver_, search_, config, solverConfig);
       }
     }
 
