@@ -17,8 +17,8 @@
 #include <dune/subgrid/subgrid.hh>
 #endif
 
-#include <duneuro/common/volume_conductor.hh>
 #include <duneuro/common/fitted_driver_data.hh>
+#include <duneuro/common/volume_conductor.hh>
 #if HAVE_NIFTI
 #include <duneuro/io/nifti_image_reader.hh>
 #endif
@@ -196,8 +196,13 @@ namespace duneuro
   std::vector<T> extract(const std::vector<T>& values, const std::vector<std::size_t>& indices)
   {
     std::vector<T> result;
-    std::transform(indices.begin(), indices.end(), std::back_inserter(result),
-                   [&](std::size_t i) { return values[i]; });
+    for (const auto& index : indices) {
+      if (index >= values.size()) {
+        DUNE_THROW(Dune::Exception, "index " << index << " out of bounds (" << values.size()
+                                             << ")");
+      }
+      result.push_back(values[index]);
+    }
     return result;
   }
 
