@@ -3,8 +3,6 @@
 
 #include <iostream>
 #include <memory>
-#include <mutex>
-#include <thread>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/parametertree.hh>
@@ -129,7 +127,7 @@ namespace duneuro
   //===============================================================
 
   template <typename GO, typename LS, typename DV, typename RV>
-  class ThreadSafeStationaryLinearProblemSolver
+  class LinearProblemSolver
   {
     typedef typename GO::Traits::Jacobian M;
     typedef typename GO::Traits::TrialGridFunctionSpace TrialGridFunctionSpace;
@@ -138,12 +136,9 @@ namespace duneuro
   public:
     typedef Dune::PDELab::StationaryLinearProblemSolverResult<double> Result;
 
-    ThreadSafeStationaryLinearProblemSolver(std::mutex& mutex, const GO& go,
-                                            typename RV::ElementType reduction, bool fixDOF,
-                                            typename M::field_type fixedDOFEntry, int verbose = 1,
-                                            bool debug = false)
-        : _mutex(mutex)
-        , _go(go)
+    LinearProblemSolver(const GO& go, typename RV::ElementType reduction, bool fixDOF,
+                        typename M::field_type fixedDOFEntry, int verbose = 1, bool debug = false)
+        : _go(go)
         , _fixFirstDOF(fixDOF)
         , _fixedDOFEntry(fixedDOFEntry)
         , _verbose(verbose)
@@ -176,10 +171,8 @@ namespace duneuro
      * max(reduction,min_defect/start_defect),
      * where start defect is the norm of the residual of x.
      */
-    ThreadSafeStationaryLinearProblemSolver(std::mutex& mutex, const GO& go,
-                                            const Dune::ParameterTree& params)
-        : _mutex(mutex)
-        , _go(go)
+    LinearProblemSolver(const GO& go, const Dune::ParameterTree& params)
+        : _go(go)
         , _fixFirstDOF(params.get<bool>("fixDOF", true))
         , _fixedDOFEntry(params.get<typename M::field_type>("fixedDOFEntry", 1.0))
         , _verbose(params.get<int>("verbosity", 1))
@@ -187,15 +180,21 @@ namespace duneuro
     {
     }
 
+    void apply(LS& ls, DV& x, const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    {
+      DV tmp(_go.trialGridFunctionSpace(), 0.0);
+      RV rhs(_go.testGridFunctionSpace(), 0.0);
+      _go.residual(tmp, rhs);
+      rhs *= -1.0;
+      apply(ls, x, rhs, config, dataTree);
+    }
+
     void apply(LS& ls, DV& x, const RV& rightHandSide, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer(false);
       {
-        std::unique_lock<std::mutex> lock(_mutex);
         if (!_jacobian) {
-          std::cout << "thread with id " << std::this_thread::get_id() << " creates jacobian"
-                    << std::endl;
           timer.start();
           _jacobian = Dune::Std::make_unique<M>(_go);
           timer.stop();
@@ -251,13 +250,11 @@ namespace duneuro
     //! Discard the stored Jacobian matrix.
     void discardMatrix()
     {
-      std::unique_lock<std::mutex> lock(_mutex);
       if (_jacobian)
         _jacobian.reset();
     }
 
   private:
-    std::mutex& _mutex;
     const GO& _go;
     std::unique_ptr<M> _jacobian;
     bool _fixFirstDOF;

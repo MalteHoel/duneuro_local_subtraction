@@ -7,9 +7,9 @@
 #include <duneuro/common/assembler.hh>
 #include <duneuro/common/convection_diffusion_cg_default_parameter.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/random.hh>
-#include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
@@ -50,8 +50,7 @@ namespace duneuro
     using Assembler = GalerkinGlobalAssembler<FunctionSpace, LocalOperator, DF, RF, JF>;
     using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_AMG_SSOR<typename Assembler::GO>;
     using LinearSolver =
-        ThreadSafeStationaryLinearProblemSolver<typename Assembler::GO, SolverBackend,
-                                                DomainDOFVector, RangeDOFVector>;
+        LinearProblemSolver<typename Assembler::GO, SolverBackend, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class VC, ElementType elementType, unsigned int degree, class DF = double,
@@ -73,8 +72,7 @@ namespace duneuro
                                                          Dune::StaticPower<3, VC::dim>::power)
         , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
                          config.get<unsigned int>("verbose", 0), true, true)
-        , linearSolverMutex_()
-        , linearSolver_(linearSolverMutex_, assembler_.getGO(), config)
+        , linearSolver_(assembler_.getGO(), config)
     {
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));
@@ -103,7 +101,6 @@ namespace duneuro
     typename Traits::LocalOperator localOperator_;
     typename Traits::Assembler assembler_;
     typename Traits::SolverBackend solverBackend_;
-    std::mutex linearSolverMutex_;
     typename Traits::LinearSolver linearSolver_;
 
     template <class V>

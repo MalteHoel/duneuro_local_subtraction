@@ -3,7 +3,6 @@
 
 #include <dune/pdelab/backend/istl/seq_amg_dg_backend.hh>
 #include <dune/pdelab/localoperator/convectiondiffusiondg.hh>
-#include <dune/pdelab/stationary/linearproblem.hh>
 
 #include <duneuro/common/assembler.hh>
 #include <duneuro/common/cg_first_order_space.hh>
@@ -11,8 +10,8 @@
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/random.hh>
-#include <duneuro/common/thread_safe_linear_problem_solver.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
@@ -54,11 +53,7 @@ namespace duneuro
         typename Assembler::GO, typename FirstOrderSpace::GFS, Dune::PDELab::CG2DGProlongation,
         Dune::SeqSSOR, Dune::CGSolver>;
     using LinearSolver =
-        ThreadSafeStationaryLinearProblemSolver<typename Assembler::GO, SolverBackend,
-                                                DomainDOFVector, RangeDOFVector>;
-    using PDELabLinearSolver =
-        Dune::PDELab::StationaryLinearProblemSolver<typename Assembler::GO, SolverBackend,
-                                                    DomainDOFVector>;
+        LinearProblemSolver<typename Assembler::GO, SolverBackend, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class VC, ElementType elementType, unsigned int degree,
@@ -84,10 +79,7 @@ namespace duneuro
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
         , firstOrderSpace_(volumeConductor_->grid(), volumeConductor_->gridView())
         , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config)
-        , linearSolverMutex_()
-        , linearSolver_(linearSolverMutex_, *assembler_, config)
-        , pdeLabLinearSolver_(*assembler_, solverBackend_, config)
-        , pdeLabMatrixComputed_(false)
+        , linearSolver_(*assembler_, config)
     {
       assert(volumeConductor_);
       dataTree.set("degree", degree);
@@ -117,8 +109,7 @@ namespace duneuro
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      pdeLabLinearSolver_.apply(solution, pdeLabMatrixComputed_);
-      pdeLabMatrixComputed_ = true;
+      linearSolver_.apply(solverBackend_, solution, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
@@ -146,10 +137,7 @@ namespace duneuro
     typename Traits::Assembler assembler_;
     typename Traits::FirstOrderSpace firstOrderSpace_;
     typename Traits::SolverBackend solverBackend_;
-    std::mutex linearSolverMutex_;
     typename Traits::LinearSolver linearSolver_;
-    typename Traits::PDELabLinearSolver pdeLabLinearSolver_;
-    bool pdeLabMatrixComputed_;
 
     template <class V>
     friend struct MakeDOFVectorHelper;
