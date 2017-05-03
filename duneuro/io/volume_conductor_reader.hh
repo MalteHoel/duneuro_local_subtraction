@@ -12,6 +12,8 @@
 
 #include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/volume_conductor.hh>
+#include <duneuro/io/cauchy_grid_reader.hh>
+#include <duneuro/io/cauchy_tensor_reader.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/gmsh_tensor_reader.hh>
 
@@ -192,6 +194,23 @@ namespace duneuro
             std::unique_ptr<G>(gptr.release()),
             std::unique_ptr<MappingType>(new MappingType(
                 IndirectEntityMapping<GV, TensorType>(gv, tensors, indexToTensor))));
+      } else if (extension == "geo") {
+        // assuming cauchy grid format
+        Dune::GridFactory<G> factory;
+        CauchyGridReader<G>::read(factory, gridFilename);
+        std::unique_ptr<G> grid(factory.createGrid());
+        typedef Dune::SingleCodimSingleGeomTypeMapper<GV, 0> Mapper;
+        GV gv = grid->leafGridView();
+        Mapper mapper(gv);
+        std::vector<TensorType> tensors;
+        CauchyTensorReader<G>::read(tensorFilename, std::back_inserter(tensors));
+        std::vector<TensorType> reorderedTensors(tensors.size());
+        for (const auto& element : Dune::elements(gv)) {
+          reorderedTensors[mapper.index(element)] = tensors[factory.insertionIndex(element)];
+        }
+        return std::make_shared<VolumeConductor<G>>(
+            std::move(grid), std::unique_ptr<MappingType>(new MappingType(
+                                 DirectEntityMapping<GV, TensorType>(gv, reorderedTensors))));
       } else {
         DUNE_THROW(Dune::IOError, "cannot infer file type from extension \"" << extension << "\"");
       }
