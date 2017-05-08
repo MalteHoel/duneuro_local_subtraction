@@ -21,7 +21,7 @@ namespace duneuro
         // store six tensor values (xx,yy,zz,xy,yz,xz)
         matrix[0][0] = values[0]/1000;
         matrix[1][1] = values[1]/1000;
-        matrix[2][2] = values[2/1000];
+        matrix[2][2] = values[2]/1000;
         matrix[0][1] = matrix[1][0] = values[3]/1000;
         matrix[1][2] = matrix[2][1] = values[4]/1000;
         matrix[0][2] = matrix[2][0] = values[5]/1000;
