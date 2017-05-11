@@ -24,7 +24,8 @@ namespace duneuro
                                                              search);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
-                                                       typename Solver::Traits::FunctionSpace, V>>(
+                                                       typename Solver::Traits::FunctionSpace, V,
+                                                       SubtractionContinuityType::discontinuous>>(
             volumeConductor, solver.functionSpace(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type

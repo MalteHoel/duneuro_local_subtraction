@@ -58,25 +58,26 @@ namespace duneuro
       /** intorder **/
       const int intorder = intorderadd_lb + 2 * lfsv.finiteElement().localBasis().order();
 
+      const auto& geometryInInside = ig.geometryInInside();
+      const auto& geometry = ig.geometry();
+
       /** select quadrature rule **/
       Dune::GeometryType gtface = ig.geometryInInside().type();
-      const Dune::QuadratureRule<DF, dim - 1>& rule =
-          Dune::QuadratureRules<DF, dim - 1>::rule(gtface, intorder);
+      const auto& rule = Dune::QuadratureRules<DF, dim - 1>::rule(gtface, intorder);
 
+      std::vector<RangeType> phi(lfsv.size());
       /** loop over quadrature points and integrate normal flux **/
-      for (typename Dune::QuadratureRule<DF, dim - 1>::const_iterator it = rule.begin();
-           it != rule.end(); ++it) {
+      for (const auto& qp : rule) {
         /** position of quadrature point in local coordinates of element **/
-        Dune::FieldVector<DF, dim> local = ig.geometryInInside().global(it->position());
+        Dune::FieldVector<DF, dim> local = geometryInInside.global(qp.position());
         /** evaluate test shape functions **/
-        std::vector<RangeType> phi(lfsv.size());
         FESwitch::basis(lfsv.finiteElement()).evaluateFunction(local, phi);
 
         /** evaluate flux boundary condition **/
-        typename PROBLEMDATA::Traits::RangeFieldType j = param.j(ig.intersection(), it->position());
+        typename PROBLEMDATA::Traits::RangeFieldType j = param.j(ig.intersection(), qp.position());
 
         /* integrate j */
-        RF factor = it->weight() * ig.geometry().integrationElement(it->position());
+        RF factor = qp.weight() * geometry.integrationElement(qp.position());
         for (size_type i = 0; i < lfsv.size(); i++)
           r.accumulate(lfsv, i, j * phi[i] * factor);
       }
@@ -104,37 +105,38 @@ namespace duneuro
       const int dim = EG::Geometry::mydimension;
       const int dimw = EG::Geometry::coorddimension;
 
+      const auto& geometry = eg.geometry();
+
       const int intorder = intorderadd
                            + 2 * std::max(lfsv.finiteElement().localBasis().order(),
                                           lfsv.finiteElement().localBasis().order());
 
       /** select quadrature rule**/
-      Dune::GeometryType gt = eg.geometry().type();
-      const Dune::QuadratureRule<DF, dim>& rule =
-          Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
+      Dune::GeometryType gt = geometry.type();
+      const auto& rule = Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
 
       typename PROBLEMDATA::Traits::PermTensorType sigma_corr(param.sigma_corr(eg.entity()));
 
+      std::vector<RangeType> phi(lfsv.size());
+      std::vector<JacobianType> js(lfsv.size());
+      Dune::FieldMatrix<DF, dimw, dim> jac;
+      std::vector<Dune::FieldVector<RF, dim>> gradphi(lfsv.size());
+
       /** loop over quadrature points **/
-      for (typename Dune::QuadratureRule<DF, dim>::const_iterator it = rule.begin();
-           it != rule.end(); ++it) {
+      for (const auto& qp : rule) {
         /* evaluate shape functions */
-        std::vector<RangeType> phi(lfsv.size());
-        lfsv.finiteElement().localBasis().evaluateFunction(it->position(), phi);
+        lfsv.finiteElement().localBasis().evaluateFunction(qp.position(), phi);
 
         /* evaluate gradient of basis functions on reference element */
-        std::vector<JacobianType> js(lfsv.size());
-        lfsv.finiteElement().localBasis().evaluateJacobian(it->position(), js);
+        lfsv.finiteElement().localBasis().evaluateJacobian(qp.position(), js);
 
         /* transform gradients from reference element to real element */
-        const Dune::FieldMatrix<DF, dimw, dim> jac =
-            eg.geometry().jacobianInverseTransposed(it->position());
-        std::vector<Dune::FieldVector<RF, dim>> gradphi(lfsv.size());
+        jac = geometry.jacobianInverseTransposed(qp.position());
         for (size_type i = 0; i < lfsv.size(); i++)
           jac.mv(js[i][0], gradphi[i]);
 
         /* get global coordinates of the quadrature point	*/
-        typename PROBLEMDATA::Traits::DomainType x = eg.geometry().global(it->position());
+        typename PROBLEMDATA::Traits::DomainType x = geometry.global(qp.position());
 
         /* evaluate right hand side */
         typename PROBLEMDATA::Traits::RangeType f;
@@ -142,7 +144,7 @@ namespace duneuro
         sigma_corr.mv(grad_u_infty, f);
 
         /* integrate f */
-        RF factor = it->weight() * eg.geometry().integrationElement(it->position());
+        RF factor = qp.weight() * geometry.integrationElement(qp.position());
         if (std::isnan(factor)) {
           DUNE_THROW(Dune::Exception, "lambda_volume factor nan");
         }
@@ -179,13 +181,17 @@ namespace duneuro
                            + 2 * std::max(lfsv_s.finiteElement().localBasis().order(),
                                           lfsv_n.finiteElement().localBasis().order());
 
+      const auto& geometryInInside = ig.geometryInInside();
+      const auto& geometryInOutside = ig.geometryInOutside();
+      const auto& geometry = ig.geometry();
+
       /** select quadrature rule **/
-      Dune::GeometryType gtface = ig.geometryInInside().type();
+      Dune::GeometryType gtface = geometryInInside.type();
       const Dune::QuadratureRule<DF, dim - 1>& rule =
           Dune::QuadratureRules<DF, dim - 1>::rule(gtface, intorder);
 
-      auto insideEntity = ig.inside();
-      auto outsideEntity = ig.outside();
+      const auto& insideEntity = ig.inside();
+      const auto& outsideEntity = ig.outside();
 
       /** compute weights **/
       /* evaluate permability tensor */
@@ -222,14 +228,13 @@ namespace duneuro
       std::vector<RangeType> phi_s(lfsv_s.size());
       std::vector<RangeType> phi_n(lfsv_n.size());
       /** loop over quadrature points **/
-      for (typename Dune::QuadratureRule<DF, dim - 1>::const_iterator it = rule.begin();
-           it != rule.end(); ++it) {
+      for (const auto& qp: rule) {
         /* unit outer normal */
-        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(it->position());
+        const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
 
         /* position of quadrature point in local coordinates of elements */
-        Dune::FieldVector<DF, dim> iplocal_s = ig.geometryInInside().global(it->position());
-        Dune::FieldVector<DF, dim> iplocal_n = ig.geometryInOutside().global(it->position());
+        Dune::FieldVector<DF, dim> iplocal_s = geometryInInside.global(qp.position());
+        Dune::FieldVector<DF, dim> iplocal_n = geometryInOutside.global(qp.position());
 
         /* evaluate basis functions */
         lfsv_s.finiteElement().localBasis().evaluateFunction(iplocal_s, phi_s);
@@ -240,19 +245,19 @@ namespace duneuro
         sigma_corr_s = param.sigma_corr(insideEntity);
         sigma_corr_n = param.sigma_corr(outsideEntity);
 
+        const auto& global = geometry.global(qp.position());
+
         /* get grad_u_infty for both sides of the interface */
-        typename PROBLEMDATA::Traits::RangeType grad_u_infty_s, grad_u_infty_n;
-        grad_u_infty_s = param.get_grad_u_infty(ig.geometry().global(it->position()));
-        grad_u_infty_n = param.get_grad_u_infty(ig.geometry().global(it->position()));
+        const auto& grad_u_infty = param.get_grad_u_infty(global);
 
         /* multiply grad_u_infty and sigma^corr on both sides of the interface */
         typename PROBLEMDATA::Traits::RangeType sigma_corr_grad_u_infty_s,
             sigma_corr_grad_u_infty_n;
-        sigma_corr_s.mv(grad_u_infty_s, sigma_corr_grad_u_infty_s);
-        sigma_corr_n.mv(grad_u_infty_n, sigma_corr_grad_u_infty_n);
+        sigma_corr_s.mv(grad_u_infty, sigma_corr_grad_u_infty_s);
+        sigma_corr_n.mv(grad_u_infty, sigma_corr_grad_u_infty_n);
 
         /* integration factor */
-        RF factor = it->weight() * ig.geometry().integrationElement(it->position());
+        RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
 
         if (std::isnan(factor)) {
           DUNE_THROW(Dune::Exception, "lambda_skeleton factor nan");
