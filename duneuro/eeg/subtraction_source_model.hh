@@ -13,7 +13,7 @@
 
 namespace duneuro
 {
-  template <class VC, class FS, class V>
+  template <class VC, class FS, class V, SubtractionContinuityType continuityType>
   class SubtractionSourceModel : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {
   public:
@@ -22,7 +22,7 @@ namespace duneuro
     using Problem = SubtractionDGDefaultParameter<typename FS::GFS::Traits::GridViewType,
                                                   typename V::field_type, VC>;
     using EdgeNormProvider = FaceBasedEdgeNormProvider;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider>;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, continuityType>;
     using DOF = typename FS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
     using ElementType = typename BaseT::ElementType;
@@ -34,9 +34,7 @@ namespace duneuro
                            std::shared_ptr<SearchType> search, const Dune::ParameterTree& config)
         : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
-        , edgeNormProvider_()
-        , lop_(problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::SIPG,
-               ConvectionDiffusion_DG_Weights::weightsOn, 1.0,
+        , lop_(problem_, ConvectionDiffusion_DG_Weights::weightsOn,
                config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)
         , res_(fs.getGFS(), 0.0)
@@ -81,7 +79,6 @@ namespace duneuro
 
   private:
     Problem problem_;
-    EdgeNormProvider edgeNormProvider_;
     LOP lop_;
     mutable DOF x_;
     mutable DOF res_;

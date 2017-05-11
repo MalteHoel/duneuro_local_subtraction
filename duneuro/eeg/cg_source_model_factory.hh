@@ -28,10 +28,10 @@ namespace duneuro
                                                   Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
-        return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
-                                                       typename Solver::Traits::FunctionSpace,
-                                                       Vector>>(
-            volumeConductor, solver.functionSpace(), search, config);
+        return std::make_shared<SubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
+            Vector, SubtractionContinuityType::continuous>>(volumeConductor, solver.functionSpace(),
+                                                            search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
