@@ -35,6 +35,7 @@ namespace duneuro
                            const Dune::ParameterTree& solverConfig)
         : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
+        , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
         , lop_(problem_,
                solverConfig.get<bool>("weights", true) ? ConvectionDiffusion_DG_Weights::weightsOn :
                                                          ConvectionDiffusion_DG_Weights::weightsOff,
@@ -82,6 +83,7 @@ namespace duneuro
 
   private:
     Problem problem_;
+    EdgeNormProvider edgeNormProvider_;
     LOP lop_;
     mutable DOF x_;
     mutable DOF res_;

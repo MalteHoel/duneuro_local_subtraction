@@ -109,8 +109,7 @@ namespace duneuro
                          this->dipole().moment());
       problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
       problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
-      lop_ = std::make_shared<LOP>(*problem_, edgeNormProvider_, scheme_, weights_, penalty_,
-                                   config_.get<unsigned int>("intorderadd"),
+      lop_ = std::make_shared<LOP>(*problem_, weights_, config_.get<unsigned int>("intorderadd"),
                                    config_.get<unsigned int>("intorderadd_lb"));
       subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
       dataTree.set("sub_dofs", subFS_->getGFS().size());
