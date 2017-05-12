@@ -18,7 +18,7 @@ namespace duneuro
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
     createDense(std::shared_ptr<VC> volumeConductor, const Solver& solver,
                 std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
-                const Dune::ParameterTree& config)
+                const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
@@ -29,7 +29,7 @@ namespace duneuro
         return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
                                                        typename Solver::Traits::FunctionSpace, V,
                                                        SubtractionContinuityType::discontinuous>>(
-            volumeConductor, solver.functionSpace(), search, config);
+            volumeConductor, solver.functionSpace(), search, config, solverConfig);
 #if HAVE_DUNE_SUBGRID
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
@@ -46,7 +46,7 @@ namespace duneuro
     static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
     createSparse(std::shared_ptr<VC> volumeConductor, const Solver& solver,
                  std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
-                 const Dune::ParameterTree& config)
+                 const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
