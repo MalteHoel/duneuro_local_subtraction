@@ -31,7 +31,8 @@ namespace duneuro
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
-            volumeConductor, solver.functionSpace(), search, config, solverConfig);
+            volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
+            config, solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -52,7 +53,8 @@ namespace duneuro
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
-            volumeConductor, solver.functionSpace(), search, config, solverConfig);
+            volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
+            config, solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
