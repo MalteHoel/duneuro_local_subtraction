@@ -12,7 +12,7 @@
 #include <dune/pdelab/gridfunctionspace/entityindexcache.hh>
 
 #include <duneuro/common/dipole.hh>
-#include <duneuro/eeg/element_selection.hh>
+#include <duneuro/common/element_patch.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 
 namespace duneuro
@@ -25,38 +25,26 @@ namespace duneuro
     using DipoleType = typename BaseT::DipoleType;
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
-    using ElementType = typename BaseT::ElementType;
     using GV = typename GFS::Traits::GridViewType;
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
     using Vertex = typename GV::template Codim<dim>::Entity;
-    using ES = Venant::ClosestVertexElementSelection<GV>;
     using SearchType = typename BaseT::SearchType;
 
     VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                      unsigned int numberOfMoments, Real referenceLength,
-                      unsigned int weightingExponent, Real relaxationFactor, bool restricted,
-                      std::shared_ptr<SearchType> search)
+                      std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
+        , elementNeighborhoodMap_(
+              std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
         , gfs_(gfs)
-        , selection_(gfs_.gridView())
-        , numberOfMoments_(numberOfMoments)
-        , referenceLength_(referenceLength)
-        , weightingExponent_(weightingExponent)
-        , relaxationFactor_(relaxationFactor)
-        , restricted_(restricted)
+        , numberOfMoments_(params.get<unsigned int>("numberOfMoments"))
+        , referenceLength_(params.get<Real>("referenceLength"))
+        , weightingExponent_(params.get<unsigned int>("weightingExponent"))
+        , relaxationFactor_(params.get<Real>("relaxationFactor"))
+        , config_(params)
     {
       assert(weightingExponent_ < numberOfMoments_);
-    }
-
-    VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                      std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
-        : VenantSourceModel(
-              volumeConductor, gfs, params.get<unsigned int>("numberOfMoments"),
-              params.get<Real>("referenceLength"), params.get<unsigned int>("weightingExponent"),
-              params.get<Real>("relaxationFactor"), params.get<bool>("restricted"), search)
-    {
     }
 
     void interpolate(const std::vector<Vertex>& vertices, const Dipole<Real, dim>& dipole,
@@ -121,22 +109,14 @@ namespace duneuro
 
       auto global = this->dipoleElement().geometry().global(this->localDipolePosition());
 
-      using Element = typename GV::template Codim<0>::Entity;
-      std::vector<Element> elements;
-      selection_.select(this->elementSearch(), global, std::back_inserter(elements));
+      auto elementPatch =
+          make_element_patch(volumeConductor_, elementNeighborhoodMap_, this->elementSearch(),
+                             this->dipole().position(), config_);
       using Vertex = typename GV::template Codim<GV::dimension>::Entity;
       std::vector<Vertex> vertices;
       std::set<typename VertexMapper::Index> usedVertices;
 
-      auto dipoleTensor = volumeConductor_->tensor(this->elementSearch().findEntity(global));
-
-      for (const auto& entity : elements) {
-        if (restricted_) {
-          auto tensor = volumeConductor_->tensor(entity);
-          tensor -= dipoleTensor;
-          if (tensor.infinity_norm() > 1e-8)
-            continue;
-        }
+      for (const auto& entity : elementPatch->elements()) {
         for (unsigned int i = 0; i < entity.subEntities(GV::dimension); ++i) {
           auto vertex = entity.template subEntity<GV::dimension>(i);
           if (usedVertices.insert(mapper.index(vertex)).second) {
@@ -149,13 +129,13 @@ namespace duneuro
 
   private:
     std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
-    ES selection_;
     const unsigned int numberOfMoments_;
     const Real referenceLength_;
     const unsigned int weightingExponent_;
     const Real relaxationFactor_;
-    const bool restricted_;
+    Dune::ParameterTree config_;
   };
 }
 

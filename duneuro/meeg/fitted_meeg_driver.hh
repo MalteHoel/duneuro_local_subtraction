@@ -295,8 +295,8 @@ namespace duneuro
     virtual void setSourceModel(const Dune::ParameterTree& config,
                                 DataTree dataTree = DataTree()) override
     {
-      transferMatrixUser_.setSourceModel(config, dataTree);
-      eegForwardSolver_.setSourceModel(config, dataTree);
+      transferMatrixUser_.setSourceModel(config, config_.sub("solver"), dataTree);
+      eegForwardSolver_.setSourceModel(config, config_.sub("solver"), dataTree);
     }
 
     virtual std::vector<double>

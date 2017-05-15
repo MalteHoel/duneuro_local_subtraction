@@ -49,10 +49,11 @@ namespace duneuro
       denseSourceModel_->bind(dipole, dataTree);
     }
 
-    void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    void setSourceModel(const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig,
+                        DataTree dataTree = DataTree())
     {
       denseSourceModel_ = SMF::template createDense<typename Traits::RangeDOFVector>(
-          volumeConductor_, *solver_, search_, config);
+          volumeConductor_, *solver_, search_, config, solverConfig);
     }
 
     void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,

@@ -44,17 +44,18 @@ namespace duneuro
     {
     }
 
-    void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    void setSourceModel(const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig,
+                        DataTree dataTree = DataTree())
     {
       sparseSourceModel_.reset();
       denseSourceModel_.reset();
       density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            volumeConductor_, *solver_, search_, config);
+            volumeConductor_, *solver_, search_, config, solverConfig);
       } else {
         denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
-            volumeConductor_, *solver_, search_, config);
+            volumeConductor_, *solver_, search_, config, solverConfig);
       }
     }
 
