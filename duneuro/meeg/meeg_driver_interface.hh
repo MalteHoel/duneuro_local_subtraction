@@ -142,6 +142,8 @@ namespace duneuro
                                                     const Dune::ParameterTree& config,
                                                     DataTree dataTree = DataTree()) = 0;
 
+    virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
+
     virtual ~MEEGDriverInterface()
     {
     }
