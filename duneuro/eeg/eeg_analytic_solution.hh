@@ -10,6 +10,7 @@
 #include <dune/common/timer.hh>
 
 #include <duneuro/common/dipole.hh>
+#include <duneuro/common/exceptions.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/legacy/analytic_solution.hh>
@@ -34,9 +35,9 @@ namespace duneuro
         , electrodePositions_(electrodePositions)
     {
       if (sphereRadii_.size() != conductivities_.size()) {
-        DUNE_THROW(Dune::Exception, "number of spheres does not match number of conductivities ("
-                                        << sphereRadii_.size() << " vs " << conductivities_.size()
-                                        << ")");
+        DUNE_THROW(IllegalArgumentException,
+                   "number of spheres does not match number of conductivities ("
+                       << sphereRadii_.size() << " vs " << conductivities_.size() << ")");
       }
     }
 
@@ -48,17 +49,16 @@ namespace duneuro
         , electrodePositions_(electrodePositions)
     {
       if (sphereRadii_.size() != conductivities_.size()) {
-        DUNE_THROW(Dune::Exception, "number of spheres does not match number of conductivities ("
-                                        << sphereRadii_.size() << " vs " << conductivities_.size()
-                                        << ")");
+        DUNE_THROW(IllegalArgumentException,
+                   "number of spheres does not match number of conductivities ("
+                       << sphereRadii_.size() << " vs " << conductivities_.size() << ")");
       }
     }
 
     std::vector<ctype> operator()(const Dipole<ctype, dim>& dipole) const
     {
-      return Legacy::analytic_solution(sphereRadii_.size(), sphereRadii_, sphereCenter_,
-                                       conductivities_, electrodePositions_, dipole.moment(),
-                                       dipole.position());
+      return Legacy::analytic_solution(sphereRadii_, sphereCenter_, conductivities_,
+                                       electrodePositions_, dipole.moment(), dipole.position());
     }
 
   private:
