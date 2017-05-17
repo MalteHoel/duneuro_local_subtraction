@@ -12,6 +12,10 @@ namespace duneuro
   class SourceModelException : public Exception
   {
   };
+
+  class IllegalArgumentException : public Exception
+  {
+  };
 }
 
 #endif // DUNEURO_EXCEPTIONS_HH

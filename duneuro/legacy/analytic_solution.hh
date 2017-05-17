@@ -22,6 +22,7 @@
 #include <dune/common/fvector.hh>
 
 #include <duneuro/common/dipole.hh>
+#include <duneuro/common/exceptions.hh>
 
 namespace duneuro
 {
@@ -29,7 +30,7 @@ namespace duneuro
   {
     /*** compute the analytic solution ***/
     std::vector<double>
-    analytic_solution(unsigned int numlayers, const std::vector<double>& radii_,
+    analytic_solution(const std::vector<double>& radii_,
                       const Dune::FieldVector<double, 3>& sphere_center,
                       const std::vector<double>& conds,
                       const std::vector<Dune::FieldVector<double, 3>>& electrodepositions,
@@ -37,6 +38,20 @@ namespace duneuro
                       const Dune::FieldVector<double, 3>& dipoleposition)
     {
       typedef double RF;
+
+      if (conds.size() != radii_.size()) {
+        DUNE_THROW(IllegalArgumentException, "number of conductivity values ("
+                                                 << conds.size()
+                                                 << ") does not match number of radii ("
+                                                 << radii_.size() << ")");
+      }
+
+      const unsigned int numlayers = radii_.size();
+
+      if (numlayers > 4) {
+        DUNE_THROW(IllegalArgumentException,
+                   "eeg analytical solution only supports up to 4 layers. got " << numlayers);
+      }
 
       /*** number of electrodes ***/
       const int num_electrodes = electrodepositions.size();
@@ -117,12 +132,12 @@ namespace duneuro
         }
         return analytic_solution;
       } else {
-        DUNE_THROW(Dune::RangeError, "Solution size " << solution_size
-                                                      << "does not match electrode number.");
+        DUNE_THROW(duneuro::Exception, "Solution size " << solution_size
+                                                        << "does not match electrode number.");
       }
     }
 
-    void analytic_solution(unsigned int numlayers, const std::vector<double>& sphereRadii,
+    void analytic_solution(const std::vector<double>& sphereRadii,
                            const Dune::FieldVector<double, 3>& sphereCenter,
                            const std::vector<double>& conductivities,
                            const std::vector<Dune::FieldVector<double, 3>>& electrodePositions,
@@ -130,7 +145,7 @@ namespace duneuro
                            std::vector<std::vector<double>>& out)
     {
       for (unsigned int i = 0; i < dipoles.size(); ++i) {
-        out.push_back(analytic_solution(numlayers, sphereRadii, sphereCenter, conductivities,
+        out.push_back(analytic_solution(sphereRadii, sphereCenter, conductivities,
                                         electrodePositions, dipoles[i].moment(),
                                         dipoles[i].position()));
       }
