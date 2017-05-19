@@ -235,7 +235,7 @@ namespace duneuro
     VertexToElementsMap<GV> vertexToElements(gridView);
     ElementCenters<GV> centers(gridView);
     auto shift = config.get<typename GV::ctype>("shift");
-    auto minority = config.get<unsigned int>("minority", 3);
+    auto minority = config.get<unsigned int>("minority", (1 << (GV::dimension - 1)) - 1);
     for (const auto& vertex : Dune::vertices(gridView)) {
       // extract neighboring elements along with their labels
       const auto& elements = vertexToElements.elements(vertex);

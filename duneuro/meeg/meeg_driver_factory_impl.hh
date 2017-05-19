@@ -63,9 +63,20 @@ namespace duneuro
                                                          FittedSolverType::cg, 1>>(
               data.fittedData, config, dataTree);
         } else if (elementType == "hexahedron") {
-          return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
-                                                         FittedSolverType::cg, 1, false>>(
-              data.fittedData, config, dataTree);
+          auto geometryAdapted = config.get<bool>("geometry_adapted", false);
+          if (geometryAdapted) {
+#if HAVE_DUNE_SUBGRID
+            return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
+                                                           FittedSolverType::cg, 1, true>>(
+                data.fittedData, config, dataTree);
+#else
+            DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
+          } else {
+            return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
+                                                           FittedSolverType::cg, 1, false>>(
+                data.fittedData, config, dataTree);
+          }
         } else {
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
@@ -75,9 +86,20 @@ namespace duneuro
                                                          FittedSolverType::dg, 1>>(
               data.fittedData, config, dataTree);
         } else if (elementType == "hexahedron") {
-          return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
-                                                         FittedSolverType::dg, 1, false>>(
-              data.fittedData, config, dataTree);
+          auto geometryAdapted = config.get<bool>("geometry_adapted", false);
+          if (geometryAdapted) {
+#if HAVE_DUNE_SUBGRID
+            return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
+                                                           FittedSolverType::dg, 1, true>>(
+                data.fittedData, config, dataTree);
+#else
+            DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
+          } else {
+            return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::hexahedron,
+                                                           FittedSolverType::dg, 1, false>>(
+                data.fittedData, config, dataTree);
+          }
         } else {
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
