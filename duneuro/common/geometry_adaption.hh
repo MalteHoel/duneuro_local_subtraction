@@ -182,6 +182,23 @@ namespace duneuro
       return elements;
     }
 
+    bool hasUniqueMinority() const
+    {
+      std::map<L, unsigned int> counts;
+      for (auto l : *labels_) {
+        ++counts[l];
+      }
+      auto minimal_count =
+          std::min_element(counts.begin(), counts.end(), [](const std::pair<L, unsigned int>& l,
+                                                            const std::pair<L, unsigned int>& r) {
+            return l.second < r.second;
+          })->second;
+      return std::count_if(
+                 counts.begin(), counts.end(),
+                 [&](const std::pair<L, unsigned int>& l) { return l.second == minimal_count; })
+             == 1;
+    }
+
     std::vector<std::size_t> extractElementsWithMinorityLabel() const
     {
       return extractElementsWithLabel(minorityLabel());
@@ -225,12 +242,14 @@ namespace duneuro
       const auto& labels = extract(elementLabels, elements);
       LabeledElementSet<L> labeledElements(&elements, &labels);
       auto shiftedPosition = vertex.geometry().center();
-      auto minorityElements = labeledElements.extractElementsWithMinorityLabel();
-      if (minorityElements.size() <= minority) {
-        // compute:  new = old + shift * (centroid - old)
-        auto shiftDirection = centers.centroid(minorityElements);
-        shiftDirection -= shiftedPosition;
-        shiftedPosition.axpy(shift, shiftDirection);
+      if (labeledElements.hasUniqueMinority()) {
+        auto minorityElements = labeledElements.extractElementsWithMinorityLabel();
+        if (minorityElements.size() <= minority) {
+          // compute:  new = old + shift * (centroid - old)
+          auto shiftDirection = centers.centroid(minorityElements);
+          shiftDirection -= shiftedPosition;
+          shiftedPosition.axpy(shift, shiftDirection);
+        }
       }
       // store shifted position
       (*deformedPositions)[gridView.indexSet().index(vertex)] = shiftedPosition;
