@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
 
 #include <duneuro/common/simple_structured_grid.hh>
@@ -20,6 +21,7 @@ namespace duneuro
   template <int dim>
   struct FittedDriverData {
     using Coordinate = Dune::FieldVector<double, dim>;
+    using Tensor = Dune::FieldMatrix<double,dim,dim>;
     //! \brief nodes of the mesh
     std::vector<Coordinate> nodes;
     //! \brief elements of the mesh, defined by the indices of their nodes in the `nodes` vector
@@ -28,6 +30,8 @@ namespace duneuro
     std::vector<int> labels;
     //! \brief list of conductivity values, e.g. 4 entries for a 4 compartment isotropic model
     std::vector<double> conductivities;
+    //! \brief list of conductivity tensors for each element
+    std::vector<Tensor> tensors;
   };
 }
 

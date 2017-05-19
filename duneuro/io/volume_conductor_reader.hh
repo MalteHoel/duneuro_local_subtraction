@@ -67,46 +67,74 @@ namespace duneuro
       using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
       GV gv = grid->leafGridView();
       Mapper mapper(gv);
-      std::vector<std::size_t> reordered_labels(gv.size(0));
-      if (std::size_t(mapper.size()) != reordered_labels.size()) {
-        DUNE_THROW(Dune::Exception, "mapper and labels have a different number of entries ("
-                                        << mapper.size() << " vs " << reordered_labels.size()
-                                        << ")");
-      }
-      for (const auto& element : Dune::elements(gv)) {
-        auto root = element;
-        while (root.hasFather())
-          root = root.father();
-        auto index = factory.insertionIndex(root);
-        if (index >= data.labels.size()) {
-          DUNE_THROW(Dune::Exception, "insertion index " << index << " out of bounds ("
-                                                         << data.labels.size() << ")");
+      if (data.tensors.size() > 0) {
+        std::vector<typename FittedDriverData<dim>::Tensor> reordered_tensors(gv.size(0));
+        if (std::size_t(mapper.size()) != reordered_tensors.size()) {
+          DUNE_THROW(Dune::Exception, "mapper and tensors have a different number of entries ("
+                                          << mapper.size() << " vs " << reordered_tensors.size()
+                                          << ")");
         }
-        auto label = data.labels[index];
-        if (label < 0 || std::size_t(label) >= data.conductivities.size()) {
-          DUNE_THROW(Dune::Exception, "label " << label << " out of bounds ("
-                                               << data.conductivities.size() << ")");
-        }
-        reordered_labels[mapper.index(element)] = label;
-      }
-      timer.stop();
-      dataTree.set("time_reordering_labels", timer.lastElapsed());
-      timer.start();
-      std::vector<TensorType> tensors;
-      for (auto value : data.conductivities) {
-        TensorType t;
-        for (unsigned int r = 0; r < t.N(); ++r) {
-          for (unsigned int c = 0; c < t.M(); ++c) {
-            t[r][c] = r == c ? value : 0.0;
+        for (const auto& element : Dune::elements(gv)) {
+          auto root = element;
+          while (root.hasFather())
+            root = root.father();
+          auto index = factory.insertionIndex(root);
+          if (index >= data.tensors.size()) {
+            DUNE_THROW(Dune::Exception, "insertion index " << index << " out of bounds ("
+                                                           << data.tensors.size() << ")");
           }
+          reordered_tensors[mapper.index(element)] = data.tensors[index];
         }
-        tensors.push_back(t);
+        timer.stop();
+        dataTree.set("time_reordering_tensors", timer.lastElapsed());
+        dataTree.set("time", timer.elapsed());
+        return std::make_shared<VolumeConductor<G>>(
+            std::move(grid), std::unique_ptr<MappingType>(new MappingType(
+                                 DirectEntityMapping<GV, TensorType>(gv, reordered_tensors))));
+      } else if (data.labels.size() > 0) {
+        std::vector<std::size_t> reordered_labels(gv.size(0));
+        if (std::size_t(mapper.size()) != reordered_labels.size()) {
+          DUNE_THROW(Dune::Exception, "mapper and labels have a different number of entries ("
+                                          << mapper.size() << " vs " << reordered_labels.size()
+                                          << ")");
+        }
+        for (const auto& element : Dune::elements(gv)) {
+          auto root = element;
+          while (root.hasFather())
+            root = root.father();
+          auto index = factory.insertionIndex(root);
+          if (index >= data.labels.size()) {
+            DUNE_THROW(Dune::Exception, "insertion index " << index << " out of bounds ("
+                                                           << data.labels.size() << ")");
+          }
+          auto label = data.labels[index];
+          if (label < 0 || std::size_t(label) >= data.conductivities.size()) {
+            DUNE_THROW(Dune::Exception, "label " << label << " out of bounds ("
+                                                 << data.conductivities.size() << ")");
+          }
+          reordered_labels[mapper.index(element)] = label;
+        }
+        timer.stop();
+        dataTree.set("time_reordering_labels", timer.lastElapsed());
+        timer.start();
+        std::vector<TensorType> tensors;
+        for (auto value : data.conductivities) {
+          TensorType t;
+          for (unsigned int r = 0; r < t.N(); ++r) {
+            for (unsigned int c = 0; c < t.M(); ++c) {
+              t[r][c] = r == c ? value : 0.0;
+            }
+          }
+          tensors.push_back(t);
+        }
+        dataTree.set("time", timer.elapsed());
+        return std::make_shared<VolumeConductor<G>>(
+            std::move(grid),
+            std::unique_ptr<MappingType>(new MappingType(
+                IndirectEntityMapping<GV, TensorType>(gv, tensors, reordered_labels))));
+      } else {
+        DUNE_THROW(Dune::Exception, "you have to provide labels or tensors");
       }
-      dataTree.set("time", timer.elapsed());
-      return std::make_shared<VolumeConductor<G>>(
-          std::move(grid),
-          std::unique_ptr<MappingType>(new MappingType(
-              IndirectEntityMapping<GV, TensorType>(gv, tensors, reordered_labels))));
     }
 
     static std::shared_ptr<VolumeConductor<G>>
