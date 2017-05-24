@@ -19,7 +19,64 @@
 #include <duneuro/eeg/element_selection.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 
+///////////////////////////////////////////////////////////////////////
+//                                                                   //
+// WhitneySourceModel creates a source model with "Whitney-          //
+// elements, taking a combination of face intersecting and edgewise  //
+// dipolar sources and estimating the original dipole position and   //
+// moment by creating a linear combination of these source dipoles   //
+// by interpolating. The script follows the methods presented in     //
+// Pursiainen, S., Vorwek, J. and Wolters, C.,                       //
+// "Electroencephalography (EEG) forward modeling                    //
+// via H(div) Finite Element Sources With Focal Interpolation",      //
+// published in Physic in Medicine and Biology, vol 61, no. 24,      //
+// pp. 8502-8520, 11 2016                                            //
+//                                                                   //
+///////////////////////////////////////////////////////////////////////
+
+// Required parameters:
+// std::shared_ptr<VC> volumeConductor   - Volume Conductor
+// const GFS gfs  - Global function space
+// mutable CacheType cache   - cache element
+// const Real referenceLength - Reference length for PBO interpolation
+// (usually double  - three times) the length of the longest edge in the mesh
+// const bool restricted - boolean if restricting the sources in one layer
+// const WhitneyFaceBased - variable defining if element's face based dipoles
+// are included:
+// "all" is 4 dipoles, or "none" 0
+// const WhitneyEdgeBased - variable defining if element's or neighboring edge
+// based dipoles are included:
+// "all" takes neighboring and elements edge dipoles, "internal" just element's
+// edges and "none" is for 0
+// const std::string interpolation - name of the interpolation, either
+// 'MPO' or 'PBO'
+
+// Currently source model functions only with tetrahedras. Also, it is
+// required that the basis functions are nodal basis functions
+
 namespace duneuro {
+enum class WhitneyFaceBased { all, none };
+
+WhitneyFaceBased whitneyFaceBasedFromString(const std::string &value) {
+  if (value == "all")
+    return WhitneyFaceBased::all;
+  if (value == "none")
+    return WhitneyFaceBased::none;
+  DUNE_THROW(Dune::Exception, "invalid whitney face type");
+}
+
+enum class WhitneyEdgeBased { all, internal, none };
+
+WhitneyEdgeBased whitneyEdgeBasedFromString(const std::string &value) {
+  if (value == "all")
+    return WhitneyEdgeBased::all;
+  if (value == "internal")
+    return WhitneyEdgeBased::internal;
+  if (value == "none")
+    return WhitneyEdgeBased::none;
+  DUNE_THROW(Dune::Exception, "invalid whitney edge type");
+}
+
 template <class VC, class GFS, class V>
 class WhitneySourceModel
     : public SourceModelBase<typename GFS::Traits::GridViewType, V> {
@@ -33,36 +90,40 @@ public:
   enum { dim = GV::dimension };
   using Real = typename GV::ctype;
   using Vertex = typename GV::template Codim<dim>::Entity;
-  using ES = Venant::ClosestVertexElementSelection<GV>;
-  using LFSType = Dune::PDELab::LocalFunctionSpace<GFS>;
-  using CacheType = Dune::PDELab::LFSIndexCache<LFSType>;
   using SearchType = typename BaseT::SearchType;
   using Vector = Eigen::VectorXd;
 
   WhitneySourceModel(std::shared_ptr<VC> volumeConductor, const GFS &gfs,
                      Real referenceLength, bool restricted,
+                     WhitneyFaceBased faceSources, WhitneyEdgeBased edgeSources,
                      std::string interpolation,
                      std::shared_ptr<SearchType> search)
-      : BaseT(search), volumeConductor_(volumeConductor), gfs_(gfs), lfs_(gfs),
-        cache_(lfs_), selection_(gfs_.gridView()),
+      : BaseT(search), volumeConductor_(volumeConductor), gfs_(gfs),
         referenceLength_(referenceLength), restricted_(restricted),
+        faceSources_(faceSources), edgeSources_(edgeSources),
         interpolation_(interpolation) {
+    if (faceSources == WhitneyFaceBased::none &&
+        edgeSources == WhitneyEdgeBased::none)
+      DUNE_THROW(Dune::Exception, "please select at least some dipoles");
     // assert( here we should check that input is a tetrahedron)
   }
 
   WhitneySourceModel(std::shared_ptr<VC> volumeConductor, const GFS &gfs,
                      std::shared_ptr<SearchType> search,
                      const Dune::ParameterTree &params)
-      : WhitneySourceModel(volumeConductor, gfs,
-                           params.get<Real>("referenceLength"),
-                           params.get<bool>("restricted"),
-                           params.get<std::string>("interpolation"), search) {}
-  // Pseudoinverse - method
+      : WhitneySourceModel(
+            volumeConductor, gfs, params.get<Real>("referenceLength"),
+            params.get<bool>("restricted"),
+            whitneyFaceBasedFromString(params.get<std::string>("faceSources")),
+            whitneyEdgeBasedFromString(params.get<std::string>("edgeSources")),
+            params.get<std::string>("interpolation"), search) {}
+
+  // Pseudoinverse - method for MPO - interpolation
   Eigen::MatrixXd pinv(Eigen::MatrixXd pinvmat) const {
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(pinvmat, Eigen::ComputeThinU |
                                                        Eigen::ComputeThinV);
     double epsilon = std::numeric_limits<double>::epsilon();
-    // pinvtoler=1.e-6; // choose your tolerance wisely!
+    // tolerance~=1.e-6; // choose your tolerance wisely!
     double tolerance = epsilon * std::max(pinvmat.cols(), pinvmat.rows()) *
                        svd.singularValues().array().abs()(0);
 
@@ -83,7 +144,8 @@ public:
       const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
       V &output) const {
 
-    std::cout << "MPO interpolation" << std::endl;
+    std::cout << "MPO interpolation with " << vertices1.size() << " sources"
+              << std::endl;
     // Initialize variables
     using Matrix = Eigen::MatrixXd;
     Matrix matrixM = Matrix::Zero(dim * (dim + 1), source_positions.size());
@@ -94,7 +156,6 @@ public:
     Matrix coeffMat = Vector::Zero(source_positions.size());
 
     std::vector<Dune::FieldVector<Real, dim>> differences;
-
     Dune::PDELab::EntityIndexCache<GFS> cache1(gfs_);
     Dune::PDELab::EntityIndexCache<GFS> cache2(gfs_);
 
@@ -104,7 +165,8 @@ public:
     }
 
     // Create matrix P for all dimensions j = 1:3 and vector b
-    // P_j = 1 / referenceLenght * diag(differences_1 * e_j, differences_2*e_j
+    // P_j = 1 / referenceLenght *
+    // diag(differences_1 * e_j, differences_2*e_j
     //..., differences_n_sources * e_j)
     // b_vec = [dipole_moment; 0 ; ...; 0]
     for (unsigned int d = 0; d < dim; ++d) {
@@ -121,7 +183,6 @@ public:
       unsigned int index = dim; // Index for matrixM rows
       for (unsigned int d = 0; d < dim; ++d) {
         for (unsigned int dd = 0; dd < dim; ++dd) {
-
           matrixM(index, i) = diagPs[d](i) * source_moments[i][dd];
           ++index;
         }
@@ -129,7 +190,7 @@ public:
     }
     // compute coefficients c = pinv(M)*b
     coeffMat = pinv(matrixM) * b_vec;
-    std::cout << "c:s are : " << coeffMat << std::endl;
+    // std::cout << "c:s are : " << coeffMat << std::endl;
 
     // store output for each source dipole
     // Right hand side = +- c_i / (r_a - r_b),
@@ -152,7 +213,8 @@ public:
       const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
       V &output) const {
 
-    // std::cout << "PBO Interpolation " << std::endl;
+    std::cout << "PBO Interpolation with " << vertices1.size() << " sources"
+              << std::endl;
 
     // Initialize
     const int n_sources = source_positions.size();
@@ -173,7 +235,8 @@ public:
       auto diff = source_positions[i] - dipole.position();
       // Distance between source position and actual dipole position
       double dist = diff.two_norm();
-      // Form matrix Q = [source_moment_1 source_moment_2 ... source_moment_L]
+      // Form matrix Q = [source_moment_1 source_moment_2 ...
+      // source_moment_L]
       for (unsigned int d = 0; d < dim; ++d) {
         matrixQ(d, i) = source_moments[i][d];
       }
@@ -185,7 +248,6 @@ public:
     for (unsigned int d = 0; d < dim; ++d) {
       rhsVec[n_sources + d] = dipole.moment()[d];
     }
-
     // Set left hand side matrix
     // lhsMat = [ D Q^T; Q 0]
     lhsMat.block(0, 0, n_sources, n_sources) = matrixD;
@@ -196,7 +258,7 @@ public:
     Vector coeffVec = lhsMat.colPivHouseholderQr().solve(rhsVec);
 
     // store output for each source dipole
-    // Right hand side = +- c_i / (r_a - r_b),
+    // Right hand side, 'f' = +- c_i / (r_a - r_b),
     // r_a & r_b vertices sharing a face or an edge
 
     for (unsigned int i = 0; i < vertices1.size(); ++i) {
@@ -210,22 +272,21 @@ public:
   }
 
   virtual void assembleRightHandSide(VectorType &vector) const {
-
+    if (!this->dipoleElement().geometry().type().isTetrahedron()) {
+      DUNE_THROW(Dune::Exception, "currently, only tetrahedral meshes are "
+                                  "supported by the whitney source model");
+    }
     // Initalize
-    // using VertexMapper = Dune::SingleCodimSingleGeomTypeMapper<GV,
-    // GV::dimension>;
-    // VertexMapper mapper(gfs_.gridView());
-
     auto global =
         this->dipoleElement().geometry().global(this->localDipolePosition());
-
     using Vertex = typename GV::template Codim<GV::dimension>::Entity;
-    // collect the conductivites in order to avoid taking the nodes that are in
-    // the wrong section
+
+    // collect the conductivites in order to avoid
+    // taking the nodes that are in the wrong layer
     auto dipoleTensor =
         volumeConductor_->tensor(this->elementSearch().findEntity(global));
 
-    lfs_.bind(this->dipoleElement());
+    // lfs_.bind(this->dipoleElement());
     std::vector<double> distances;
     std::vector<Vertex> vertices1;
     std::vector<Vertex> vertices2;
@@ -239,78 +300,39 @@ public:
     Dune::PDELab::EntityIndexCache<GFS> cache1(gfs_);
     Dune::PDELab::EntityIndexCache<GFS> cache2(gfs_);
 
-    // Loop through all the intersections (shared faces)
-    auto is = intersections(gfs_.gridView(), this->dipoleElement());
-    for (const auto &iss : is) {
-      // Check that intersection is not a boundary face
-      if (!iss.neighbor()) {
-        continue;
-      }
-
-      // check that outside element is not over gray matter
-      if (restricted_) {
-        auto tensor = volumeConductor_->tensor(iss.outside());
-        tensor -= dipoleTensor;
-        // Check if the conductivity is correct
-        if (tensor.infinity_norm() > 1e-8) {
+    // Loop through shared faces for face intersecting dipoles
+    if (faceSources_ == WhitneyFaceBased::all) {
+      auto is = intersections(gfs_.gridView(), this->dipoleElement());
+      for (const auto &iss : is) {
+        // Check that intersection is not a boundary face
+        if (!iss.neighbor()) {
           continue;
         }
-      }
 
-      // Find nodes oppositing shared face
-      unsigned int inFaceInd = iss.indexInInside(); // Local ix: shared face
-      unsigned int jj =
-          dim - inFaceInd; // local ix: node inside oppositing shared face
-      Vertex R_a = iss.inside().template subEntity<GV::dimension>(jj);
+        // check that outside element is not over gray matter
+        if (restricted_) {
+          auto tensor = volumeConductor_->tensor(iss.outside());
+          tensor -= dipoleTensor;
+          if (tensor.infinity_norm() > 1e-8) {
+            continue;
+          }
+        }
 
-      unsigned int outFaceInd = iss.indexInOutside(); // outside ix: shared face
-      unsigned int kk =
-          dim - outFaceInd; // outside ix: node outside oppositing shared face
-      Vertex R_b = iss.outside().template subEntity<GV::dimension>(kk);
-      auto diff = R_b.geometry().center() - R_a.geometry().center();
-      double dist = diff.two_norm();
+        // Find nodes oppositing shared face
 
-      // Set source dipoles : dip_pos = 1/2 * (R_a + R_b)
-      // dip_moment = (R_b - R_a ) / ||R_b - R_a ||
-      for (unsigned int d = 0; d < dim; d++) {
-        dip_pos[d] = R_a.geometry().center()[d] + R_b.geometry().center()[d];
-        dip_moment[d] = R_b.geometry().center()[d] - R_a.geometry().center()[d];
-      }
-      dip_pos *= 1 / 2.0;
-      dip_moment *= 1 / dist;
+        // local ix jj: node inside oppositing shared face
+        // (local numbering in dune grid is fixed)
+        unsigned int jj = dim - iss.indexInInside();
+        Vertex R_a = iss.inside().template subEntity<GV::dimension>(jj);
 
-      // Store vertices & distances of source dipoles for interpolation
-      vertices1.push_back(R_a);
-      vertices2.push_back(R_b);
-      distances.push_back(dist);
-      source_positions.push_back(dip_pos);
-      source_moments.push_back(dip_moment);
-    }
-
-    // Next find edge-based dipoles
-
-    // Initialize vectors
-    std::vector<double> EWdistances;
-    std::vector<Vertex> EWvertices1;
-    std::vector<Vertex> EWvertices2;
-    std::vector<Dune::FieldVector<Real, dim>> EWsource_positions;
-    std::vector<Dune::FieldVector<Real, dim>> EWsource_moments;
-
-    // First the loop the edges inside the element
-    auto element = this->dipoleElement();
-    // Loop nodes 0,...,dim-1
-    for (int ii = 0; ii < dim; ii++) {
-      Vertex R_a = element.template subEntity<GV::dimension>(ii);
-      // find the other nodes that share an edge with R_a
-      for (unsigned int n = ii + 1; n < dim + 1; n++) {
-        Vertex R_b = element.template subEntity<GV::dimension>(n);
-        // Compute the distance between points
+        // outside ix kk: node outside that is opposite shared face
+        unsigned int kk = dim - iss.indexInOutside();
+        Vertex R_b = iss.outside().template subEntity<GV::dimension>(kk);
         auto diff = R_b.geometry().center() - R_a.geometry().center();
-        double dist = diff.two_norm();
+        double dist = diff.two_norm(); // distance between R_a and R_b
 
-        // Set edge based source dipoles
-        // dip_pos = 1/2 *(R_a + R_b)
-        // dip_moment = (R_b - R_a) / ||R_b-R_a||
+        // Set source dipoles : dip_pos = 1/2 * (R_a + R_b)
+        // dip_moment = (R_b - R_a ) / ||R_b - R_a ||
         for (unsigned int d = 0; d < dim; d++) {
           dip_pos[d] = R_a.geometry().center()[d] + R_b.geometry().center()[d];
           dip_moment[d] =
@@ -320,84 +342,106 @@ public:
         dip_moment *= 1 / dist;
 
         // Store vertices & distances of source dipoles for interpolation
-        EWvertices1.push_back(R_a);
-        EWvertices2.push_back(R_b);
-        EWdistances.push_back(dist);
-        EWsource_positions.push_back(dip_pos);
-        EWsource_moments.push_back(dip_moment);
+        vertices1.push_back(R_a);
+        vertices2.push_back(R_b);
+        distances.push_back(dist);
+        source_positions.push_back(dip_pos);
+        source_moments.push_back(dip_moment);
       }
     }
 
-    /*
-    // Loop over shared faces and find all the edge-based dipoles
-    // for outside elements
-    auto is2 = intersections(gfs_.gridView(), this -> dipoleElement());
-    for (const auto& iss2: is2) {
-      // Check if the intersection is a boundary face
-      if (!iss2.neighbor()) {
-        continue;
-      }
-      // check that we are not over gray matter
-      if (restricted_) {
-        auto tensor = volumeConductor_->
-          tensor(iss2.outside());
-        tensor -= dipoleTensor;
-        if (tensor.infinity_norm() > 1e-8)
-          continue;
-      }
+    // Next edge-based dipoles
 
-
-      // Find the index kk2 for node outside oppositing the shared face
-      unsigned int outFaceInd2 = iss2.indexInOutside();
-      unsigned int kk2 = dim - outFaceInd2;
-      Vertex R_b = iss2.outside().template subEntity<GV::dimension>(kk2);
-      //auto r_b = iss2.outside().geometry().corner(kk2);
-      //std::cout << "r_b is : " << r_b << std::endl;
-
-      // Loop over the edges connected to kk2:th vertex in outside
-      // tetrahedron
-      for (unsigned int k = 0; k < (dim + 1); k++) {
-        if ( k != kk2 ) {
-
-          // node sharing edge with R_b
-          Vertex R_a = iss2.outside().template subEntity<GV::dimension>(k);
+    if (edgeSources_ == WhitneyEdgeBased::internal ||
+        edgeSources_ == WhitneyEdgeBased::all) {
+      // First the loop the edges inside the element
+      auto element = this->dipoleElement();
+      // Loop nodes 0,...,dim-1
+      for (int ii = 0; ii < dim; ii++) {
+        Vertex R_a = element.template subEntity<GV::dimension>(ii);
+        // find the other nodes that share an edge with R_a
+        for (unsigned int n = ii + 1; n < dim + 1; n++) {
+          Vertex R_b = element.template subEntity<GV::dimension>(n);
+          // Compute the distance between points
           auto diff = R_b.geometry().center() - R_a.geometry().center();
           double dist = diff.two_norm();
-
-          // Set source dipole position and moment
-          for (std::size_t d= 0; d < dim; d++) {
-            dip_pos[d] = R_a.geometry().center()[d] +
-              R_b.geometry().center()[d];
-            dip_moment[d] = R_b.geometry().center()[d] -
-              R_a.geometry().center()[d];
+          // Set edge based source dipoles
+          // dip_pos = 1/2 *(R_a + R_b)
+          // dip_moment = (R_b - R_a) / ||R_b-R_a||
+          for (unsigned int d = 0; d < dim; d++) {
+            dip_pos[d] =
+                R_a.geometry().center()[d] + R_b.geometry().center()[d];
+            dip_moment[d] =
+                R_b.geometry().center()[d] - R_a.geometry().center()[d];
           }
-          dip_pos *= 1/2.0;
-          dip_moment *= 1/dist;
-
-          // insert vertices & dipoles to store
-          EWvertices1.push_back(R_a);
-          EWvertices2.push_back(R_b);
-          EWdistances.push_back(dist);
-          EWsource_positions.push_back(dip_pos);
-          EWsource_moments.push_back(dip_moment);
+          dip_pos *= 1 / 2.0;
+          dip_moment *= 1 / dist;
+          // Store vertices & distances of source dipoles for interpolation
+          vertices1.push_back(R_a);
+          vertices2.push_back(R_b);
+          distances.push_back(dist);
+          source_positions.push_back(dip_pos);
+          source_moments.push_back(dip_moment);
         }
       }
     }
-    */
+    // Loop over shared faces and find all the edge-based dipoles
+    // for outside elements
+    if (edgeSources_ == WhitneyEdgeBased::all) {
+      auto is2 = intersections(gfs_.gridView(), this->dipoleElement());
+      for (const auto &iss2 : is2) {
+        // Check if the intersection is a boundary face
+        if (!iss2.neighbor()) {
+          continue;
+        }
+        // check that we are not over gray matter
+        if (restricted_) {
+          auto tensor = volumeConductor_->tensor(iss2.outside());
+          tensor -= dipoleTensor;
+          if (tensor.infinity_norm() > 1e-8)
+            continue;
+        }
+        // Find the index kk2 for node outside oppositing the shared face
+        unsigned int kk2 = dim - iss2.indexInOutside();
+        Vertex R_b = iss2.outside().template subEntity<GV::dimension>(kk2);
+        // auto r_b = iss2.outside().geometry().corner(kk2);
+        // std::cout << "r_b is : " << r_b << std::endl;
 
-    // Insert the edge based dipoles the to source selection
-    // (these are kept in separate parts in order to have different
-    // possibilities to choose source dipoles)
-    vertices1.insert(vertices1.end(), EWvertices1.begin(), EWvertices1.end());
-    vertices2.insert(vertices2.end(), EWvertices2.begin(), EWvertices2.end());
-    distances.insert(distances.end(), EWdistances.begin(), EWdistances.end());
-    source_positions.insert(source_positions.end(), EWsource_positions.begin(),
-                            EWsource_positions.end());
-    source_moments.insert(source_moments.end(), EWsource_moments.begin(),
-                          EWsource_moments.end());
+        // Loop over the edges connected to kk2:th vertex
+        // in outside tetrahedron
+        for (unsigned int k = 0; k < (dim + 1); k++) {
+          if (k != kk2) {
+
+            // node sharing an edge with R_b
+            Vertex R_a = iss2.outside().template subEntity<GV::dimension>(k);
+            auto diff = R_b.geometry().center() - R_a.geometry().center();
+            double dist = diff.two_norm();
+
+            // Set the source dipole position and moment
+            for (std::size_t d = 0; d < dim; d++) {
+              dip_pos[d] =
+                  R_a.geometry().center()[d] + R_b.geometry().center()[d];
+              dip_moment[d] =
+                  R_b.geometry().center()[d] - R_a.geometry().center()[d];
+            }
+            dip_pos *= 1 / 2.0;
+            dip_moment *= 1 / dist;
+
+            // insert vertices & dipoles to store
+            vertices1.push_back(R_a);
+            vertices2.push_back(R_b);
+            distances.push_back(dist);
+            source_positions.push_back(dip_pos);
+            source_moments.push_back(dip_moment);
+          }
+        }
+      }
+    }
+    assert(source_positions.size() > 0);
+
+    // Jump to interpolation -section
 
     if (interpolation_.compare("MPO") == 0) {
-      // Choose interpolation tehnique here
 
       MPOinterpolation(
           source_positions, source_moments, vertices1, vertices2, distances,
@@ -415,11 +459,10 @@ public:
 private:
   std::shared_ptr<VC> volumeConductor_;
   const GFS &gfs_;
-  mutable LFSType lfs_;
-  mutable CacheType cache_;
-  ES selection_;
   const Real referenceLength_;
   const bool restricted_;
+  const WhitneyFaceBased faceSources_;
+  const WhitneyEdgeBased edgeSources_;
   const std::string interpolation_;
 };
 }
