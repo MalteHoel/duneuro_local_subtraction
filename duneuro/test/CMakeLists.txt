@@ -1,1 +1,2 @@
 dune_add_test(SOURCES test_analytic_solution.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_electrode_projection.cc LINK_LIBRARIES duneuro)

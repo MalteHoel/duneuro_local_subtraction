@@ -227,6 +227,12 @@ namespace duneuro
       eegForwardSolver_.setSourceModel(config, dataTree);
     }
 
+    virtual std::vector<typename MEEGDriverInterface<dim>::CoordinateType>
+    getProjectedElectrodes() const override
+    {
+      return projectedGlobalElectrodes_;
+    }
+
   private:
     void checkElectrodes() const
     {

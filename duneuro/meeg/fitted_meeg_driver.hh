@@ -308,6 +308,12 @@ namespace duneuro
       return transferMatrixUser_.solve(transferMatrix, dataTree);
     }
 
+    virtual std::vector<typename MEEGDriverInterface<dim>::CoordinateType>
+    getProjectedElectrodes() const override
+    {
+      return projectedGlobalElectrodes_;
+    }
+
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
