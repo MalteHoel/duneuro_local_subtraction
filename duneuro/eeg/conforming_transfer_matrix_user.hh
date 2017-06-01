@@ -77,6 +77,13 @@ namespace duneuro
     void postProcessPotential(const std::vector<typename Traits::Coordinate>& projectedElectrodes,
                               std::vector<typename Traits::DomainField>& potential)
     {
+      if (projectedElectrodes.size() != potential.size()) {
+        DUNE_THROW(duneuro::IllegalArgumentException,
+                   "number of electrodes ("
+                       << projectedElectrodes.size()
+                       << ") does not match number of entries in the potential vector ("
+                       << potential.size() << ")");
+      }
       if (density_ == VectorDensity::sparse) {
         if (!sparseSourceModel_) {
           DUNE_THROW(Dune::Exception, "source model not set");
