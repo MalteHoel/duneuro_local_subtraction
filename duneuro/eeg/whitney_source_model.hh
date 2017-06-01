@@ -16,7 +16,6 @@
 #include <dune/pdelab/gridfunctionspace/localfunctionspace.hh>
 
 #include <duneuro/common/dipole.hh>
-#include <duneuro/eeg/element_selection.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 
 ///////////////////////////////////////////////////////////////////////
@@ -55,26 +54,27 @@
 // required that the basis functions are nodal basis functions
 
 namespace duneuro {
-enum class WhitneyFaceBased { all, none };
 
-WhitneyFaceBased whitneyFaceBasedFromString(const std::string &value) {
+enum class WhitneyFaceBased { all, none };
+inline WhitneyFaceBased whitneyFaceBasedFromString(const std::string &value) {
   if (value == "all")
     return WhitneyFaceBased::all;
-  if (value == "none")
+  else if (value == "none")
     return WhitneyFaceBased::none;
-  DUNE_THROW(Dune::Exception, "invalid whitney face type");
+  else
+    DUNE_THROW(Dune::Exception, "invalid whitney face type");
 }
 
 enum class WhitneyEdgeBased { all, internal, none };
-
-WhitneyEdgeBased whitneyEdgeBasedFromString(const std::string &value) {
+inline WhitneyEdgeBased whitneyEdgeBasedFromString(const std::string &value) {
   if (value == "all")
     return WhitneyEdgeBased::all;
-  if (value == "internal")
+  else if (value == "internal")
     return WhitneyEdgeBased::internal;
-  if (value == "none")
+  else if (value == "none")
     return WhitneyEdgeBased::none;
-  DUNE_THROW(Dune::Exception, "invalid whitney edge type");
+  else
+    DUNE_THROW(Dune::Exception, "invalid whitney edge type");
 }
 
 template <class VC, class GFS, class V>
@@ -102,10 +102,9 @@ public:
         referenceLength_(referenceLength), restricted_(restricted),
         faceSources_(faceSources), edgeSources_(edgeSources),
         interpolation_(interpolation) {
-    if (faceSources == WhitneyFaceBased::none &&
-        edgeSources == WhitneyEdgeBased::none)
+    if ((faceSources == WhitneyFaceBased::none) &&
+        (edgeSources == WhitneyEdgeBased::none))
       DUNE_THROW(Dune::Exception, "please select at least some dipoles");
-    // assert( here we should check that input is a tetrahedron)
   }
 
   WhitneySourceModel(std::shared_ptr<VC> volumeConductor, const GFS &gfs,
@@ -144,8 +143,10 @@ public:
       const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
       V &output) const {
 
-    std::cout << "MPO interpolation with " << vertices1.size() << " sources"
-              << std::endl;
+    if (vertices1.size() == 0) {
+      DUNE_THROW(Dune::Exception, "no source dipoles found,"
+                                  " check dipole fed in");
+    }
     // Initialize variables
     using Matrix = Eigen::MatrixXd;
     Matrix matrixM = Matrix::Zero(dim * (dim + 1), source_positions.size());
@@ -213,8 +214,10 @@ public:
       const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
       V &output) const {
 
-    std::cout << "PBO Interpolation with " << vertices1.size() << " sources"
-              << std::endl;
+    if (vertices1.size() == 0) {
+      DUNE_THROW(Dune::Exception, "no source dipoles found,"
+                                  " check dipole fed in");
+    }
 
     // Initialize
     const int n_sources = source_positions.size();
@@ -352,8 +355,8 @@ public:
 
     // Next edge-based dipoles
 
-    if (edgeSources_ == WhitneyEdgeBased::internal ||
-        edgeSources_ == WhitneyEdgeBased::all) {
+    if ((edgeSources_ == WhitneyEdgeBased::internal) ||
+        (edgeSources_ == WhitneyEdgeBased::all)) {
       // First the loop the edges inside the element
       auto element = this->dipoleElement();
       // Loop nodes 0,...,dim-1
@@ -452,7 +455,8 @@ public:
           source_positions, source_moments, vertices1, vertices2, distances,
           Dipole<Real, dim>(global, this->dipole().moment()), vector);
     } else {
-      std::cout << "Check interpolation method name." << std::endl;
+      DUNE_THROW(Dune::Exception, "interpolation type \"" << interpolation_
+                                                          << "\" unknown");
     }
   }
 
