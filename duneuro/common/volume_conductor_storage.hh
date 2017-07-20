@@ -41,7 +41,33 @@ namespace duneuro
   };
 
 #if HAVE_DUNE_SUBGRID
-  // note: geometry adaption currently only available in 3d
+  template <>
+  class VolumeConductorStorage<2, ElementType::hexahedron, true>
+  {
+  public:
+    using Type = VolumeConductor<typename GeometryAdaptedGrid<2>::GridType>;
+
+    explicit VolumeConductorStorage(const FittedDriverData<2>& data,
+                                    const Dune::ParameterTree& config,
+                                    DataTree dataTree = DataTree())
+        : adaptedGrid_(make_geometry_adapted_grid(data, config.sub("grid")))
+        , volumeConductor_(make_geometry_adapted_volume_conductor<2>(std::move(adaptedGrid_.grid),
+                                                                     std::move(adaptedGrid_.labels),
+                                                                     data.conductivities, config))
+    {
+    }
+
+    std::shared_ptr<Type> get() const
+    {
+      assert(volumeConductor_);
+      return volumeConductor_;
+    }
+
+  private:
+    GeometryAdaptedGrid<2> adaptedGrid_;
+    std::shared_ptr<Type> volumeConductor_;
+  };
+
   template <>
   class VolumeConductorStorage<3, ElementType::hexahedron, true>
   {
