@@ -8,6 +8,9 @@
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_source_model.hh>
 #include <duneuro/eeg/venant_source_model.hh>
+// Add new source models
+#include <duneuro/eeg/whitney_source_model.hh>
+
 
 namespace duneuro
 {
@@ -32,6 +35,10 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
             Vector, SubtractionContinuityType::continuous>>(volumeConductor, solver.functionSpace(),
                                                             search, config, solverConfig);
+      } else if (type == "whitney") {
+        return std::make_shared<WhitneySourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -51,6 +58,10 @@ namespace duneuro
                                                                   search);
       } else if (type == "venant") {
         return std::make_shared<VenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
+      } else if (type == "whitney") {
+	return std::make_shared<WhitneySourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
                                                   Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else {
