@@ -8,8 +8,6 @@
 #include <dune/grid/io/file/dgfparser.hh>
 #include <dune/grid/io/file/gmshreader.hh>
 
-#include <dune/alugrid/dgf.hh>
-
 #include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/volume_conductor.hh>
 #include <duneuro/io/cauchy_grid_reader.hh>
