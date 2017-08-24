@@ -18,7 +18,10 @@ namespace duneuro
     {
       assert(data);
       if (data->size() != grid_.elements()) {
-        DUNE_THROW(Dune::Exception, "image data size has to match the number of grid elements");
+        DUNE_THROW(Dune::Exception, "image data size "
+                                        << data->size()
+                                        << " has to match the number of image grid elements "
+                                        << grid_.elements());
       }
     }
 
@@ -38,6 +41,12 @@ namespace duneuro
       auto li = grid_.toLinearIndex(i);
       assert(li < data_->size());
       return (*data_)[li];
+    }
+
+    const std::vector<T>& data() const
+    {
+      assert(data_);
+      return *data_;
     }
 
   private:

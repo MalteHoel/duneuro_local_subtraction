@@ -9,66 +9,27 @@
 
 #include <dune/udg/simpletpmctriangulation/interface.hh>
 
+#include <dune/functions/functionspacebases/pqknodalbasis.hh>
+#include <dune/functions/gridfunctions/discreteglobalbasisfunction.hh>
+
 #include <duneuro/common/image.hh>
 
 namespace duneuro
 {
-  template <class GV>
-  class SimpleTPMCImageLevelSet : public Dune::UDG::LevelSetFunctionInterface<GV>
+  template <class LGV, class V>
+  Dune::Functions::GridViewFunction<double(Dune::FieldVector<typename LGV::ctype, LGV::dimension>),
+                                    LGV>
+  makeImageLevelSet(const LGV& gridView, V&& coefficients)
   {
-  public:
-    enum { dim = GV::dimension };
-    using ctype = typename GV::ctype;
-    using BaseT = Dune::UDG::LevelSetFunctionInterface<GV>;
-    using Element = typename BaseT::Element;
-    using Domain = typename BaseT::Domain;
-    using Range = typename BaseT::Range;
-    using FEM = Dune::PDELab::QkLocalFiniteElementMap<GV, ctype, ctype, 1>;
-    using FE = Dune::QkLocalFiniteElement<ctype, ctype, dim, 1>;
-
-    SimpleTPMCImageLevelSet(const GV& gv, std::shared_ptr<Image<ctype, dim>> vertexImage)
-        : gridView_(gv), vertexImage_(vertexImage), vertexMapper_(gridView_), fem_(gridView_)
-    {
-      if (std::size_t(gv.size(dim)) != vertexImage->grid().elements()) {
-        DUNE_THROW(Dune::Exception, "number of grid vertices ("
-                                        << gv.size(dim)
-                                        << ") has to match number of elements in the vertex image ("
-                                        << vertexImage->grid().elements() << ")");
-      }
+    using Basis = Dune::Functions::PQkNodalBasis<LGV, 1>;
+    if (coefficients.size() != static_cast<std::size_t>(gridView.size(LGV::dimension))) {
+      DUNE_THROW(Dune::Exception, "number of coefficients has to match number of grid vertices");
     }
-
-    virtual Range evaluateLocal(const Domain& x) const override
-    {
-      std::vector<typename FE::Traits::LocalBasisType::Traits::RangeType> b;
-      fe_.localBasis().evaluateFunction(x, b);
-      typename FE::Traits::LocalBasisType::Traits::RangeType v(0.0);
-      for (unsigned int i = 0; i < b.size(); ++i) {
-        v += b[i] * local_[i];
-      }
-      return v;
-    }
-
-    virtual void bind(const Element* element) override
-    {
-      BaseT::bind(element);
-
-      local_.clear();
-      for (unsigned int i = 0; i < element->subEntities(dim); ++i) {
-        int index = vertexMapper_.index(element->template subEntity<dim>(i));
-        local_.push_back((*vertexImage_)[index]);
-      }
-      fe_ = fem_.find(*element);
-    }
-
-  private:
-    GV gridView_;
-    std::shared_ptr<Image<ctype, dim>> vertexImage_;
-    Dune::SingleCodimSingleGeomTypeMapper<GV, dim> vertexMapper_;
-
-    std::vector<double> local_;
-    FEM fem_;
-    FE fe_;
-  };
+    return Dune::Functions::makeGridViewFunction(
+        Dune::Functions::makeDiscreteGlobalBasisFunction<double>(Basis(gridView),
+                                                                 std::forward<V>(coefficients)),
+        gridView);
+  }
 }
 
 #endif // DUNEURO_IMAGE_LEVELSET_HH
