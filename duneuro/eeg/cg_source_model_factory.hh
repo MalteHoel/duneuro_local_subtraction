@@ -4,11 +4,11 @@
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/exceptions.hh>
+#include <duneuro/eeg/fitted_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/patch_based_venant_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/spatial_venant_source_model.hh>
-#include <duneuro/eeg/subtraction_source_model.hh>
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
