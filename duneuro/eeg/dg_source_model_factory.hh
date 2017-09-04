@@ -29,10 +29,10 @@ namespace duneuro
                                                     V>>(
                 volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
-        return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
-                                                       typename Solver::Traits::FunctionSpace, V,
-                                                       SubtractionContinuityType::discontinuous>>(
-            volumeConductor, solver.functionSpace(), search, config, solverConfig);
+        return std::make_shared<FittedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V,
+            SubtractionContinuityType::discontinuous>>(volumeConductor, solver.functionSpace(),
+                                                       search, config, solverConfig);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(

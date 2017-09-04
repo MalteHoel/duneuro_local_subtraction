@@ -1,5 +1,5 @@
-#ifndef DUNEURO_SUBTRACTIONDGRESIDUAL_HH
-#define DUNEURO_SUBTRACTIONDGRESIDUAL_HH
+#ifndef DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
+#define DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
 
 #include <dune/common/parametertree.hh>
 
@@ -15,7 +15,8 @@
 namespace duneuro
 {
   template <class VC, class FS, class V, SubtractionContinuityType continuityType>
-  class SubtractionSourceModel : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
+  class FittedSubtractionSourceModel
+      : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {
   public:
     using BaseT = SourceModelBase<typename FS::GFS::Traits::GridViewType, V>;
@@ -32,9 +33,10 @@ namespace duneuro
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
 
-    SubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
-                           std::shared_ptr<SearchType> search, const Dune::ParameterTree& config,
-                           const Dune::ParameterTree& solverConfig)
+    FittedSubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
+                                 std::shared_ptr<SearchType> search,
+                                 const Dune::ParameterTree& config,
+                                 const Dune::ParameterTree& solverConfig)
         : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
@@ -94,4 +96,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_SUBTRACTIONDGRESIDUAL_HH
+#endif // DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH

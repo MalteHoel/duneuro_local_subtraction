@@ -13,7 +13,6 @@
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
 
-
 namespace duneuro
 {
   struct CGSourceModelFactory {
@@ -50,7 +49,7 @@ namespace duneuro
                                                                   Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
-        return std::make_shared<SubtractionSourceModel<
+        return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
             Vector, SubtractionContinuityType::continuous>>(volumeConductor, solver.functionSpace(),
                                                             search, config, solverConfig);
