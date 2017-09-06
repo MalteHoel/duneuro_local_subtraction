@@ -6,6 +6,7 @@
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
+#include <duneuro/eeg/udg_subtraction_source_model.hh>
 #include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
 #include <duneuro/eeg/unfitted_patch_based_venant_source_model.hh>
 
@@ -18,7 +19,8 @@ namespace duneuro
     createDense(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
+        const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
@@ -29,6 +31,11 @@ namespace duneuro
         return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, config);
+      } else if (type == "subtraction") {
+        return Dune::Std::make_unique<UDGSubtractionSourceModel<
+            typename Solver::Traits::FunctionSpace, ST, Vector>>(
+            solver.functionSpace(), subTriangulation, search, dipoleCompartment, config,
+            solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -41,7 +48,8 @@ namespace duneuro
     createSparse(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
+        const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {

@@ -54,7 +54,7 @@ namespace duneuro
       const int dim = IG::dimension;
 
       /** intorder **/
-      const int intorder = intorderadd_lb + 2 * lfsv.finiteElement().localBasis().order();
+      const int intorder = intorderadd_lb + 2 * FESwitch::basis(lfsv.finiteElement()).order();
 
       const auto& geometryInInside = ig.geometryInInside();
       const auto& geometry = ig.geometry();
@@ -86,16 +86,11 @@ namespace duneuro
     void lambda_volume(const EG& eg, const LFSV& lfsv, R& r) const
     {
       /** domain and range field type **/
-      typedef
-          typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::DomainFieldType
-              DF;
-      typedef
-          typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::RangeFieldType
-              RF;
-      typedef typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::RangeType
-          RangeType;
-      typedef typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::JacobianType
-          JacobianType;
+      typedef Dune::FiniteElementInterfaceSwitch<typename LFSV::Traits::FiniteElementType> FESwitch;
+      typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
+      typedef typename BasisSwitch::DomainField DF;
+      typedef typename BasisSwitch::RangeField RF;
+      typedef typename BasisSwitch::Range RangeType;
 
       typedef typename LFSV::Traits::SizeType size_type;
 
@@ -105,33 +100,27 @@ namespace duneuro
 
       const auto& geometry = eg.geometry();
 
-      const int intorder = intorderadd
-                           + 2 * std::max(lfsv.finiteElement().localBasis().order(),
-                                          lfsv.finiteElement().localBasis().order());
+      const int intorder = intorderadd + 2 * FESwitch::basis(lfsv.finiteElement()).order();
 
       /** select quadrature rule**/
       Dune::GeometryType gt = geometry.type();
       const auto& rule = Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
 
-      typename PROBLEMDATA::Traits::PermTensorType sigma_corr(param.sigma_corr(eg.entity()));
+      const auto& localcenter = Dune::ReferenceElements<DF, dim>::general(gt).position(0, 0);
+      typename PROBLEMDATA::Traits::PermTensorType sigma_corr = param.A(eg, localcenter);
+      sigma_corr -= param.get_sigma_infty();
 
       std::vector<RangeType> phi(lfsv.size());
-      std::vector<JacobianType> js(lfsv.size());
-      Dune::FieldMatrix<DF, dimw, dim> jac;
-      std::vector<Dune::FieldVector<RF, dim>> gradphi(lfsv.size());
+      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsv.size());
 
       /** loop over quadrature points **/
       for (const auto& qp : rule) {
         /* evaluate shape functions */
-        lfsv.finiteElement().localBasis().evaluateFunction(qp.position(), phi);
+        FESwitch::basis(lfsv.finiteElement()).evaluateFunction(qp.position(), phi);
 
         /* evaluate gradient of basis functions on reference element */
-        lfsv.finiteElement().localBasis().evaluateJacobian(qp.position(), js);
-
-        /* transform gradients from reference element to real element */
-        jac = geometry.jacobianInverseTransposed(qp.position());
-        for (size_type i = 0; i < lfsv.size(); i++)
-          jac.mv(js[i][0], gradphi[i]);
+        BasisSwitch::gradient(FESwitch::basis(lfsv.finiteElement()), geometry, qp.position(),
+                              gradphi);
 
         /* get global coordinates of the quadrature point	*/
         typename PROBLEMDATA::Traits::DomainType x = geometry.global(qp.position());
@@ -152,7 +141,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "lambda_volume f nan");
         }
         for (size_type i = 0; i < lfsv.size(); i++)
-          r.accumulate(lfsv, i, (f * gradphi[i] * factor));
+          r.accumulate(lfsv, i, (f * gradphi[i][0] * factor));
       }
     }
 
@@ -161,14 +150,11 @@ namespace duneuro
     void lambda_skeleton(const IG& ig, const LFSV& lfsv_s, const LFSV& lfsv_n, R& r_s, R& r_n) const
     {
       /** domain and range field type **/
-      typedef
-          typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::DomainFieldType
-              DF;
-      typedef
-          typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::RangeFieldType
-              RF;
-      typedef typename LFSV::Traits::FiniteElementType::Traits::LocalBasisType::Traits::RangeType
-          RangeType;
+      typedef Dune::FiniteElementInterfaceSwitch<typename LFSV::Traits::FiniteElementType> FESwitch;
+      typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
+      typedef typename BasisSwitch::DomainField DF;
+      typedef typename BasisSwitch::RangeField RF;
+      typedef typename BasisSwitch::Range RangeType;
       typedef typename LFSV::Traits::SizeType size_type;
 
       /** dimension **/
@@ -176,8 +162,8 @@ namespace duneuro
 
       /** intorder **/
       const int intorder = intorderadd
-                           + 2 * std::max(lfsv_s.finiteElement().localBasis().order(),
-                                          lfsv_n.finiteElement().localBasis().order());
+                           + 2 * std::max(FESwitch::basis(lfsv_s.finiteElement()).order(),
+                                          FESwitch::basis(lfsv_n.finiteElement()).order());
 
       const auto& geometryInInside = ig.geometryInInside();
       const auto& geometryInOutside = ig.geometryInOutside();
@@ -188,18 +174,13 @@ namespace duneuro
       const Dune::QuadratureRule<DF, dim - 1>& rule =
           Dune::QuadratureRules<DF, dim - 1>::rule(gtface, intorder);
 
-      const auto& insideEntity = ig.inside();
-      const auto& outsideEntity = ig.outside();
-
       /** compute weights **/
       /* evaluate permability tensor */
-      const Dune::FieldVector<DF, dim>& inside_local =
-          Dune::ReferenceElements<DF, dim>::general(insideEntity.type()).position(0, 0);
-      const Dune::FieldVector<DF, dim>& outside_local =
-          Dune::ReferenceElements<DF, dim>::general(outsideEntity.type()).position(0, 0);
       typename PROBLEMDATA::Traits::PermTensorType A_s, A_n;
-      A_s = param.A(insideEntity, inside_local);
-      A_n = param.A(outsideEntity, outside_local);
+      const Dune::FieldVector<DF, dim - 1>& localcenter =
+          Dune::ReferenceElements<DF, dim - 1>::general(ig.geometry().type()).position(0, 0);
+      A_s = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::inside);
+      A_n = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::outside);
 
       /* tensor times normal */
       auto weights = weighting(ig, A_s, A_n);
@@ -216,13 +197,15 @@ namespace duneuro
         Dune::FieldVector<DF, dim> iplocal_n = geometryInOutside.global(qp.position());
 
         /* evaluate basis functions */
-        lfsv_s.finiteElement().localBasis().evaluateFunction(iplocal_s, phi_s);
-        lfsv_n.finiteElement().localBasis().evaluateFunction(iplocal_n, phi_n);
+        FESwitch::basis(lfsv_s.finiteElement()).evaluateFunction(iplocal_s, phi_s);
+        FESwitch::basis(lfsv_n.finiteElement()).evaluateFunction(iplocal_n, phi_n);
 
         /* get sigma^corr for both sides of the interface */
         typename PROBLEMDATA::Traits::PermTensorType sigma_corr_s, sigma_corr_n;
-        sigma_corr_s = param.sigma_corr(insideEntity);
-        sigma_corr_n = param.sigma_corr(outsideEntity);
+        sigma_corr_s = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::inside);
+        sigma_corr_s -= param.get_sigma_infty();
+        sigma_corr_n = param.A(ig, localcenter, ConvectionDiffusion_DG_Side::outside);
+        sigma_corr_n -= param.get_sigma_infty();
 
         const auto& global = geometry.global(qp.position());
 

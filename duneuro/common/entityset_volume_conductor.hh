@@ -16,6 +16,7 @@ namespace duneuro
     typedef typename ES::template Codim<0>::Entity EntityType;
     typedef Dune::FieldMatrix<ctype, dim, dim> TensorType;
     typedef ES EntitySet;
+    typedef ES GridView;
 
     EntitySetVolumeConductor(const ES& entitySet, const std::vector<TensorType>& tensors)
         : entitySet_(entitySet), tensors_(tensors), elementMapper_(entitySet_)

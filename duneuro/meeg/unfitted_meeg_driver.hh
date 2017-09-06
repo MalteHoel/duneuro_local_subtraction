@@ -123,7 +123,7 @@ namespace duneuro
                                  Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
-      eegForwardSolver_.setSourceModel(config.sub("source_model"));
+      eegForwardSolver_.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       eegForwardSolver_.bind(dipole, dataTree);
 #if HAVE_TBB
       eegForwardSolver_.solve(solverBackend_.local().get(),
@@ -272,7 +272,7 @@ namespace duneuro
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           User myUser(subTriangulation_, solver_, elementSearch_,
                                       config.sub("solver"));
-                          myUser.setSourceModel(config.sub("source_model"));
+                          myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
                             myUser.bind(dipoles[index], dt);
@@ -288,7 +288,7 @@ namespace duneuro
                         });
 #else
       User myUser(subTriangulation_, solver_, elementSearch_, config.sub("solver"));
-      myUser.setSourceModel(config.sub("source_model"));
+      myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
         myUser.bind(dipoles[index], dt);
@@ -323,7 +323,7 @@ namespace duneuro
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           User myUser(subTriangulation_, solver_, elementSearch_,
                                       config.sub("solver"));
-                          myUser.setSourceModel(config.sub("source_model"));
+                          myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
                             myUser.bind(dipoles[index], dt);
@@ -332,7 +332,7 @@ namespace duneuro
                         });
 #else
       User myUser(subTriangulation_, solver_, elementSearch_, config.sub("solver"));
-      myUser.setSourceModel(config.sub("source_model"));
+      myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
         myUser.bind(dipoles[index], dt);
