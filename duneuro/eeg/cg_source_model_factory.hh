@@ -27,8 +27,9 @@ namespace duneuro
             typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS(),
                                                                   search);
       } else if (type == "venant") {
-        return std::make_shared<VenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                  Vector>>(
+        return std::make_shared<VertexBasedVenantSourceModel<VC, typename Solver::Traits::
+                                                                     FunctionSpace::GFS,
+                                                             Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<
@@ -57,8 +58,9 @@ namespace duneuro
             typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS(),
                                                                   search);
       } else if (type == "venant") {
-        return std::make_shared<VenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                  Vector>>(
+        return std::make_shared<VertexBasedVenantSourceModel<VC, typename Solver::Traits::
+                                                                     FunctionSpace::GFS,
+                                                             Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "whitney") {
 	return std::make_shared<WhitneySourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,

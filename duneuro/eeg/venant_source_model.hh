@@ -1,5 +1,5 @@
-#ifndef DUNEURO_VENANT_SOURCE_MODEL_HH
-#define DUNEURO_VENANT_SOURCE_MODEL_HH
+#ifndef DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
+#define DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
 
 #include <Eigen/Dense>
 #include <array>
@@ -19,7 +19,7 @@
 namespace duneuro
 {
   template <class VC, class GFS, class V>
-  class VenantSourceModel : public SourceModelBase<typename GFS::Traits::GridViewType, V>
+  class VertexBasedVenantSourceModel : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
   public:
     using BaseT = SourceModelBase<typename GFS::Traits::GridView, V>;
@@ -32,8 +32,9 @@ namespace duneuro
     using Vertex = typename GV::template Codim<dim>::Entity;
     using SearchType = typename BaseT::SearchType;
 
-    VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                      std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
+    VertexBasedVenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
+                                 std::shared_ptr<SearchType> search,
+                                 const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , elementNeighborhoodMap_(
@@ -105,4 +106,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_VENANT_SOURCE_MODEL_HH
+#endif // DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
