@@ -7,7 +7,7 @@
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_source_model.hh>
-#include <duneuro/eeg/venant_source_model.hh>
+#include <duneuro/eeg/vertex_based_venant_source_model.hh>
 // Add new source models
 #include <duneuro/eeg/whitney_source_model.hh>
 
