@@ -14,6 +14,7 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/eeg/source_model_interface.hh>
+#include <duneuro/eeg/venant_utilities.hh>
 
 namespace duneuro
 {
@@ -50,47 +51,12 @@ namespace duneuro
     void interpolate(const std::vector<Vertex>& vertices, const Dipole<Real, dim>& dipole,
                      V& output) const
     {
-      // initialize dimension wise matrices and rhs
-      using Matrix = Eigen::MatrixXd;
-      std::array<Matrix, dim> singleDimensionMatrices;
-      std::fill(singleDimensionMatrices.begin(), singleDimensionMatrices.end(),
-                Matrix::Ones(numberOfMoments_, vertices.size()));
-      std::array<Matrix, dim> weightMatrices;
-      std::fill(weightMatrices.begin(), weightMatrices.end(),
-                Matrix::Zero(vertices.size(), vertices.size()));
-      using Vector = Eigen::VectorXd;
-      std::array<Matrix, dim> rightHandSides;
-      std::fill(rightHandSides.begin(), rightHandSides.end(), Vector::Zero(numberOfMoments_));
+      std::vector<Dune::FieldVector<Real, dim>> positions(vertices.size());
+      for (unsigned int i = 0; i < vertices.size(); ++i)
+        positions[i] = vertices[i].geometry().center();
 
-      // fill matrices and right hand side
-      for (unsigned int i = 0; i < vertices.size(); ++i) {
-        auto scaledVertexDifference = vertices[i].geometry().center();
-        scaledVertexDifference -= dipole.position();
-        scaledVertexDifference /= referenceLength_;
-
-        for (unsigned int d = 0; d < dim; ++d) {
-          for (unsigned int moment = 1; moment < numberOfMoments_; ++moment) {
-            singleDimensionMatrices[d](moment, i) =
-                scaledVertexDifference[d] * singleDimensionMatrices[d](moment - 1, i);
-          }
-          weightMatrices[d](i, i) = singleDimensionMatrices[d](weightingExponent_, i);
-        }
-      }
-      for (unsigned int d = 0; d < dim; ++d) {
-        rightHandSides[d](1) = dipole.moment()[d] / referenceLength_;
-      }
-
-      // compute system matrix and right hand side
-      Matrix matrix = Matrix::Zero(vertices.size(), vertices.size());
-      Vector rightHandSide = Vector::Zero(vertices.size());
-      for (unsigned int d = 0; d < dim; ++d) {
-        matrix += singleDimensionMatrices[d].transpose() * singleDimensionMatrices[d]
-                  + relaxationFactor_ * weightMatrices[d].transpose() * weightMatrices[d];
-        rightHandSide += singleDimensionMatrices[d].transpose() * rightHandSides[d];
-      }
-
-      // solve system
-      Vector solution = matrix.colPivHouseholderQr().solve(rightHandSide);
+      auto solution = interpolateVenant(positions, dipole, numberOfMoments_, referenceLength_,
+                                        weightingExponent_, relaxationFactor_);
 
       // store solution in output dofvector
       Dune::PDELab::EntityIndexCache<GFS> cache(gfs_);
