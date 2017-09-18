@@ -27,7 +27,8 @@
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meg/conforming_meg_transfer_matrix_solver.hh>
-#include <duneuro/meg/meg_solution.hh>
+#include <duneuro/meg/meg_solver_factory.hh>
+#include <duneuro/meg/meg_solver_interface.hh>
 
 namespace duneuro
 {
@@ -83,7 +84,15 @@ namespace duneuro
         , eegForwardSolver_(volumeConductorStorage_.get(), elementSearch_, solver_)
         , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
         , transferMatrixUser_(volumeConductorStorage_.get(), elementSearch_, solver_)
-        , megTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
+        , megSolver_(
+              config.hasSub("meg") ?
+                  MEGSolverFactory<elementType>::template make_meg_solver<degree,
+                                                                          typename Traits::VC>(
+                      volumeConductorStorage_.get(),
+                      Dune::stackobject_to_shared_ptr(solver_->functionSpace()), config.sub("meg"),
+                      config.sub("solver")) :
+                  nullptr)
+        , megTransferMatrixSolver_(solver_, megSolver_)
     {
     }
 
@@ -92,7 +101,14 @@ namespace duneuro
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.bind(dipole, dataTree);
-      eegForwardSolver_.solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
+
+      if (config.get<bool>("only_post_process")) {
+        solution.cast<typename Traits::DomainDOFVector>() = 0.0;
+      } else {
+        // eegForwardSolver_.bind(dipole, dataTree);
+        eegForwardSolver_.solve(solution.cast<typename Traits::DomainDOFVector>(), config,
+                                dataTree);
+      }
       if (config.get<bool>("post_process")) {
         eegForwardSolver_.postProcessSolution(solution.cast<typename Traits::DomainDOFVector>());
       }
@@ -105,10 +121,26 @@ namespace duneuro
                                                 const Dune::ParameterTree& config,
                                                 DataTree dataTree = DataTree()) override
     {
-      if (!megSolution_) {
-        DUNE_THROW(Dune::Exception, "please call setCoilsAndProjections before solving meg");
+      if (!megSolver_) {
+        DUNE_THROW(Dune::Exception, "no meg solver created");
       }
-      return flatten(megSolution_->evaluate(eegSolution.cast<typename Traits::DomainDOFVector>()));
+      megSolver_->bind(eegSolution.cast<typename Traits::DomainDOFVector>());
+      std::vector<double> output;
+      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
+        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
+          std::stringstream name;
+          name << "coil_" << i << "_projection_" << j;
+          Dune::Timer timer;
+          double time_bind = timer.elapsed();
+          timer.reset();
+          output.push_back(megSolver_->solve(i, j));
+          double time_solve = timer.elapsed();
+          dataTree.set(name.str() + ".time", time_bind + time_solve);
+          dataTree.set(name.str() + ".time_bind", time_bind);
+          dataTree.set(name.str() + ".time_solve", time_solve);
+        }
+      }
+      return output;
     }
 
     virtual std::unique_ptr<Function> makeDomainFunction() const override
@@ -141,17 +173,11 @@ namespace duneuro
                    "number of coils (" << coils.size() << ") does not match number of projections ("
                                        << projections.size() << ")");
       }
-      coils_ =
-          Dune::Std::make_unique<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>(
-              coils);
-      projections_ = Dune::Std::
-          make_unique<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>(
-              projections);
-      megSolution_ = Dune::Std::make_unique<MEGSolution<
-          typename Traits::VC, typename Traits::Solver::Traits::FunctionSpace,
-          typename Traits::Solver::Traits::RangeDOFVector::field_type>>(
-          volumeConductorStorage_.get(), eegForwardSolver_.functionSpace(), *coils_, *projections_,
-          config_.sub("meg"));
+      megSolver_->bind(coils, projections);
+      numberOfCoils_ = coils.size();
+      numberOfProjections_.resize(numberOfCoils_);
+      for (unsigned int i = 0; i < numberOfCoils_; ++i)
+        numberOfProjections_[i] = projections[i].size();
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
@@ -180,8 +206,8 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        VTKWriter<typename Traits::VC, degree> writer(
-            volumeConductorStorage_.get(), config.get<unsigned int>("subsampling", degree - 1));
+        VTKWriter<typename Traits::VC> writer(volumeConductorStorage_.get(),
+                                              config.get<unsigned int>("subsampling", degree - 1));
         auto gradient_type = config.get<std::string>("gradient.type", "vertex");
         auto potential_type = config.get<std::string>("potential.type", "vertex");
 
@@ -209,6 +235,12 @@ namespace duneuro
         }
         writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
+
+        if (megSolver_) {
+          megSolver_->bind(function.cast<typename Traits::DomainDOFVector>());
+          megSolver_->addFluxToVTKWriter(writer);
+        }
+
         writer.write(config.get<std::string>("filename"), dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
@@ -220,8 +252,8 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        VTKWriter<typename Traits::VC, degree> writer(
-            volumeConductorStorage_.get(), config.get<unsigned int>("subsampling", degree - 1));
+        VTKWriter<typename Traits::VC> writer(volumeConductorStorage_.get(),
+                                              config.get<unsigned int>("subsampling", degree - 1));
         writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
         writer.write(config.get<std::string>("filename"), dataTree);
@@ -251,27 +283,24 @@ namespace duneuro
     computeMEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      if (!(coils_ && projections_)) {
-        DUNE_THROW(Dune::Exception,
-                   "please call setCoilsAndProjections before computing the MEG transfer matrix");
+      if (!megSolver_) {
+        DUNE_THROW(Dune::Exception, "meg solver not created");
       }
       auto solution = duneuro::make_domain_dof_vector(eegForwardSolver_, 0.0);
-      std::size_t numberOfProjections = 0;
-      for (const auto& p : *projections_)
-        numberOfProjections += p.size();
+      std::size_t numberOfProjections =
+          std::accumulate(numberOfProjections_.begin(), numberOfProjections_.end(), 0);
       auto transferMatrix =
           Dune::Std::make_unique<DenseMatrix<double>>(numberOfProjections, solution->flatsize());
       unsigned int offset = 0;
       auto solver_config = config.sub("solver");
-      for (unsigned int i = 0; i < coils_->size(); ++i) {
+      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
         auto coilDT = dataTree.sub("solver.coil_" + std::to_string(i));
-        for (unsigned int j = 0; j < (*projections_)[i].size(); ++j) {
-          megTransferMatrixSolver_.solve((*coils_)[i], (*projections_)[i][j], *solution,
-                                         solver_config,
+        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
+          megTransferMatrixSolver_.solve(i, j, *solution, solver_config,
                                          coilDT.sub("projection_" + std::to_string(j)));
           set_matrix_row(*transferMatrix, offset + j, Dune::PDELab::Backend::native(*solution));
         }
-        offset += (*projections_)[i].size();
+        offset += numberOfProjections_[i];
       }
       return std::move(transferMatrix);
     }
@@ -305,6 +334,10 @@ namespace duneuro
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       transferMatrixUser_.bind(dipole, dataTree);
+      dataTree.set("dipole_conductivity",
+                   volumeConductorStorage_.get()
+                       ->tensor(elementSearch_->findEntity(dipole.position()))
+                       .infinity_norm());
       return transferMatrixUser_.solve(transferMatrix, dataTree);
     }
 
@@ -324,18 +357,16 @@ namespace duneuro
     ConformingTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
     ConformingTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>
         transferMatrixUser_;
-    std::unique_ptr<MEGSolution<typename Traits::VC, typename Traits::Solver::Traits::FunctionSpace,
-                                typename Traits::Solver::Traits::RangeDOFVector::field_type>>
-        megSolution_;
+    std::shared_ptr<MEGSolverInterface<typename Traits::VC, typename Traits::DomainDOFVector>>
+        megSolver_;
     ConformingMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
     std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
         electrodeProjection_;
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    std::unique_ptr<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>> coils_;
-    std::unique_ptr<std::vector<std::vector<typename MEEGDriverInterface<dim>::CoordinateType>>>
-        projections_;
+    std::size_t numberOfCoils_;
+    std::vector<std::size_t> numberOfProjections_;
   };
 }
 

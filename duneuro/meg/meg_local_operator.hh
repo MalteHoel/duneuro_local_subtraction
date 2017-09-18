@@ -25,7 +25,7 @@
 namespace duneuro
 {
   /**** class definition ****/
-  template <class VC>
+  template <class VC, class FEM>
   class MEGLocalOperator : public Dune::PDELab::LocalOperatorDefaultFlags
   {
   public:
@@ -34,21 +34,21 @@ namespace duneuro
     /*typedefs*/
     typedef double RangeFieldType;
     typedef Dune::FieldVector<typename VC::ctype, VC::dim> DomainType;
+    typedef Dune::FiniteElementInterfaceSwitch<typename FEM::Traits::FiniteElementType> FESwitch;
+    typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
+    using Cache = Dune::PDELab::LocalBasisCache<typename FESwitch::Basis>;
 
     /*** constructor ***/
-    MEGLocalOperator(std::shared_ptr<VC> vc_, const DomainType& sens_,
-                     const Dune::ParameterTree& config_)
-        : vc(vc_), sens(sens_), intorderadd(config_.get<unsigned int>("intorderadd"))
+    MEGLocalOperator(std::shared_ptr<const VC> vc, const Dune::ParameterTree& config_)
+        : volumeConductor_(vc), intorderadd(config_.get<unsigned int>("intorderadd"))
     {
     }
 
-    /*** alpha_volume method ***/
+    /*** lfsv is the vector valued flux space ***/
     template <typename EG, typename LFSV, typename R>
     void lambda_volume(const EG& eg, const LFSV& lfsv, R& r) const
     {
       /** domain and range field type **/
-      typedef Dune::FiniteElementInterfaceSwitch<typename LFSV::Traits::FiniteElementType> FESwitch;
-      typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
       typedef typename BasisSwitch::DomainField DF;
       typedef typename BasisSwitch::RangeField RF;
 
@@ -61,57 +61,64 @@ namespace duneuro
       const int order = FESwitch::basis(lfsv.finiteElement()).order();
       const int intorder = intorderadd + 2 * order;
 
-      Dune::GeometryType gt = eg.geometry().type();
+      const auto& geo = eg.geometry();
+
+      Dune::GeometryType gt = geo.type();
       const Dune::QuadratureRule<DF, dim>& rule =
           Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
 
-      typename VC::TensorType sigma(vc->tensor(eg.entity()));
+      typename VC::TensorType sigma(volumeConductor_->tensor(eg.entity()));
+
+      std::vector<typename BasisSwitch::Range> phi(lfsv.size());
+      std::vector<Dune::FieldVector<RF, dim>> cp(lfsv.size());
 
       /** loop over quadrature points **/
       for (const auto& qp : rule) {
-        /* evaluate gradient of basis functions on reference element */
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsv.size());
-        BasisSwitch::gradient(FESwitch::basis(lfsv.finiteElement()), eg.geometry(), qp.position(),
-                              gradphi);
+        const auto global = geo.global(qp.position());
 
-        /* multipying sigma*gradu */
-        std::vector<Dune::FieldVector<RF, dim>> jsec_phi(lfsv.size());
-        for (size_type i = 0; i < lfsv.size(); i++)
-          sigma.mv(gradphi[i][0], jsec_phi[i]);
+        /* evaluate gradient of basis functions on reference element */
+        FESwitch::basis(lfsv.finiteElement()).evaluateFunction(qp.position(), phi);
 
         /*evaluate the relative position of the source */
-        Dune::FieldVector<RF, dim> rel = sens;
-        rel -= eg.geometry().global(qp.position());
-        rel /= std::pow(rel.two_norm(), 3.0);
+        Dune::FieldVector<RF, dim> rel = sensor_;
+        rel -= global;
+        auto tn2 = rel.two_norm2();
+        rel /= tn2 * std::sqrt(tn2);
 
         /* compute the crossproduct between flux density and relative position of the source */
-        std::vector<Dune::FieldVector<RF, dim>> cp(lfsv.size());
         for (size_type i = 0; i < lfsv.size(); ++i)
-          Dune::PDELab::CrossProduct<dim, dim>(cp[i], jsec_phi[i], rel);
+          Dune::PDELab::CrossProduct<dim, dim>(cp[i], phi[i], rel);
 
         /* integrate cp */
-        RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
-        for (size_type i = 0; i < lfsv.size(); ++i)
-          r.accumulate(lfsv, i, (projection * cp[i]) * factor);
+        RF factor = qp.weight() * geo.integrationElement(qp.position());
+        for (size_type i = 0; i < lfsv.size(); ++i) {
+          r.accumulate(lfsv, i, (projection_ * cp[i]) * factor);
+        }
 
       } // loop on quadrature point
     } // alpha_volume
 
-    const DomainType& getProjection() const
+    const DomainType& getSensor() const
     {
-      return projection;
+      return sensor_;
     }
 
-    void setProjection(const DomainType& p)
+    const DomainType& getProjection() const
     {
-      projection = p;
+      return projection_;
+    }
+
+    void bind(const DomainType& sensor, const DomainType& projection)
+    {
+      sensor_ = sensor;
+      projection_ = projection;
     }
 
   private:
-    std::shared_ptr<VC> vc;
-    const DomainType sens;
+    std::shared_ptr<const VC> volumeConductor_;
+    DomainType sensor_;
+    DomainType projection_;
     unsigned int intorderadd;
-    DomainType projection;
   };
 }
 #endif /* DUNEURO_MEG_DG_OPERATOR_HH_ */

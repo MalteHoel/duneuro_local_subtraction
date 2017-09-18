@@ -8,7 +8,7 @@
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/projection_utilities.hh>
 #include <duneuro/io/data_tree.hh>
-#include <duneuro/meg/meg_transfer_matrix_rhs.hh>
+#include <duneuro/meg/meg_solver.hh>
 
 namespace duneuro
 {
@@ -20,6 +20,7 @@ namespace duneuro
     using FunctionSpace = typename S::Traits::FunctionSpace;
     using DomainDOFVector = typename S::Traits::DomainDOFVector;
     using RangeDOFVector = typename S::Traits::RangeDOFVector;
+    using MEGSolver = MEGSolverInterface<VolumeConductor, RangeDOFVector>;
     using CoordinateFieldType = typename VolumeConductor::ctype;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using Element = typename VolumeConductor::GridView::template Codim<0>::Entity;
@@ -31,35 +32,30 @@ namespace duneuro
   public:
     using Traits = ConformingMEGTransferMatrixSolverTraits<S>;
 
-    ConformingMEGTransferMatrixSolver(
-        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        std::shared_ptr<typename Traits::Solver> solver)
-        : volumeConductor_(volumeConductor)
-        , solver_(solver)
+    ConformingMEGTransferMatrixSolver(std::shared_ptr<typename Traits::Solver> solver,
+                                      std::shared_ptr<typename Traits::MEGSolver> megSolver)
+        : solver_(solver)
+        , megSolver_(megSolver)
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
     {
     }
 
     ConformingMEGTransferMatrixSolver(
-        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        const Dune::ParameterTree& config)
+        std::shared_ptr<const typename Traits::VolumeConductor> volumeConductor,
+        std::shared_ptr<typename Traits::MEGSolver> megSolver, const Dune::ParameterTree& config)
         : ConformingMEGTransferMatrixSolver(
-              volumeConductor, std::make_shared<typename Traits::Solver>(volumeConductor, config),
-              config)
+              std::make_shared<typename Traits::Solver>(volumeConductor, config), megSolver, config)
     {
     }
 
-    void solve(const typename Traits::Coordinate& coil,
-               const typename Traits::Coordinate& projection,
-               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    void solve(std::size_t coil, std::size_t projection, typename Traits::DomainDOFVector& solution,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
+      assert(megSolver_);
       Dune::Timer timer;
       // assemble right hand side
       *rightHandSideVector_ = 0.0;
-      MEGTransferMatrixRHS<typename Traits::VolumeConductor, typename Traits::FunctionSpace>
-          rhsAssembler(volumeConductor_, &solver_->functionSpace(), config);
-      rhsAssembler.assembleRightHandSide(coil, projection, *rightHandSideVector_);
+      megSolver_->assembleTransferMatrixRHS(coil, projection, *rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
@@ -78,6 +74,9 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<MEGSolverInterface<typename Traits::VolumeConductor,
+                                       typename Traits::RangeDOFVector>>
+        megSolver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
 
     template <class V>
