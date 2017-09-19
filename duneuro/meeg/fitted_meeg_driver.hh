@@ -102,7 +102,7 @@ namespace duneuro
     {
       eegForwardSolver_.bind(dipole, dataTree);
 
-      if (config.get<bool>("only_post_process")) {
+      if (config.get<bool>("only_post_process", false)) {
         solution.cast<typename Traits::DomainDOFVector>() = 0.0;
       } else {
         // eegForwardSolver_.bind(dipole, dataTree);
