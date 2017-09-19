@@ -22,7 +22,7 @@ namespace duneuro
     using LFS = Dune::PDELab::LocalFunctionSpace<GFS>;
     using Cache = Dune::PDELab::LFSIndexCache<LFS>;
 
-    TransferMatrixRHS(const GFS& gfs) : lfs_(gfs), cache_(lfs_)
+    TransferMatrixRHS(const GFS& gfs) : gfs_(gfs)
     {
     }
 
@@ -35,31 +35,32 @@ namespace duneuro
       using RangeType = typename BasisSwitch::Range;
 
       // evaluate basis functions at reference position
-      lfs_.bind(electrodeElement);
-      cache_.update();
+      LFS lfs(gfs_);
+      Cache cache(lfs);
+      lfs.bind(electrodeElement);
+      cache.update();
 
-      std::vector<RangeType> phi(lfs_.size());
-      FESwitch::basis(lfs_.finiteElement()).evaluateFunction(electrodeLocal, phi);
+      std::vector<RangeType> phi(lfs.size());
+      FESwitch::basis(lfs.finiteElement()).evaluateFunction(electrodeLocal, phi);
 
-      for (unsigned int i = 0; i < lfs_.size(); ++i) {
-        output[cache_.containerIndex(i)] = phi[i];
+      for (unsigned int i = 0; i < lfs.size(); ++i) {
+        output[cache.containerIndex(i)] = phi[i];
       }
 
       // evaluate basis functions at electrode
-      lfs_.bind(referenceElement);
-      cache_.update();
+      lfs.bind(referenceElement);
+      cache.update();
 
-      phi.resize(lfs_.size());
-      FESwitch::basis(lfs_.finiteElement()).evaluateFunction(referenceLocal, phi);
+      phi.resize(lfs.size());
+      FESwitch::basis(lfs.finiteElement()).evaluateFunction(referenceLocal, phi);
 
-      for (unsigned int i = 0; i < lfs_.size(); ++i) {
-        output[cache_.containerIndex(i)] -= phi[i];
+      for (unsigned int i = 0; i < lfs.size(); ++i) {
+        output[cache.containerIndex(i)] -= phi[i];
       }
     }
 
   private:
-    LFS lfs_;
-    Cache cache_;
+    const GFS& gfs_;
   };
 }
 

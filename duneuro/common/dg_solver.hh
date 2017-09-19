@@ -46,14 +46,8 @@ namespace duneuro
     using EdgeNormProvider = MultiEdgeNormProvider;
     using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
     using Assembler = GalerkinGlobalAssembler<FunctionSpace, LocalOperator, DF, RF, JF>;
-    using FirstOrderSpace =
-        CGFirstOrderSpace<typename VC::GridView, BasicTypeFromElementType<elementType>::value,
-                          Dune::SolverCategory::sequential>;
-    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_AMG_4_DG<
-        typename Assembler::GO, typename FirstOrderSpace::GFS, Dune::PDELab::CG2DGProlongation,
-        Dune::SeqSSOR, Dune::CGSolver>;
     using LinearSolver =
-        LinearProblemSolver<typename Assembler::GO, SolverBackend, DomainDOFVector, RangeDOFVector>;
+        LinearProblemSolver<typename Assembler::GO, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class VC, ElementType elementType, unsigned int degree,
@@ -77,14 +71,11 @@ namespace duneuro
                                             ConvectionDiffusion_DG_Weights::weightsOff,
               config.get<DF>("penalty"), false, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
-        , firstOrderSpace_(volumeConductor_->grid(), volumeConductor_->gridView())
-        , solverBackend_(*assembler_, firstOrderSpace_.getGFS(), config)
         , linearSolver_(*assembler_, config)
     {
       assert(volumeConductor_);
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));
-      solverBackend_.setReuse(true);
     }
 
     DGSolver(std::shared_ptr<VC> volumeConductor, const Dune::ParameterTree& config,
@@ -94,28 +85,50 @@ namespace duneuro
     {
     }
 
-    void solve(const typename Traits::RangeDOFVector& rightHandSide,
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, const typename Traits::RangeDOFVector& rightHandSide,
                typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
+      linearSolver_.apply(solverBackend, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
-    void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, typename Traits::DomainDOFVector& solution,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, config, dataTree);
+      linearSolver_.apply(solverBackend, solution, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
       return functionSpace_;
+    }
+
+    const typename Traits::VolumeConductor& volumeConductor() const
+    {
+      return *volumeConductor_;
+    }
+
+    typename Traits::VolumeConductor& volumeConductor()
+    {
+      return *volumeConductor_;
+    }
+
+    const typename Traits::Assembler& assembler() const
+    {
+      return assembler_;
+    }
+
+    typename Traits::Assembler& assembler()
+    {
+      return assembler_;
     }
 
     const typename Traits::Problem& problem() const
@@ -135,8 +148,6 @@ namespace duneuro
     typename Traits::EdgeNormProvider edgeNormProvider_;
     typename Traits::LocalOperator localOperator_;
     typename Traits::Assembler assembler_;
-    typename Traits::FirstOrderSpace firstOrderSpace_;
-    typename Traits::SolverBackend solverBackend_;
     typename Traits::LinearSolver linearSolver_;
 
     template <class V>

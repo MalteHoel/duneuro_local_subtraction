@@ -5,6 +5,7 @@
 
 #include <duneuro/common/default_grids.hh>
 #include <duneuro/common/dg_solver.hh>
+#include <duneuro/common/dg_solver_backend.hh>
 #include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
@@ -27,6 +28,7 @@ namespace duneuro
   struct TDCSSelectFittedSolver<FittedSolverType::dg, VC, et, degree> {
     using ProblemType = TDCSPatchDGParameter<VC>;
     using SolverType = DGSolver<VC, et, degree, ProblemType>;
+    using SolverBackendType = DGSolverBackend<SolverType, et>;
   };
 
   template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
@@ -35,6 +37,8 @@ namespace duneuro
     using VCStorage = VolumeConductorStorage<dim, elementType, geometryAdaption>;
     using VC = typename VCStorage::Type;
     using Solver = typename TDCSSelectFittedSolver<solverType, VC, elementType, degree>::SolverType;
+    using SolverBackend =
+        typename TDCSSelectFittedSolver<solverType, VC, elementType, degree>::SolverBackendType;
     using Problem =
         typename TDCSSelectFittedSolver<solverType, VC, elementType, degree>::ProblemType;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
@@ -64,6 +68,8 @@ namespace duneuro
         , solver_(std::make_shared<typename Traits::Solver>(
               volumeConductorStorage_.get(), problem_,
               config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
+        , solverBackend_(std::make_shared<typename Traits::SolverBackend>(
+              solver_, config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
     {
     }
 
@@ -75,7 +81,8 @@ namespace duneuro
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
                                   DataTree dataTree = DataTree()) override
     {
-      solver_->solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
+      solver_->solve(solverBackend_->get(), solution.cast<typename Traits::DomainDOFVector>(),
+                     config, dataTree);
     }
 
     virtual void write(const Dune::ParameterTree& config,
@@ -138,6 +145,7 @@ namespace duneuro
     typename Traits::VCStorage volumeConductorStorage_;
     std::shared_ptr<typename Traits::Problem> problem_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<typename Traits::SolverBackend> solverBackend_;
   };
 }
 

@@ -56,8 +56,9 @@ namespace duneuro
           volumeConductor_, *solver_, search_, config, solverConfig);
     }
 
-    void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, typename Traits::DomainDOFVector& solution,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       // assemble right hand side
       Dune::Timer timer;
@@ -70,7 +71,7 @@ namespace duneuro
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector_, solution, config.sub("solver"),
+      solver_->solve(solverBackend, *rightHandSideVector_, solution, config.sub("solver"),
                      dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solve", timer.lastElapsed());
