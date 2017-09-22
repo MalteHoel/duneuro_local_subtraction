@@ -68,10 +68,10 @@ namespace duneuro
       GV gv = grid->leafGridView();
       Mapper mapper(gv);
       if (data.tensors.size() > 0) {
-        std::vector<typename FittedDriverData<dim>::Tensor> reordered_tensors(gv.size(0));
-        if (std::size_t(mapper.size()) != reordered_tensors.size()) {
-          DUNE_THROW(Dune::Exception, "mapper and tensors have a different number of entries ("
-                                          << mapper.size() << " vs " << reordered_tensors.size()
+        std::vector<std::size_t> reordered_labels(gv.size(0));
+        if (std::size_t(mapper.size()) != reordered_labels.size()) {
+          DUNE_THROW(Dune::Exception, "mapper and labels have a different number of entries ("
+                                          << mapper.size() << " vs " << reordered_labels.size()
                                           << ")");
         }
         for (const auto& element : Dune::elements(gv)) {
@@ -79,18 +79,24 @@ namespace duneuro
           while (root.hasFather())
             root = root.father();
           auto index = factory.insertionIndex(root);
-          if (index >= data.tensors.size()) {
+          if (index >= data.labels.size()) {
             DUNE_THROW(Dune::Exception, "insertion index " << index << " out of bounds ("
-                                                           << data.tensors.size() << ")");
+                                                           << data.labels.size() << ")");
           }
-          reordered_tensors[mapper.index(element)] = data.tensors[index];
+          auto label = data.labels[index];
+          if (label < 0 || std::size_t(label) >= data.tensors.size()) {
+            DUNE_THROW(Dune::Exception, "label " << label << " out of bounds ("
+                                                 << data.tensors.size() << ")");
+          }
+          reordered_labels[mapper.index(element)] = label;
         }
         timer.stop();
-        dataTree.set("time_reordering_tensors", timer.lastElapsed());
+        dataTree.set("time_reordering_labels", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
         return std::make_shared<VolumeConductor<G>>(
-            std::move(grid), std::unique_ptr<MappingType>(new MappingType(
-                                 DirectEntityMapping<GV, TensorType>(gv, reordered_tensors))));
+            std::move(grid),
+            std::unique_ptr<MappingType>(new MappingType(
+                IndirectEntityMapping<GV, TensorType>(gv, data.tensors, reordered_labels))));
       } else if (data.labels.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
