@@ -9,8 +9,8 @@
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/volume_conductor_storage.hh>
+#include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
-#include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #include <duneuro/tes/tdcs_patch_dg_parameter.hh>
@@ -85,8 +85,18 @@ namespace duneuro
       if (format == "vtk") {
         VTKWriter<typename Traits::VC> writer(volumeConductorStorage_.get(),
                                               config.get<unsigned int>("subsampling", degree - 1));
-        writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
+        writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
+
+#if HAVE_EIGEN
+        if (config.get("anisotropy.enable", false)) {
+          for (unsigned int i = 0; i < dim; ++i) {
+            writer.addCellData(std::make_shared<duneuro::FittedTensorFunctor<typename Traits::VC>>(
+                volumeConductorStorage_.get(), i));
+          }
+        }
+#endif
+
         writer.write(config.get<std::string>("filename"), dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
@@ -125,8 +135,18 @@ namespace duneuro
                                            function.cast<typename Traits::DomainDOFVector>()),
                              "potential");
         }
-        writer.addCellData(std::make_shared<duneuro::TensorFunctor<typename Traits::VC>>(
+        writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
+
+#if HAVE_EIGEN
+        if (config.get("anisotropy.enable", false)) {
+          for (unsigned int i = 0; i < dim; ++i) {
+            writer.addCellData(std::make_shared<duneuro::FittedTensorFunctor<typename Traits::VC>>(
+                volumeConductorStorage_.get(), i));
+          }
+        }
+#endif
+
         writer.write(config.get<std::string>("filename"), dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
