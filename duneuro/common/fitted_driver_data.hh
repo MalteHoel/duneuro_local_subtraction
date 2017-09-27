@@ -27,7 +27,7 @@ namespace duneuro
     //! \brief elements of the mesh, defined by the indices of their nodes in the `nodes` vector
     std::vector<std::vector<unsigned int>> elements;
     //! \brief on label for each element describing its conductivity
-    std::vector<int> labels;
+    std::vector<std::size_t> labels;
     //! \brief list of conductivity values, e.g. 4 entries for a 4 compartment isotropic model
     std::vector<double> conductivities;
     //! \brief list of conductivity tensors for each element

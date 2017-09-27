@@ -15,7 +15,7 @@ namespace duneuro
     {
       typename G::LeafGridView gv(grid.leafGridView());
       Dune::GmshWriter<typename G::LeafGridView> writer(gv);
-      std::vector<int> il(labels.begin(), labels.end());
+      std::vector<std::size_t> il(labels.begin(), labels.end());
       writer.write(filename, il);
     }
 
