@@ -7,6 +7,7 @@
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/udg_partial_integration_source_model.hh>
+#include <duneuro/eeg/udg_patch_based_venant_source_model.hh>
 
 namespace duneuro
 {
@@ -24,6 +25,10 @@ namespace duneuro
         return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search);
+      } else if (type == "patch_based_venant") {
+        return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
+            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -43,6 +48,10 @@ namespace duneuro
         return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search);
+      } else if (type == "patch_based_venant") {
+        return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
+            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

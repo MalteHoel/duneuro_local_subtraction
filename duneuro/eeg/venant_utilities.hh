@@ -6,6 +6,7 @@
 #include <dune/common/fvector.hh>
 
 #include <duneuro/common/dipole.hh>
+#include <duneuro/io/point_vtk_writer.hh>
 
 namespace duneuro
 {
@@ -63,6 +64,15 @@ namespace duneuro
       result[i] = solution(i);
     }
     return result;
+  }
+
+  template <class T, int dim>
+  void writeVenantToVTK(const std::vector<Dune::FieldVector<T, dim>>& points,
+                        const std::vector<T>& values, const std::string& filename)
+  {
+    PointVTKWriter<T, dim> pvtk(points);
+    pvtk.addScalarData("monopole_strength", values);
+    pvtk.write(filename);
   }
 }
 
