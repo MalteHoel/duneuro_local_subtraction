@@ -28,6 +28,9 @@ namespace duneuro
     if (t == "spatial_venant") {
       return VectorDensity::sparse;
     }
+    if (t == "truncated_spatial_venant") {
+      return VectorDensity::sparse;
+    }
     return VectorDensity::dense;
   }
 }
