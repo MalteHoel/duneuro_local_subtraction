@@ -13,6 +13,7 @@
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/element_patch.hh>
+#include <duneuro/eeg/monopolar_venant.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/venant_utilities.hh>
 
@@ -40,13 +41,9 @@ namespace duneuro
         , elementNeighborhoodMap_(
               std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
         , gfs_(gfs)
-        , numberOfMoments_(params.get<unsigned int>("numberOfMoments"))
-        , referenceLength_(params.get<Real>("referenceLength"))
-        , weightingExponent_(params.get<unsigned int>("weightingExponent"))
-        , relaxationFactor_(params.get<Real>("relaxationFactor"))
+        , monopolarVenant_(params)
         , config_(params)
     {
-      assert(weightingExponent_ < numberOfMoments_);
     }
 
     void interpolate(const std::vector<Vertex>& vertices, const Dipole<Real, dim>& dipole,
@@ -56,8 +53,7 @@ namespace duneuro
       for (unsigned int i = 0; i < vertices.size(); ++i)
         positions[i] = vertices[i].geometry().center();
 
-      auto solution = interpolateVenant(positions, dipole, numberOfMoments_, referenceLength_,
-                                        weightingExponent_, relaxationFactor_);
+      auto solution = monopolarVenant_.interpolate(positions, dipole);
 
       // store solution in output dofvector
       Dune::PDELab::EntityIndexCache<GFS> cache(gfs_);
@@ -98,10 +94,7 @@ namespace duneuro
     std::shared_ptr<VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
-    const unsigned int numberOfMoments_;
-    const Real referenceLength_;
-    const unsigned int weightingExponent_;
-    const Real relaxationFactor_;
+    MonopolarVenant<Real, dim> monopolarVenant_;
     Dune::ParameterTree config_;
   };
 }
