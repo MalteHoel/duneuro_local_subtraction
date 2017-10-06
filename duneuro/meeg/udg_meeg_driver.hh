@@ -46,10 +46,11 @@ namespace duneuro
     }
 
     explicit UDGMEEGDriver(UDGMEEGDriverData<dim> data, const Dune::ParameterTree& config)
-        : grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
+        : data_(data)
+        , grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
-        , domain_(levelSetGridView_, data.levelSetData, config.sub("domain"))
+        , domain_(levelSetGridView_, data_.levelSetData, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement", false)))
@@ -241,6 +242,7 @@ namespace duneuro
       }
     }
 
+    UDGMEEGDriverData<dim> data_;
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
     typename Traits::GridView levelSetGridView_;
