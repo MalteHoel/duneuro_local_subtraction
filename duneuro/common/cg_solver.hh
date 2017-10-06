@@ -48,9 +48,8 @@ namespace duneuro
     using LocalOperator =
         Dune::PDELab::ConvectionDiffusionFEM<Problem, typename FunctionSpace::FEM>;
     using Assembler = GalerkinGlobalAssembler<FunctionSpace, LocalOperator, DF, RF, JF>;
-    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_AMG_SSOR<typename Assembler::GO>;
     using LinearSolver =
-        LinearProblemSolver<typename Assembler::GO, SolverBackend, DomainDOFVector, RangeDOFVector>;
+        LinearProblemSolver<typename Assembler::GO, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class VC, ElementType elementType, unsigned int degree, class DF = double,
@@ -70,21 +69,20 @@ namespace duneuro
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
                                                          Dune::StaticPower<3, VC::dim>::power)
-        , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
-                         config.get<unsigned int>("verbose", 0), true, true)
         , linearSolver_(assembler_.getGO(), config)
     {
       dataTree.set("degree", degree);
       dataTree.set("element_type", to_string(elementType));
     }
 
-    void solve(const typename Traits::RangeDOFVector& rightHandSide,
+    template <typename SolverBackend>
+    void solve(SolverBackend& solverBackend, const typename Traits::RangeDOFVector& rightHandSide,
                typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
+      linearSolver_.apply(solverBackend, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
@@ -100,7 +98,6 @@ namespace duneuro
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::LocalOperator localOperator_;
     typename Traits::Assembler assembler_;
-    typename Traits::SolverBackend solverBackend_;
     typename Traits::LinearSolver linearSolver_;
 
     template <class V>

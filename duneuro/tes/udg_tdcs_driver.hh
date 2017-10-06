@@ -7,6 +7,7 @@
 
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
+#include <duneuro/common/udg_solver_backend.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/udg_meeg_driver_data.hh>
@@ -24,6 +25,7 @@ namespace duneuro
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
     using Problem = TDCSPatchUDGParameter<GridView>;
     using Solver = UDGSolver<SubTriangulation, compartments, degree, Problem>;
+    using SolverBackend = UDGSolverBackend<Solver>;
 
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
   };
@@ -55,6 +57,8 @@ namespace duneuro
               config_.get<std::vector<double>>("solver.conductivities"), patchSet))
         , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, problem_,
                                                             config.sub("solver")))
+        , solverBackend_(std::make_shared<typename Traits::SolverBackend>(
+              solver_, config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
     }
@@ -67,7 +71,8 @@ namespace duneuro
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
                                   DataTree dataTree = DataTree()) override
     {
-      solver_->solve(solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
+      solver_->solve(solverBackend_->get(), solution.cast<typename Traits::DomainDOFVector>(),
+                     config, dataTree);
     }
 
     virtual void write(const Function& function, const Dune::ParameterTree& config,
@@ -131,6 +136,7 @@ namespace duneuro
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Problem> problem_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    std::shared_ptr<typename Traits::SolverBackend> solverBackend_;
     std::vector<double> conductivities_;
   };
 }

@@ -3,6 +3,8 @@
 
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <thread>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/parametertree.hh>
@@ -126,7 +128,7 @@ namespace duneuro
   // This is only a first vanilla implementation which has to be improved.
   //===============================================================
 
-  template <typename GO, typename LS, typename DV, typename RV>
+  template <typename GO, typename DV, typename RV>
   class LinearProblemSolver
   {
     typedef typename GO::Traits::Jacobian M;
@@ -180,6 +182,7 @@ namespace duneuro
     {
     }
 
+    template <class LS>
     void apply(LS& ls, DV& x, const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       DV tmp(_go.trialGridFunctionSpace(), 0.0);
@@ -189,11 +192,13 @@ namespace duneuro
       apply(ls, x, rhs, config, dataTree);
     }
 
+    template <class LS>
     void apply(LS& ls, DV& x, const RV& rightHandSide, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer(false);
       {
+        std::lock_guard<std::mutex> lock(_jacobian_mutex);
         if (!_jacobian) {
           timer.start();
           _jacobian = Dune::Std::make_unique<M>(_go);
@@ -250,11 +255,13 @@ namespace duneuro
     //! Discard the stored Jacobian matrix.
     void discardMatrix()
     {
+      std::lock_guard<std::mutex> lock(_jacobian_mutex);
       if (_jacobian)
         _jacobian.reset();
     }
 
   private:
+    std::mutex _jacobian_mutex;
     const GO& _go;
     std::unique_ptr<M> _jacobian;
     bool _fixFirstDOF;

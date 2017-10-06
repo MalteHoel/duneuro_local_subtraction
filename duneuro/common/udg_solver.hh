@@ -37,9 +37,7 @@ namespace duneuro
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
                                    WrappedLocalOperator, MatrixBackend, DF, RF, JF,
                                    UnfittedSubTriangulation>;
-    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
-    using LinearSolver =
-        LinearProblemSolver<GridOperator, SolverBackend, DomainDOFVector, RangeDOFVector>;
+    using LinearSolver = LinearProblemSolver<GridOperator, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class ST, int compartments, int degree,
@@ -72,28 +70,28 @@ namespace duneuro
         , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
                         wrappedLocalOperator_,
                         typename Traits::MatrixBackend(2 * Traits::dimension + 1))
-        , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
-                         config.get<unsigned int>("verbose", 0))
         , linearSolver_(gridOperator_, config)
     {
     }
 
-    void solve(const typename Traits::RangeDOFVector& rightHandSide,
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, const typename Traits::RangeDOFVector& rightHandSide,
                typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, rightHandSide, config, dataTree);
+      linearSolver_.apply(solverBackend, solution, rightHandSide, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
-    void solve(typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, typename Traits::DomainDOFVector& solution,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
-      linearSolver_.apply(solverBackend_, solution, config, dataTree);
+      linearSolver_.apply(solverBackend, solution, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
 
@@ -121,7 +119,6 @@ namespace duneuro
     typename Traits::WrappedLocalOperator wrappedLocalOperator_;
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
     typename Traits::GridOperator gridOperator_;
-    typename Traits::SolverBackend solverBackend_;
     typename Traits::LinearSolver linearSolver_;
   };
 }

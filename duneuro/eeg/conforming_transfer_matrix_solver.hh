@@ -38,35 +38,28 @@ namespace duneuro
         : volumeConductor_(volumeConductor)
         , solver_(solver)
         , rhsAssembler_(solver_->functionSpace().getGFS())
-        , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
+        , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
     {
     }
 
-    ConformingTransferMatrixSolver(
-        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        const Dune::ParameterTree& config)
-        : ConformingTransferMatrixSolver(
-              volumeConductor, std::make_shared<typename Traits::Solver>(volumeConductor, config),
-              config)
-    {
-    }
-
-    void solve(const typename Traits::ProjectedPosition& reference,
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, const typename Traits::ProjectedPosition& reference,
                const typename Traits::ProjectedPosition& electrode,
                typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
       // assemble right hand side
-      *rightHandSideVector_ = 0.0;
+      rightHandSideVector_ = 0.0;
       rhsAssembler_.assembleRightHandSide(reference.element, reference.localPosition,
                                           electrode.element, electrode.localPosition,
-                                          *rightHandSideVector_);
+                                          rightHandSideVector_);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
       // solve system
-      solver_->solve(*rightHandSideVector_, solution, config, dataTree.sub("linear_system_solver"));
+      solver_->solve(solverBackend, rightHandSideVector_, solution, config,
+                     dataTree.sub("linear_system_solver"));
       timer.stop();
       dataTree.set("time_solution", timer.lastElapsed());
       dataTree.set("time", timer.elapsed());
@@ -81,7 +74,7 @@ namespace duneuro
     std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
     std::shared_ptr<typename Traits::Solver> solver_;
     TransferMatrixRHS<typename Traits::FunctionSpace::GFS> rhsAssembler_;
-    std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
+    typename Traits::RangeDOFVector rightHandSideVector_;
 
     template <class V>
     friend struct MakeDOFVectorHelper;

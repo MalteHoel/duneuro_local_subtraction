@@ -95,9 +95,6 @@ namespace duneuro
     setCoilsAndProjections(const std::vector<CoordinateType>& coils,
                            const std::vector<std::vector<CoordinateType>>& projections) = 0;
 
-    virtual void setSourceModel(const Dune::ParameterTree& config,
-                                DataTree dataTree = DataTree()) = 0;
-
     /**
      * \brief write the given solution to a file
      */
@@ -129,18 +126,18 @@ namespace duneuro
     /**
      * \brief apply the given EEG transfer matrix
      */
-    virtual std::vector<FieldType> applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                                                    const DipoleType& dipole,
-                                                    const Dune::ParameterTree& config,
-                                                    DataTree dataTree = DataTree()) = 0;
+    virtual std::vector<std::vector<FieldType>>
+    applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
+                     const std::vector<DipoleType>& dipole, const Dune::ParameterTree& config,
+                     DataTree dataTree = DataTree()) = 0;
 
     /**
      * \brief apply the given MEG transfer matrix
      */
-    virtual std::vector<FieldType> applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                                                    const DipoleType& dipole,
-                                                    const Dune::ParameterTree& config,
-                                                    DataTree dataTree = DataTree()) = 0;
+    virtual std::vector<std::vector<FieldType>>
+    applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
+                     const std::vector<DipoleType>& dipole, const Dune::ParameterTree& config,
+                     DataTree dataTree = DataTree()) = 0;
 
     virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
