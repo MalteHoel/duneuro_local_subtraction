@@ -17,6 +17,29 @@ namespace duneuro
   enum class ElementPatchInitialization { singleElement, closestVertex };
   enum class ElementPatchExtension { vertex, intersection };
 
+  static inline ElementPatchInitialization
+  elementPatchInitializationFromString(const std::string& name)
+  {
+    if (name == "single_element") {
+      return ElementPatchInitialization::singleElement;
+    } else if (name == "closest_vertex") {
+      return ElementPatchInitialization::closestVertex;
+    } else {
+      DUNE_THROW(Dune::Exception, "unknown element patch initialization \"" << name << "\"");
+    }
+  }
+
+  static inline ElementPatchExtension elementPatchExtensionFromString(const std::string& name)
+  {
+    if (name == "vertex") {
+      return ElementPatchExtension::vertex;
+    } else if (name == "intersection") {
+      return ElementPatchExtension::intersection;
+    } else {
+      DUNE_THROW(Dune::Exception, "unknown element patch extension \"" << name << "\"");
+    }
+  }
+
   template <typename GV>
   class ElementPatch
   {
@@ -66,13 +89,33 @@ namespace duneuro
       }
       for (const auto& candidate : candidates) {
         auto index = elementMapper_.index(candidate);
-        if (elementIndices_.count(index) == 0) {
-          if (elementFilter_(candidate)) {
-            elements_.push_back(candidate);
-            elementIndices_.insert(index);
-          }
+        if ((elementIndices_.count(index) == 0) && elementFilter_(candidate)) {
+          elements_.push_back(candidate);
+          elementIndices_.insert(index);
         }
       }
+    }
+
+    void extend(const std::vector<ElementPatchExtension>& extensions, std::size_t repeatUntil = 0)
+    {
+      auto old = elements_.size();
+      for (const auto& type : extensions) {
+        extend(type);
+      }
+      while (elements_.size() < repeatUntil && old != elements_.size()) {
+        old = elements_.size();
+        for (const auto& type : extensions) {
+          extend(type);
+        }
+      }
+    }
+
+    void extend(const std::vector<std::string>& extensions, std::size_t repeatUntil = 0)
+    {
+      std::vector<ElementPatchExtension> ex;
+      std::transform(extensions.begin(), extensions.end(), std::back_inserter(ex),
+                     elementPatchExtensionFromString);
+      extend(ex, repeatUntil);
     }
 
     const std::vector<Element>& elements() const
@@ -156,29 +199,6 @@ namespace duneuro
     }
   };
 
-  static inline ElementPatchInitialization
-  elementPatchInitializationFromString(const std::string& name)
-  {
-    if (name == "single_element") {
-      return ElementPatchInitialization::singleElement;
-    } else if (name == "closest_vertex") {
-      return ElementPatchInitialization::closestVertex;
-    } else {
-      DUNE_THROW(Dune::Exception, "unknown element patch initialization \"" << name << "\"");
-    }
-  }
-
-  static inline ElementPatchExtension elementPatchExtensionFromString(const std::string& name)
-  {
-    if (name == "vertex") {
-      return ElementPatchExtension::vertex;
-    } else if (name == "intersection") {
-      return ElementPatchExtension::intersection;
-    } else {
-      DUNE_THROW(Dune::Exception, "unknown element patch extension \"" << name << "\"");
-    }
-  }
-
   template <class VC, class ES>
   std::function<bool(typename VC::EntityType)>
   make_element_filter(std::shared_ptr<VC> volumeConductor, const ES& elementSearch,
@@ -208,22 +228,40 @@ namespace duneuro
         elementPatchInitializationFromString(config.get<std::string>("initialization")),
         make_element_filter(volumeConductor, elementSearch, position,
                             config.get<bool>("restrict")));
-    auto extensions = config.get("extensions", std::vector<std::string>());
-    auto old = patch->elements().size();
-    for (const auto& type : extensions) {
-      patch->extend(elementPatchExtensionFromString(type));
-    }
-    if (config.hasKey("repeat_until")) {
-      auto n = config.get<unsigned int>("repeat_until");
-      while (patch->elements().size() < n && old != patch->elements().size()) {
-        old = patch->elements().size();
-        for (const auto& type : extensions) {
-          patch->extend(elementPatchExtensionFromString(type));
-        }
-      }
-    }
+    patch->extend(config.get("extensions", std::vector<std::string>()),
+                  config.get<unsigned int>("repeat_until", 0));
     return patch;
   }
+
+#if HAVE_DUNE_UDG
+  template <class ST, class ES>
+  std::function<bool(typename ST::Entity)>
+  make_element_filter(std::shared_ptr<ST> subTriangulation, const ES& elementSearch,
+                      const Dune::FieldVector<typename ST::ctype, ST::dim>& position,
+                      unsigned int domainIndex)
+  {
+    return [subTriangulation, domainIndex](const typename ST::Entity& e) {
+      return subTriangulation->isHostCell(e, domainIndex);
+    };
+  }
+
+  template <class ST, class ES>
+  std::unique_ptr<ElementPatch<typename ST::GridView>> make_element_patch(
+      std::shared_ptr<ST> subTriangulation,
+      std::shared_ptr<ElementNeighborhoodMap<typename ST::GridView>> elementNeighborhoodMap,
+      const ES& elementSearch,
+      const Dune::FieldVector<typename ST::GridView::ctype, ST::GridView::dimension>& position,
+      unsigned int positionDomain, const Dune::ParameterTree& config)
+  {
+    auto patch = Dune::Std::make_unique<ElementPatch<typename ST::GridView>>(
+        elementNeighborhoodMap, elementSearch, position,
+        elementPatchInitializationFromString(config.get<std::string>("initialization")),
+        make_element_filter(subTriangulation, elementSearch, position, positionDomain));
+    patch->extend(config.get("extensions", std::vector<std::string>()),
+                  config.get<unsigned int>("repeat_until", 0));
+    return patch;
+  }
+#endif
 
   template <class EP>
   class ElementPatchVTKFunction : public Dune::VTKFunction<typename EP::GridView>

@@ -23,6 +23,11 @@ namespace duneuro
         return std::make_shared<PartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
                                                              search);
+      } else if (type == "patch_based_venant") {
+        return std::
+            make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                    V>>(
+                volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
                                                        typename Solver::Traits::FunctionSpace, V,
@@ -50,6 +55,11 @@ namespace duneuro
         return std::make_shared<PartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
                                                              search);
+      } else if (type == "patch_based_venant") {
+        return std::
+            make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                    V>>(
+                volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(

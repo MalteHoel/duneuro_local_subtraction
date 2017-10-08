@@ -1,5 +1,5 @@
-#ifndef DUNEURO_VENANT_SOURCE_MODEL_HH
-#define DUNEURO_VENANT_SOURCE_MODEL_HH
+#ifndef DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
+#define DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
 
 #include <Eigen/Dense>
 #include <array>
@@ -13,12 +13,14 @@
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/element_patch.hh>
+#include <duneuro/eeg/monopolar_venant.hh>
 #include <duneuro/eeg/source_model_interface.hh>
+#include <duneuro/eeg/venant_utilities.hh>
 
 namespace duneuro
 {
   template <class VC, class GFS, class V>
-  class VenantSourceModel : public SourceModelBase<typename GFS::Traits::GridViewType, V>
+  class VertexBasedVenantSourceModel : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
   public:
     using BaseT = SourceModelBase<typename GFS::Traits::GridView, V>;
@@ -31,66 +33,27 @@ namespace duneuro
     using Vertex = typename GV::template Codim<dim>::Entity;
     using SearchType = typename BaseT::SearchType;
 
-    VenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                      std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
+    VertexBasedVenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
+                                 std::shared_ptr<SearchType> search,
+                                 const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , elementNeighborhoodMap_(
               std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
         , gfs_(gfs)
-        , numberOfMoments_(params.get<unsigned int>("numberOfMoments"))
-        , referenceLength_(params.get<Real>("referenceLength"))
-        , weightingExponent_(params.get<unsigned int>("weightingExponent"))
-        , relaxationFactor_(params.get<Real>("relaxationFactor"))
+        , monopolarVenant_(params)
         , config_(params)
     {
-      assert(weightingExponent_ < numberOfMoments_);
     }
 
     void interpolate(const std::vector<Vertex>& vertices, const Dipole<Real, dim>& dipole,
                      V& output) const
     {
-      // initialize dimension wise matrices and rhs
-      using Matrix = Eigen::MatrixXd;
-      std::array<Matrix, dim> singleDimensionMatrices;
-      std::fill(singleDimensionMatrices.begin(), singleDimensionMatrices.end(),
-                Matrix::Ones(numberOfMoments_, vertices.size()));
-      std::array<Matrix, dim> weightMatrices;
-      std::fill(weightMatrices.begin(), weightMatrices.end(),
-                Matrix::Zero(vertices.size(), vertices.size()));
-      using Vector = Eigen::VectorXd;
-      std::array<Matrix, dim> rightHandSides;
-      std::fill(rightHandSides.begin(), rightHandSides.end(), Vector::Zero(numberOfMoments_));
+      std::vector<Dune::FieldVector<Real, dim>> positions(vertices.size());
+      for (unsigned int i = 0; i < vertices.size(); ++i)
+        positions[i] = vertices[i].geometry().center();
 
-      // fill matrices and right hand side
-      for (unsigned int i = 0; i < vertices.size(); ++i) {
-        auto scaledVertexDifference = vertices[i].geometry().center();
-        scaledVertexDifference -= dipole.position();
-        scaledVertexDifference /= referenceLength_;
-
-        for (unsigned int d = 0; d < dim; ++d) {
-          for (unsigned int moment = 1; moment < numberOfMoments_; ++moment) {
-            singleDimensionMatrices[d](moment, i) =
-                scaledVertexDifference[d] * singleDimensionMatrices[d](moment - 1, i);
-          }
-          weightMatrices[d](i, i) = singleDimensionMatrices[d](weightingExponent_, i);
-        }
-      }
-      for (unsigned int d = 0; d < dim; ++d) {
-        rightHandSides[d](1) = dipole.moment()[d] / referenceLength_;
-      }
-
-      // compute system matrix and right hand side
-      Matrix matrix = Matrix::Zero(vertices.size(), vertices.size());
-      Vector rightHandSide = Vector::Zero(vertices.size());
-      for (unsigned int d = 0; d < dim; ++d) {
-        matrix += singleDimensionMatrices[d].transpose() * singleDimensionMatrices[d]
-                  + relaxationFactor_ * weightMatrices[d].transpose() * weightMatrices[d];
-        rightHandSide += singleDimensionMatrices[d].transpose() * rightHandSides[d];
-      }
-
-      // solve system
-      Vector solution = matrix.colPivHouseholderQr().solve(rightHandSide);
+      auto solution = monopolarVenant_.interpolate(positions, dipole);
 
       // store solution in output dofvector
       Dune::PDELab::EntityIndexCache<GFS> cache(gfs_);
@@ -131,12 +94,9 @@ namespace duneuro
     std::shared_ptr<VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
-    const unsigned int numberOfMoments_;
-    const Real referenceLength_;
-    const unsigned int weightingExponent_;
-    const Real relaxationFactor_;
+    MonopolarVenant<Real, dim> monopolarVenant_;
     Dune::ParameterTree config_;
   };
 }
 
-#endif // DUNEURO_VENANT_SOURCE_MODEL_HH
+#endif // DUNEURO_VERTEX_BASED_VENANT_SOURCE_MODEL_HH
