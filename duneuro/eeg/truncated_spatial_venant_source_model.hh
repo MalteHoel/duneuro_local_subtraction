@@ -124,7 +124,7 @@ namespace duneuro
      */
     std::vector<Real> solveMomentSystem(const DipoleType& dipole) const
     {
-      const auto& multiIndices = createMomentExponents(numberOfMoments_);
+      const auto& multiIndices = createMomentExponents<dim>(numberOfMoments_, mixedMoments_);
       Eigen::MatrixXd momentMatrix = assembleMomentMatrix(multiIndices, dipole.position());
       Eigen::VectorXd rightHandSide = assembleMomentVector(multiIndices, dipole.moment());
       Eigen::MatrixXd weightMatrix = assembleWeightMatrix(multiIndices, dipole.position());
@@ -257,66 +257,6 @@ namespace duneuro
         }
       }
       return result;
-    }
-
-    /**
-     * \brief create multiindices as exponents for the central moments
-     *
-     * if mixedMoments was set in the constructor, multi-indices with more than one non-zero
-     * entry will also be generated
-     */
-    std::vector<std::array<unsigned int, dim>> createMomentExponents(unsigned int bound) const
-    {
-      std::vector<std::array<unsigned int, dim>> result;
-      Dune::FactoryUtilities::MultiIndex<dim> mi(Dune::fill_array<unsigned int, dim>(bound));
-      for (unsigned int i = 0; i < mi.cycle(); ++i, ++mi) {
-        if (!mixedMoments_) {
-          unsigned int nonzeros = 0;
-          for (const auto& v : mi) {
-            nonzeros += v > 0;
-          }
-          if (nonzeros > 1) {
-            continue;
-          }
-        }
-        result.push_back(mi);
-      }
-      return result;
-    }
-
-    /**
-     * \brief compute v to the power of k
-     */
-    static Real ipow(Real v, unsigned int k)
-    {
-      Real result = 1.0;
-      for (unsigned int i = 0; i < k; ++i) {
-        result *= v;
-      }
-      return result;
-    }
-
-    /**
-     * \brief compute value to the power of mi
-     *
-     * defined as $\sum_{i=0}^{dim-1}value_i^{mi_i}$
-     */
-    static Real pow(const Dune::FieldVector<Real, dim>& value,
-                    const std::array<unsigned int, dim>& mi)
-    {
-      Real result(1.0);
-      for (unsigned int i = 0; i < dim; ++i) {
-        result *= ipow(value[i], mi[i]);
-      }
-      return result;
-    }
-
-    /**
-     * \brief return the one-norm of a multi-index
-     */
-    static unsigned int oneNorm(const std::array<unsigned int, dim>& mi)
-    {
-      return std::accumulate(mi.begin(), mi.end(), 0);
     }
   };
 }
