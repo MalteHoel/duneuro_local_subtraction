@@ -7,9 +7,12 @@
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/patch_based_venant_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
+#include <duneuro/eeg/spatial_venant_source_model.hh>
 #include <duneuro/eeg/subtraction_source_model.hh>
+#include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
+
 
 namespace duneuro
 {
@@ -35,6 +38,17 @@ namespace duneuro
             make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
                                                     Vector>>(
                 volumeConductor, solver.functionSpace().getGFS(), search, config);
+
+      } else if (type == "spatial_venant") {
+        return std::
+            make_shared<SpatialVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                 Vector>>(
+                volumeConductor, solver.functionSpace().getGFS(), search, config);
+      } else if (type == "truncated_spatial_venant") {
+        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
+                                                                          FunctionSpace::GFS,
+                                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
         return std::make_shared<SubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
@@ -71,6 +85,16 @@ namespace duneuro
             make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
                                                     Vector>>(
                 volumeConductor, solver.functionSpace().getGFS(), search, config);
+      } else if (type == "spatial_venant") {
+        return std::
+            make_shared<SpatialVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
+                                                 Vector>>(
+                volumeConductor, solver.functionSpace().getGFS(), search, config);
+      } else if (type == "truncated_spatial_venant") {
+        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
+                                                                          FunctionSpace::GFS,
+                                                                  Vector>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "whitney") {
         return std::make_shared<WhitneySourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
                                                    Vector>>(

@@ -38,6 +38,11 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
             volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
             config, solverConfig);
+      } else if (type == "truncated_spatial_venant") {
+        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
+                                                                          FunctionSpace::GFS,
+                                                                  V>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -65,6 +70,11 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
             volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
             config, solverConfig);
+      } else if (type == "truncated_spatial_venant") {
+        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
+                                                                          FunctionSpace::GFS,
+                                                                  V>>(
+            volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

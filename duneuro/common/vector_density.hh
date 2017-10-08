@@ -25,6 +25,12 @@ namespace duneuro
     if (t == "patch_based_venant") {
       return VectorDensity::sparse;
     }
+    if (t == "spatial_venant") {
+      return VectorDensity::sparse;
+    }
+    if (t == "truncated_spatial_venant") {
+      return VectorDensity::sparse;
+    }
     return VectorDensity::dense;
   }
 }
