@@ -31,6 +31,10 @@ namespace duneuro
       integralAssembler_ = Dune::Std::make_unique<IntegralAssembler>(
           volumeConductor_, Dune::stackobject_to_shared_ptr(flux_->functionSpace()), coils,
           projections, config_);
+      numberOfCoils_ = coils.size();
+      numberOfProjections_.resize(numberOfCoils_);
+      for (unsigned int i = 0; i < numberOfCoils_; ++i)
+        numberOfProjections_[i] = projections[i].size();
     }
 
     virtual void bind(const typename Flux::FunctionSpace::DOF& eegSolution) override
@@ -65,12 +69,24 @@ namespace duneuro
           "flux"));
     }
 
+    virtual std::size_t numberOfCoils() const
+    {
+      return numberOfCoils_;
+    }
+
+    virtual std::size_t numberOfProjections(std::size_t coil) const
+    {
+      return numberOfProjections_[coil];
+    }
+
   private:
     std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<const Flux> flux_;
     mutable typename Flux::FluxDOF fluxDof_;
     std::unique_ptr<IntegralAssembler> integralAssembler_;
     Dune::ParameterTree config_;
+    std::size_t numberOfCoils_;
+    std::vector<std::size_t> numberOfProjections_;
   };
 }
 

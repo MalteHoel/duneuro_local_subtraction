@@ -144,8 +144,8 @@ namespace duneuro
       }
       megSolver_->bind(eegSolution.cast<typename Traits::DomainDOFVector>());
       std::vector<double> output;
-      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
-        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
+      for (unsigned int i = 0; i < megSolver_->numberOfCoils(); ++i) {
+        for (unsigned int j = 0; j < megSolver_->numberOfProjections(i); ++j) {
           std::stringstream name;
           name << "coil_" << i << "_projection_" << j;
           Dune::Timer timer;
@@ -195,10 +195,6 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
       megSolver_->bind(coils, projections);
-      numberOfCoils_ = coils.size();
-      numberOfProjections_.resize(numberOfCoils_);
-      for (unsigned int i = 0; i < numberOfCoils_; ++i)
-        numberOfProjections_[i] = projections[i].size();
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
@@ -298,9 +294,9 @@ namespace duneuro
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
-      std::vector<std::size_t> offsets(numberOfProjections_.size() + 1, 0);
-      std::partial_sum(numberOfProjections_.begin(), numberOfProjections_.end(),
-                       offsets.begin() + 1);
+      std::vector<std::size_t> offsets(megSolver_->numberOfCoils() + 1, 0);
+      for (unsigned int i = 0; i < megSolver_->numberOfCoils(); ++i)
+        offsets[i + 1] = offsets[i] + megSolver_->numberOfProjections(i);
       std::size_t numberOfProjections = offsets.back();
 
       auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
@@ -314,14 +310,15 @@ namespace duneuro
       tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
                                         solver_config.get<std::size_t>("numberOfThreads") :
                                         tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, numberOfCoils_),
+      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, megSolver_->numberOfCoils()),
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           auto& mySolver = megTransferMatrixSolver_.local();
                           auto& myBackend = solverBackend_.local();
                           auto& mySolution = solution.local();
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
-                            for (unsigned int j = 0; j < numberOfProjections_[index]; ++j) {
+                            for (unsigned int j = 0; j < megSolver_->numberOfProjections(index);
+                                 ++j) {
                               mySolver.solve(myBackend.get(), index, j, mySolution, solver_config,
                                              coilDT.sub("projection_" + std::to_string(j)));
                               set_matrix_row(*transferMatrix, offsets[index] + j,
@@ -331,9 +328,9 @@ namespace duneuro
                         });
 #else
       typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
-      for (std::size_t index = 0; index < numberOfCoils_; ++index) {
+      for (std::size_t index = 0; index < megSolver_->numberOfCoils(); ++index) {
         auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
-        for (unsigned int j = 0; j < numberOfProjections_; ++j) {
+        for (unsigned int j = 0; j < megSolver_->numberOfProjections(index); ++j) {
           megTransferMatrixSolver_.solve(solverBackend_.get(), index, j, solution, solver_config,
                                          coilDT.sub("projection_" + std::to_string(j)));
           set_matrix_row(*transferMatrix, offsets[index] + j,
@@ -459,8 +456,6 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    std::size_t numberOfCoils_;
-    std::vector<std::size_t> numberOfProjections_;
   };
 }
 
