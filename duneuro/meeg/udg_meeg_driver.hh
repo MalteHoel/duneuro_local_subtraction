@@ -190,41 +190,8 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
-          projectedElectrodes_->size(), solver_->functionSpace().getGFS().ordering().size());
-      auto solver_config = config.sub("solver");
-
-#if HAVE_TBB
-      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
-          solver_->functionSpace().getGFS(), 0.0);
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(
-          tbb::blocked_range<std::size_t>(1, projectedElectrodes_->size()),
-          [&](const tbb::blocked_range<std::size_t>& range) {
-            auto& mySolver = eegTransferMatrixSolver_.local();
-            auto& myBackend = solverBackend_.local();
-            auto& mySolution = solution.local();
-            for (std::size_t index = range.begin(); index != range.end(); ++index) {
-              mySolver.solve(myBackend.get(), projectedElectrodes_->projectedPosition(0),
-                             projectedElectrodes_->projectedPosition(index), mySolution,
-                             solver_config,
-                             dataTree.sub("solver.electrode_" + std::to_string(index)));
-              set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(mySolution));
-            }
-          });
-#else
-      typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
-      for (std::size_t index = 1; index < projectedElectrodes_->size(); ++index) {
-        eegTransferMatrixSolver_.solve(
-            solverBackend_.get(), projectedElectrodes_->projectedPosition(0),
-            projectedElectrodes_->projectedPosition(index), solution, solver_config,
-            dataTree.sub("solver.electrode_" + std::to_string(index)));
-        set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(solution));
-      }
-#endif
-      return transferMatrix;
+      return eegTransferMatrixSolver_.solve(solverBackend_, *projectedElectrodes_, config,
+                                            dataTree);
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
@@ -345,12 +312,10 @@ namespace duneuro
     std::shared_ptr<typename Traits::Solver> solver_;
 #if HAVE_TBB
     tbb::enumerable_thread_specific<typename Traits::SolverBackend> solverBackend_;
-    tbb::enumerable_thread_specific<typename Traits::EEGTransferMatrixSolver>
-        eegTransferMatrixSolver_;
 #else
     typename Traits::SolverBackend solverBackend_;
-    typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
 #endif
+    typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
     typename Traits::EEGForwardSolver eegForwardSolver_;
     std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>>
