@@ -22,6 +22,7 @@ namespace duneuro
         , flux_(flux)
         , fluxDof_(flux_->functionSpace().getGFS(), 0.0)
         , config_(config)
+        , fluxIntegralDof_(flux_->functionSpace().getGFS(), 0.0)
     {
     }
 
@@ -48,7 +49,13 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "please bind to coils and projections");
       }
       using Dune::PDELab::Backend::native;
-      return native(fluxDof_).dot(native(integralAssembler_->assemble(coilIndex, projectionIndex)));
+#if HAVE_TBB
+      integralAssembler_->assemble(coilIndex, projectionIndex, fluxIntegralDof_.local());
+      return native(fluxDof_).dot(native(fluxIntegralDof_.local()));
+#else
+      integralAssembler_->assemble(coilIndex, projectionIndex, fluxIntegralDof_);
+      return native(fluxDof_).dot(native(fluxIntegralDof_));
+#endif
     }
 
     virtual void assembleTransferMatrixRHS(std::size_t coilIndex, std::size_t projectionIndex,
@@ -57,7 +64,13 @@ namespace duneuro
       if (!integralAssembler_) {
         DUNE_THROW(Dune::Exception, "please bind to coils and projections");
       }
-      flux_->applyJacobianTransposed(integralAssembler_->assemble(coilIndex, projectionIndex), rhs);
+#if HAVE_TBB
+      integralAssembler_->assemble(coilIndex, projectionIndex, fluxIntegralDof_.local());
+      flux_->applyJacobianTransposed(fluxIntegralDof_.local(), rhs);
+#else
+      integralAssembler_->assemble(coilIndex, projectionIndex, fluxIntegralDof_);
+      flux_->applyJacobianTransposed(fluxIntegralDof_, rhs);
+#endif
     }
 
     virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const override
@@ -87,6 +100,11 @@ namespace duneuro
     Dune::ParameterTree config_;
     std::size_t numberOfCoils_;
     std::vector<std::size_t> numberOfProjections_;
+#if HAVE_TBB
+    mutable tbb::enumerable_thread_specific<typename Flux::FluxDOF> fluxIntegralDof_;
+#else
+    mutable typename Flux::FluxDOF fluxIntegralDof_;
+#endif
   };
 }
 
