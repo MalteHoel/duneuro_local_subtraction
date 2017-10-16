@@ -144,8 +144,8 @@ namespace duneuro
       }
       megSolver_->bind(eegSolution.cast<typename Traits::DomainDOFVector>());
       std::vector<double> output;
-      for (unsigned int i = 0; i < numberOfCoils_; ++i) {
-        for (unsigned int j = 0; j < numberOfProjections_[i]; ++j) {
+      for (unsigned int i = 0; i < megSolver_->numberOfCoils(); ++i) {
+        for (unsigned int j = 0; j < megSolver_->numberOfProjections(i); ++j) {
           std::stringstream name;
           name << "coil_" << i << "_projection_" << j;
           Dune::Timer timer;
@@ -195,10 +195,6 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
       megSolver_->bind(coils, projections);
-      numberOfCoils_ = coils.size();
-      numberOfProjections_.resize(numberOfCoils_);
-      for (unsigned int i = 0; i < numberOfCoils_; ++i)
-        numberOfProjections_[i] = projections[i].size();
     }
 
     virtual std::vector<double> evaluateAtElectrodes(const Function& function) const override
@@ -287,41 +283,8 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
-          electrodeProjection_->size(), solver_->functionSpace().getGFS().ordering().size());
-
-      auto solver_config = config.sub("solver");
-
-#if HAVE_TBB
-      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
-          solver_->functionSpace().getGFS(), 0.0);
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(
-          tbb::blocked_range<std::size_t>(1, electrodeProjection_->size()),
-          [&](const tbb::blocked_range<std::size_t>& range) {
-            auto& mySolver = eegTransferMatrixSolver_.local();
-            auto& myBackend = solverBackend_.local();
-            auto& mySolution = solution.local();
-            for (std::size_t index = range.begin(); index != range.end(); ++index) {
-              mySolver.solve(myBackend.get(), electrodeProjection_->getProjection(0),
-                             electrodeProjection_->getProjection(index), mySolution, solver_config,
-                             dataTree.sub("solver.electrode_" + std::to_string(index)));
-              set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(mySolution));
-            }
-          });
-#else
-      typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
-      for (std::size_t index = 1; index < electrodeProjection_->size(); ++index) {
-        eegTransferMatrixSolver_.solve(solverBackend_.get(), electrodeProjection_->getProjection(0),
-                                       electrodeProjection_->getProjection(index), solution,
-                                       solver_config,
-                                       dataTree.sub("solver.electrode_" + std::to_string(index)));
-        set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(solution));
-      }
-#endif
-      return transferMatrix;
+      return eegTransferMatrixSolver_.solve(solverBackend_, *electrodeProjection_, config,
+                                            dataTree);
     }
 
     virtual std::unique_ptr<DenseMatrix<double>>
@@ -331,50 +294,7 @@ namespace duneuro
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
-      std::vector<std::size_t> offsets(numberOfProjections_.size() + 1, 0);
-      std::partial_sum(numberOfProjections_.begin(), numberOfProjections_.end(),
-                       offsets.begin() + 1);
-      std::size_t numberOfProjections = offsets.back();
-
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
-          numberOfProjections, solver_->functionSpace().getGFS().ordering().size());
-
-      auto solver_config = config.sub("solver");
-
-#if HAVE_TBB
-      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
-          solver_->functionSpace().getGFS(), 0.0);
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, numberOfCoils_),
-                        [&](const tbb::blocked_range<std::size_t>& range) {
-                          auto& mySolver = megTransferMatrixSolver_.local();
-                          auto& myBackend = solverBackend_.local();
-                          auto& mySolution = solution.local();
-                          for (std::size_t index = range.begin(); index != range.end(); ++index) {
-                            auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
-                            for (unsigned int j = 0; j < numberOfProjections_[index]; ++j) {
-                              mySolver.solve(myBackend.get(), index, j, mySolution, solver_config,
-                                             coilDT.sub("projection_" + std::to_string(j)));
-                              set_matrix_row(*transferMatrix, offsets[index] + j,
-                                             Dune::PDELab::Backend::native(mySolution));
-                            }
-                          }
-                        });
-#else
-      typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
-      for (std::size_t index = 0; index < numberOfCoils_; ++index) {
-        auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
-        for (unsigned int j = 0; j < numberOfProjections_; ++j) {
-          megTransferMatrixSolver_.solve(solverBackend_.get(), index, j, solution, solver_config,
-                                         coilDT.sub("projection_" + std::to_string(j)));
-          set_matrix_row(*transferMatrix, offsets[index] + j,
-                         Dune::PDELab::Backend::native(solution));
-        }
-      }
-#endif
-      return transferMatrix;
+      return megTransferMatrixSolver_.solve(solverBackend_, config, dataTree);
     }
 
     virtual std::vector<std::vector<double>>
@@ -478,15 +398,11 @@ namespace duneuro
         megSolver_;
 #if HAVE_TBB
     tbb::enumerable_thread_specific<typename Traits::SolverBackend> solverBackend_;
-    tbb::enumerable_thread_specific<ConformingTransferMatrixSolver<typename Traits::Solver>>
-        eegTransferMatrixSolver_;
-    tbb::enumerable_thread_specific<ConformingMEGTransferMatrixSolver<typename Traits::Solver>>
-        megTransferMatrixSolver_;
 #else
     typename Traits::SolverBackend solverBackend_;
+#endif
     ConformingTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
     ConformingMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
-#endif
     ConformingEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;
     std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
@@ -494,8 +410,6 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    std::size_t numberOfCoils_;
-    std::vector<std::size_t> numberOfProjections_;
   };
 }
 

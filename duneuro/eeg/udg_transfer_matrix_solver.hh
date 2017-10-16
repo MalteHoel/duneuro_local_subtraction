@@ -45,30 +45,55 @@ namespace duneuro
     }
 
     template <class SolverBackend>
-    void solve(SolverBackend& solverBackend, const typename Traits::ProjectedPosition& reference,
-               const typename Traits::ProjectedPosition& electrode,
-               typename Traits::DomainDOFVector& solution, const Dune::ParameterTree& config,
-               DataTree dataTree = DataTree())
+    std::unique_ptr<DenseMatrix<double>> solve(
+        SolverBackend& solverBackend,
+        const ProjectedElectrodes<typename Traits::SubTriangulation::GridView>& projectedElectrodes,
+        const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      Dune::Timer timer;
-      rightHandSideVector_ = 0.0;
-      // assemble right hand side
-      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, 0,
-                           typename Traits::SubTriangulation>
-          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_);
-      rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
-                                         electrode.element, electrode.localPosition,
-                                         rightHandSideVector_);
-      timer.stop();
-      dataTree.set("time_rhs_assembly", timer.lastElapsed());
-      timer.start();
-      // solve system
-      solver_->solve(solverBackend, rightHandSideVector_, solution, config,
-                     dataTree.sub("linear_system_solver"));
-      timer.stop();
-      dataTree.set("time_solution", timer.lastElapsed());
-      dataTree.set("time", timer.elapsed());
+      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+          projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
+      auto solver_config = config.sub("solver");
+      typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
+      for (std::size_t index = 1; index < projectedElectrodes.size(); ++index) {
+        solve(solverBackend.get(), projectedElectrodes.projectedPosition(0),
+              projectedElectrodes.projectedPosition(index), solution, rightHandSideVector_,
+              solver_config, dataTree.sub("solver.electrode_" + std::to_string(index)));
+        set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(solution));
+      }
+      return transferMatrix;
     }
+
+#if HAVE_TBB
+    template <class SolverBackend>
+    std::unique_ptr<DenseMatrix<double>> solve(
+        tbb::enumerable_thread_specific<SolverBackend>& solverBackend,
+        const ProjectedElectrodes<typename Traits::SubTriangulation::GridView>& projectedElectrodes,
+        const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    {
+      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+          projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
+      auto solver_config = config.sub("solver");
+      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
+                                        solver_config.get<std::size_t>("numberOfThreads") :
+                                        tbb::task_scheduler_init::automatic);
+      auto grainSize = solver_config.get<int>("grainSize", 16);
+      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
+          solver_->functionSpace().getGFS(), 0.0);
+      tbb::parallel_for(
+          tbb::blocked_range<std::size_t>(1, projectedElectrodes.size(), grainSize),
+          [&](const tbb::blocked_range<std::size_t>& range) {
+            auto& mySolution = solution.local();
+            for (std::size_t index = range.begin(); index != range.end(); ++index) {
+              solve(solverBackend.local().get(), projectedElectrodes.projectedPosition(0),
+                    projectedElectrodes.projectedPosition(index), mySolution,
+                    rightHandSideVector_.local(), solver_config,
+                    dataTree.sub("solver.electrode_" + std::to_string(index)));
+              set_matrix_row(*transferMatrix, index, Dune::PDELab::Backend::native(mySolution));
+            }
+          });
+      return transferMatrix;
+    }
+#endif
 
     const typename Traits::FunctionSpace& functionSpace() const
     {
@@ -78,8 +103,39 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
+#if HAVE_TBB
+    tbb::enumerable_thread_specific<typename Traits::RangeDOFVector> rightHandSideVector_;
+#else
     typename Traits::RangeDOFVector rightHandSideVector_;
+#endif
     Dune::ParameterTree config_;
+
+    template <class SolverBackend>
+    void solve(SolverBackend& solverBackend, const typename Traits::ProjectedPosition& reference,
+               const typename Traits::ProjectedPosition& electrode,
+               typename Traits::DomainDOFVector& solution,
+               typename Traits::RangeDOFVector& rightHandSideVector,
+               const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const
+    {
+      Dune::Timer timer;
+      rightHandSideVector = 0.0;
+      // assemble right hand side
+      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, 0,
+                           typename Traits::SubTriangulation>
+          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_);
+      rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
+                                         electrode.element, electrode.localPosition,
+                                         rightHandSideVector);
+      timer.stop();
+      dataTree.set("time_rhs_assembly", timer.lastElapsed());
+      timer.start();
+      // solve system
+      solver_->solve(solverBackend, rightHandSideVector, solution, config,
+                     dataTree.sub("linear_system_solver"));
+      timer.stop();
+      dataTree.set("time_solution", timer.lastElapsed());
+      dataTree.set("time", timer.elapsed());
+    }
   };
 }
 
