@@ -48,7 +48,7 @@ namespace duneuro
     {
       auto type = megConfig.get<std::string>("type");
       if (type == "physical") {
-        using Flux = PhysicalFlux<VC, FS, ElementType::tetrahedron, degree>;
+        using Flux = PhysicalFluxPk<VC, FS, ElementType::tetrahedron, degree>;
         return Dune::Std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),
