@@ -27,8 +27,26 @@ namespace duneuro
         : solver_(solver)
         , firstOrderSpace_(solver->volumeConductor().grid(), solver->volumeConductor().gridView())
         , solverBackend_(*solver->assembler(), firstOrderSpace_.getGFS(), config)
+        , config_(config)
     {
-      solverBackend_.setReuse(true);
+      init();
+    }
+
+    DGSolverBackend(const DGSolverBackend& other)
+        : solver_(other.solver_)
+        , firstOrderSpace_(other.firstOrderSpace_)
+        , solverBackend_(*solver_->assembler(), firstOrderSpace_.getGFS(), other.config_)
+    {
+      init();
+    }
+
+    DGSolverBackend& operator=(const DGSolverBackend& other)
+    {
+      solver_ = other.solver_;
+      firstOrderSpace_ = other.firstOrderSpace_;
+      solverBackend_ = typename Traits::SolverBackend(*solver_->assembler(),
+                                                      firstOrderSpace_.getGFS(), other.config_);
+      init();
     }
 
     const typename Traits::SolverBackend& get() const
@@ -45,6 +63,12 @@ namespace duneuro
     std::shared_ptr<Solver> solver_;
     typename Traits::FirstOrderSpace firstOrderSpace_;
     typename Traits::SolverBackend solverBackend_;
+    const Dune::ParameterTree config_;
+
+    void init()
+    {
+      solverBackend_.setReuse(true);
+    }
   };
 }
 
