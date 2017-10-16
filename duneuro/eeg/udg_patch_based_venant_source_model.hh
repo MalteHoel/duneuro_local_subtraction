@@ -48,7 +48,6 @@ namespace duneuro
         , quadratureRuleOrder_(params.get<unsigned int>("quadratureRuleOrder"))
         , config_(params)
     {
-      assert(weightingExponent_ < numberOfMoments_);
     }
 
     void interpolate(const std::vector<ElementType>& elements, const Dipole<Real, dim>& dipole,
