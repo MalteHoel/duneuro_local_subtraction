@@ -100,6 +100,7 @@ namespace duneuro
 
     explicit UnfittedMEEGDriver(UnfittedMEEGDriverData<dim> data, const Dune::ParameterTree& config)
         : data_(data)
+        , config_(config)
         , grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
@@ -370,7 +371,9 @@ namespace duneuro
       }
     }
 
-    UnfittedMEEGDriverData<dim> data_;
+    UDGMEEGDriverData<dim> data_;
+    Dune::ParameterTree config_;
+    std::size_t numberOfThreads_;
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
     typename Traits::GridView levelSetGridView_;
