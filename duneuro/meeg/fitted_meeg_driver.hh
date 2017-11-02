@@ -330,7 +330,7 @@ namespace duneuro
                         });
 #else
       User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
-      myUser.setSourceModel(config.sub("source_model"));
+      myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
         myUser.bind(dipoles[index], dt);
@@ -373,7 +373,7 @@ namespace duneuro
                         });
 #else
       User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
-      myUser.setSourceModel(config.sub("source_model"));
+      myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
         myUser.bind(dipoles[index], dt);
