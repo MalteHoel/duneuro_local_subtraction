@@ -9,36 +9,6 @@
 
 namespace duneuro
 {
-  template <class VC>
-  class TensorFunctor : public Dune::VTKFunction<typename VC::GridView>
-  {
-  public:
-    using GV = typename VC::GridView;
-    using ctype = typename GV::ctype;
-    enum { dim = GV::dimension };
-    using Entity = typename GV::template Codim<0>::Entity;
-
-    TensorFunctor(std::shared_ptr<VC> volumeConductor) : volumeConductor_(volumeConductor)
-    {
-    }
-
-    double evaluate(int, const Entity& e, const Dune::FieldVector<ctype, dim>&) const
-    {
-      return volumeConductor_->tensor(e).infinity_norm_real();
-    }
-    int ncomps() const
-    {
-      return 1;
-    }
-    std::string name() const
-    {
-      return "conductivity";
-    }
-
-  private:
-    std::shared_ptr<VC> volumeConductor_;
-  };
-
 #if HAVE_DUNE_UDG
   template <typename GV>
   class TensorUnfittedVTKGridFunction : public Dune::UDG::UnfittedVTKFunction<GV>
