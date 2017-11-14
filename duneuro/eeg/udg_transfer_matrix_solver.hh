@@ -120,9 +120,9 @@ namespace duneuro
       Dune::Timer timer;
       rightHandSideVector = 0.0;
       // assemble right hand side
-      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, 0,
-                           typename Traits::SubTriangulation>
-          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_);
+      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, typename Traits::SubTriangulation>
+          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
+                       config.get<std::size_t>("compartment"));
       rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
                                          electrode.element, electrode.localPosition,
                                          rightHandSideVector);

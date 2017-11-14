@@ -12,46 +12,46 @@
 namespace duneuro
 {
   struct UDGSourceModelFactory {
-    template <int dipoleCompartment, class Vector, class Solver, class ST>
+    template <class Vector, class Solver, class ST>
     static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createDense(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search);
+            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment);
       } else if (type == "patch_based_venant") {
         return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search, config);
+            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
       }
     }
 
-    template <int dipoleCompartment, class Vector, class Solver, class ST>
+    template <class Vector, class Solver, class ST>
     static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createSparse(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search);
+            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment);
       } else if (type == "patch_based_venant") {
         return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, dipoleCompartment, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search, config);
+            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
+            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
