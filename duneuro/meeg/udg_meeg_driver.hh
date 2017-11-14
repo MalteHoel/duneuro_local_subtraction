@@ -211,10 +211,11 @@ namespace duneuro
       using User = typename Traits::TransferMatrixUser;
 
 #if HAVE_TBB
+      auto grainSize = config.get<int>("grainSize", 16);
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
                                         config.get<std::size_t>("numberOfThreads") :
                                         tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
+      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           User myUser(subTriangulation_, solver_, elementSearch_,
                                       config.sub("solver"));
@@ -261,10 +262,11 @@ namespace duneuro
       using User = typename Traits::TransferMatrixUser;
 
 #if HAVE_TBB
+      auto grainSize = config.get<int>("grainSize", 16);
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
                                         config.get<std::size_t>("numberOfThreads") :
                                         tbb::task_scheduler_init::automatic);
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
+      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           User myUser(subTriangulation_, solver_, elementSearch_,
                                       config.sub("solver"));
