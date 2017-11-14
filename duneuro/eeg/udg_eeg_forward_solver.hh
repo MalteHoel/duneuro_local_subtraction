@@ -52,9 +52,8 @@ namespace duneuro
     void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       denseSourceModel_ =
-          UDGSourceModelFactory::template createDense<compartments - 1,
-                                                      typename Traits::RangeDOFVector>(
-              *solver_, subTriangulation_, search_, config);
+          UDGSourceModelFactory::template createDense<typename Traits::RangeDOFVector>(
+              *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
     }
 
     void bind(const typename Traits::DipoleType& dipole)

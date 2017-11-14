@@ -16,7 +16,7 @@
 
 namespace duneuro
 {
-  template <class GFS, int child, class ST, class V>
+  template <class GFS, class ST, class V>
   class UDGPartialIntegrationSourceModel
       : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
@@ -34,26 +34,31 @@ namespace duneuro
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
     UDGPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
-                                     std::shared_ptr<typename BaseT::SearchType> search)
-        : BaseT(search), subTriangulation_(subTriangulation), ulfs_(gfs), ucache_(ulfs_)
+                                     std::shared_ptr<typename BaseT::SearchType> search,
+                                     std::size_t child)
+        : BaseT(search)
+        , subTriangulation_(subTriangulation)
+        , child_(child)
+        , ulfs_(gfs)
+        , ucache_(ulfs_)
     {
     }
 
     virtual void assembleRightHandSide(VectorType& vector) const
     {
-      using ChildLFS = typename ULFS::template Child<child>::Type;
+      using ChildLFS = typename ULFS::template Child<0>::Type;
       using FESwitch =
           Dune::FiniteElementInterfaceSwitch<typename ChildLFS::Traits::FiniteElementType>;
       using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
 
-      ChildLFS& childLfs = ulfs_.child(child);
+      ChildLFS& childLfs = ulfs_.child(child_);
 
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
       ust.create(this->dipoleElement());
 
       bool foundCompartment = false;
       for (const auto& ep : ust) {
-        if (ep.domainIndex() != child)
+        if (ep.domainIndex() != child_)
           continue;
         foundCompartment = true;
         ulfs_.bind(ep.subEntity(), true);
@@ -98,12 +103,14 @@ namespace duneuro
       if (!foundCompartment) {
         DUNE_THROW(Dune::Exception,
                    "dipole should be in compartment "
-                       << child << " but no such compartment was found in the fundamental element");
+                       << child_
+                       << " but no such compartment was found in the fundamental element");
       }
     }
 
   private:
     std::shared_ptr<ST> subTriangulation_;
+    std::size_t child_;
     mutable ULFS ulfs_;
     mutable UCache ucache_;
   };

@@ -55,14 +55,14 @@ namespace duneuro
       density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_ =
-            UDGSourceModelFactory::template createSparse<compartments - 1,
-                                                         typename Traits::SparseRHSVector>(
-                *solver_, subTriangulation_, search_, config);
+            UDGSourceModelFactory::template createSparse<typename Traits::SparseRHSVector>(
+                *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"),
+                config);
       } else {
         denseSourceModel_ =
-            UDGSourceModelFactory::template createDense<compartments - 1,
-                                                        typename Traits::DenseRHSVector>(
-                *solver_, subTriangulation_, search_, config);
+            UDGSourceModelFactory::template createDense<typename Traits::DenseRHSVector>(
+                *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"),
+                config);
       }
     }
 

@@ -21,7 +21,7 @@
 
 namespace duneuro
 {
-  template <class GFS, int child, class ST, class V>
+  template <class GFS, class ST, class V>
   class UDGPatchBasedVenantSourceModel
       : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
@@ -39,9 +39,10 @@ namespace duneuro
 
     UDGPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
                                    std::shared_ptr<typename BaseT::SearchType> search,
-                                   const Dune::ParameterTree& params)
+                                   std::size_t child, const Dune::ParameterTree& params)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
+        , child_(child)
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<GV>>(gfs.gridView()))
         , gfs_(gfs)
         , monopolarVenant_(params)
@@ -56,7 +57,7 @@ namespace duneuro
       // select monopoles within each element based on a quadrature rule
       std::vector<Dune::FieldVector<Real, dim>> positions;
       for (const auto& element : elements) {
-        const auto& bbox = subTriangulation_->BBox(child, element);
+        const auto& bbox = subTriangulation_->BBox(child_, element);
         const auto& rule =
             Dune::QuadratureRules<Real, dim>::rule(bbox.type(), quadratureRuleOrder_);
         for (const auto& qp : rule) {
@@ -75,14 +76,14 @@ namespace duneuro
       std::size_t offset = 0;
       using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
       using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
-      using ChildLFS = typename ULFS::template Child<child>::Type;
+      using ChildLFS = typename ULFS::template Child<0>::Type;
       using FESwitch =
           Dune::FiniteElementInterfaceSwitch<typename ChildLFS::Traits::FiniteElementType>;
       using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
 
       ULFS lfs(gfs_);
       UCache cache(lfs);
-      ChildLFS& childLfs = lfs.child(child);
+      ChildLFS& childLfs = lfs.child(child_);
 
       using RangeType = typename BasisSwitch::Range;
 
@@ -91,7 +92,7 @@ namespace duneuro
         const auto& element = elements[i];
         ust.create(element);
         for (const auto& ep : ust) {
-          if (ep.domainIndex() != child)
+          if (ep.domainIndex() != child_)
             continue;
           lfs.bind(ep.subEntity(), true);
           cache.update();
@@ -116,13 +117,14 @@ namespace duneuro
     {
       auto elementPatch =
           make_element_patch(subTriangulation_, elementNeighborhoodMap_, this->elementSearch(),
-                             this->dipole().position(), child, config_);
+                             this->dipole().position(), child_, config_);
 
       interpolate(elementPatch->elements(), this->dipole(), vector);
     }
 
   private:
     std::shared_ptr<ST> subTriangulation_;
+    std::size_t child_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
     MonopolarVenant<Real, dim> monopolarVenant_;
