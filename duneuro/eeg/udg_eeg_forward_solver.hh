@@ -13,29 +13,25 @@
 
 namespace duneuro
 {
-  template <class ST, int compartments, int degree, class DF, class RF, class JF>
+  template <class S, class SMF>
   struct UDGEEGFowardSolverTraits {
-    static const unsigned int dimension = ST::dim;
-    using Solver =
-        UDGSolver<ST, compartments, degree,
-                  ConvectionDiffusion_UDG_DefaultParameter<typename ST::GridView>, DF, RF, JF>;
-    using SubTriangulation = ST;
+    using Solver = S;
+    using SubTriangulation = typename Solver::Traits::SubTriangulation;
+    static const unsigned int dimension = SubTriangulation::dim;
     using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-    using CoordinateFieldType = typename ST::ctype;
+    using CoordinateFieldType = typename SubTriangulation::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
-    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
+    using ElementSearch = KDTreeElementSearch<typename SubTriangulation::BaseT::GridView>;
   };
 
-  template <class ST, int compartments, int degree, class DF = double, class RF = double,
-            class JF = double>
+  template <class S, class SMF>
   class UDGEEGFowardSolver
-      : public EEGForwardSolver<UDGEEGFowardSolver<ST, compartments, degree, DF, RF, JF>,
-                                UDGEEGFowardSolverTraits<ST, compartments, degree, DF, RF, JF>>
+      : public EEGForwardSolver<UDGEEGFowardSolver<S, SMF>, UDGEEGFowardSolverTraits<S, SMF>>
   {
   public:
-    using Traits = UDGEEGFowardSolverTraits<ST, compartments, degree, DF, RF, JF>;
+    using Traits = UDGEEGFowardSolverTraits<S, SMF>;
 
     UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
                        std::shared_ptr<typename Traits::Solver> solver,
@@ -51,9 +47,8 @@ namespace duneuro
 
     void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      denseSourceModel_ =
-          UDGSourceModelFactory::template createDense<typename Traits::RangeDOFVector>(
-              *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
+      denseSourceModel_ = SMF::template createDense<typename Traits::RangeDOFVector>(
+          *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
     }
 
     void bind(const typename Traits::DipoleType& dipole)
@@ -101,7 +96,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
     std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>>

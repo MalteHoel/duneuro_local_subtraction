@@ -11,34 +11,32 @@
 
 namespace duneuro
 {
-  template <class ST, int compartments, int degree, class DF, class RF, class JF>
+  template <class S>
   struct UDGTransferMatrixSolverTraits {
-    static const unsigned int dimension = ST::dim;
-    using Solver =
-        UDGSolver<ST, compartments, degree,
-                  ConvectionDiffusion_UDG_DefaultParameter<typename ST::GridView>, DF, RF, JF>;
-    using SubTriangulation = ST;
+    using Solver = S;
+    using SubTriangulation = typename Solver::Traits::SubTriangulation;
+    static const unsigned int dimension = SubTriangulation::dim;
     using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-    using CoordinateFieldType = typename ST::ctype;
+    using CoordinateFieldType = typename SubTriangulation::ctype;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using Element = typename Solver::Traits::FundamentalGridView::template Codim<0>::Entity;
     using ProjectedPosition = duneuro::ProjectedPosition<Element, Coordinate>;
   };
 
-  template <class ST, int compartments, int degree, class DF = double, class RF = double,
-            class JF = double>
+  template <class S>
   class UDGTransferMatrixSolver
   {
   public:
-    using Traits = UDGTransferMatrixSolverTraits<ST, compartments, degree, DF, RF, JF>;
+    using Traits = UDGTransferMatrixSolverTraits<S>;
 
     UDGTransferMatrixSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                            std::shared_ptr<typename Traits::Solver> solver,
+                            std::shared_ptr<typename Traits::Solver> solver, bool scaleToBBox,
                             const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
+        , scaleToBBox_(scaleToBBox)
         , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
         , config_(config)
     {
@@ -103,6 +101,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
+    bool scaleToBBox_;
 #if HAVE_TBB
     tbb::enumerable_thread_specific<typename Traits::RangeDOFVector> rightHandSideVector_;
 #else
@@ -122,7 +121,7 @@ namespace duneuro
       // assemble right hand side
       UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, typename Traits::SubTriangulation>
           rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
-                       config.get<std::size_t>("compartment"));
+                       config.get<std::size_t>("compartment"), scaleToBBox_);
       rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
                                          electrode.element, electrode.localPosition,
                                          rightHandSideVector);

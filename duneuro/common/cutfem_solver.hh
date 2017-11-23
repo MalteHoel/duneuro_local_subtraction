@@ -1,6 +1,7 @@
-#ifndef DUNEURO_UDG_SOLVER_HH
-#define DUNEURO_UDG_SOLVER_HH
+#ifndef DUNEURO_CUTFEM_SOLVER_HH
+#define DUNEURO_CUTFEM_SOLVER_HH
 
+#include <dune/udg/pdelab/cutfemmultiphaseoperator.hh>
 #include <dune/udg/pdelab/multiphaseoperator.hh>
 #include <dune/udg/pdelab/operator.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
@@ -10,55 +11,60 @@
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
+#include <duneuro/common/cutfem_gridoperator.hh>
+#include <duneuro/common/cutfem_multi_phase_space.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/random.hh>
-#include <duneuro/common/udg_multi_phase_space.hh>
 
 namespace duneuro
 {
   template <class ST, int comps, int degree, class P, class DF, class RF, class JF>
-  struct UDGSolverTraits {
+  struct CutFEMSolverTraits {
     using SubTriangulation = ST;
     using FundamentalGridView = typename ST::BaseT::GridView;
     static const int dimension = FundamentalGridView::dimension;
     static const int compartments = comps;
     using Problem = P;
-    using FunctionSpace = UDGQkMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
+    using FunctionSpace = CutFEMMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
     using DomainField = DF;
     using RangeField = RF;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
-    using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
+    using WrappedLocalOperator = Dune::UDG::CutFEMMultiPhaseLocalOperatorWrapper<LocalOperator>;
+    // using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
-    using GridOperator =
+    using RawGridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
                                    WrappedLocalOperator, MatrixBackend, DF, RF, JF,
                                    UnfittedSubTriangulation>;
+    using GridOperator = CutFEMGridOperator<RawGridOperator, ST, EdgeNormProvider>;
+    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_AMG_SSOR<GridOperator>;
     using LinearSolver = LinearProblemSolver<GridOperator, DomainDOFVector, RangeDOFVector>;
   };
 
   template <class ST, int compartments, int degree,
             class P = ConvectionDiffusion_UDG_DefaultParameter<typename ST::BaseT::GridView>,
             class DF = double, class RF = double, class JF = double>
-  class UDGSolver
+  class CutFEMSolver
   {
   public:
-    using Traits = UDGSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
+    using Traits = CutFEMSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
-    UDGSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-              const Dune::ParameterTree& config)
-        : UDGSolver(subTriangulation, std::make_shared<typename Traits::Problem>(
-                                          config.get<std::vector<double>>("conductivities")),
-                    config)
+    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                 const Dune::ParameterTree& config)
+        : CutFEMSolver(subTriangulation, std::make_shared<typename Traits::Problem>(
+                                             config.get<std::vector<double>>("conductivities")),
+                       config)
     {
     }
 
-    UDGSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-              std::shared_ptr<typename Traits::Problem> problem, const Dune::ParameterTree& config)
+    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                 std::shared_ptr<typename Traits::Problem> problem,
+                 const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
@@ -68,9 +74,10 @@ namespace duneuro
                          ConvectionDiffusion_DG_Weights::weightsOn, config.get<RF>("penalty"))
         , wrappedLocalOperator_(localOperator_)
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
-        , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
-                        wrappedLocalOperator_,
-                        typename Traits::MatrixBackend(2 * Traits::dimension + 1))
+        , rawGridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(),
+                           unfittedSubTriangulation_, wrappedLocalOperator_,
+                           typename Traits::MatrixBackend(2 * Traits::dimension + 1))
+        , gridOperator_(rawGridOperator_, subTriangulation, edgeNormProvider_, config)
         , linearSolver_(gridOperator_, config)
     {
     }
@@ -119,9 +126,10 @@ namespace duneuro
     typename Traits::LocalOperator localOperator_;
     typename Traits::WrappedLocalOperator wrappedLocalOperator_;
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
+    typename Traits::RawGridOperator rawGridOperator_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
   };
 }
 
-#endif // DUNEURO_UDG_SOLVER_HH
+#endif // DUNEURO_CUTFEM_SOLVER_HH

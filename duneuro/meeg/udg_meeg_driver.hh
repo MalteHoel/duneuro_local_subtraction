@@ -10,10 +10,13 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
+#include <duneuro/common/cutfem_solver.hh>
+#include <duneuro/common/cutfem_solver_backend.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
 #include <duneuro/common/udg_solver_backend.hh>
+#include <duneuro/eeg/cutfem_source_model_factory.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/eeg/udg_eeg_forward_solver.hh>
 #include <duneuro/eeg/udg_transfer_matrix_solver.hh>
@@ -25,26 +28,67 @@
 
 namespace duneuro
 {
-  template <int dim, int degree, int compartments>
-  struct UDGMEEGDriverTraits {
+  template <int dim>
+  struct SubTriangulationTraits {
     using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
     using GridView = typename Grid::LevelGridView;
-    using ElementSearch = KDTreeElementSearch<GridView>;
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
-    using Solver = UDGSolver<SubTriangulation, compartments, degree>;
-    using EEGForwardSolver = UDGEEGFowardSolver<SubTriangulation, compartments, degree>;
-    using EEGTransferMatrixSolver = UDGTransferMatrixSolver<SubTriangulation, compartments, degree>;
-    using TransferMatrixUser = UDGTransferMatrixUser<SubTriangulation, compartments, degree>;
-    using SolverBackend = UDGSolverBackend<Solver>;
+  };
 
-    using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
+  struct SelectUnfittedSolver;
+
+  template <int dim, int degree, int compartments>
+  struct SelectUnfittedSolver<UnfittedSolverType::udg, dim, degree, compartments> {
+    using SolverType =
+        UDGSolver<typename SubTriangulationTraits<dim>::SubTriangulation, compartments, degree>;
+    using SourceModelFactoryType = UDGSourceModelFactory;
+    using SolverBackendType = UDGSolverBackend<SolverType>;
+    static constexpr bool scaleToBBox()
+    {
+      return true;
+    }
   };
 
   template <int dim, int degree, int compartments>
+  struct SelectUnfittedSolver<UnfittedSolverType::cutfem, dim, degree, compartments> {
+    using SolverType =
+        CutFEMSolver<typename SubTriangulationTraits<dim>::SubTriangulation, compartments, degree>;
+    using SourceModelFactoryType = CutFEMSourceModelFactory;
+    using SolverBackendType = CutFEMSolverBackend<SolverType>;
+    static constexpr bool scaleToBBox()
+    {
+      return false;
+    }
+  };
+
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
+  struct UDGMEEGDriverTraits {
+    using Grid = typename SubTriangulationTraits<dim>::Grid;
+    using GridView = typename SubTriangulationTraits<dim>::GridView;
+    using SubTriangulation = typename SubTriangulationTraits<dim>::SubTriangulation;
+    using ElementSearch = KDTreeElementSearch<GridView>;
+    using Solver = typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverType;
+    using SourceModelFactory = typename SelectUnfittedSolver<solverType, dim, degree,
+                                                             compartments>::SourceModelFactoryType;
+    using EEGForwardSolver = UDGEEGFowardSolver<Solver, SourceModelFactory>;
+    using EEGTransferMatrixSolver = UDGTransferMatrixSolver<Solver>;
+    using TransferMatrixUser = UDGTransferMatrixUser<Solver, SourceModelFactory>;
+    using SolverBackend =
+        typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
+
+    using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
+    static constexpr bool scaleToBBox()
+    {
+      return SelectUnfittedSolver<solverType, dim, degree, compartments>::scaleToBBox();
+    }
+  };
+
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
   class UDGMEEGDriver : public MEEGDriverInterface<dim>
   {
   public:
-    using Traits = UDGMEEGDriverTraits<dim, degree, compartments>;
+    using Traits = UDGMEEGDriverTraits<solverType, dim, degree, compartments>;
 
     explicit UDGMEEGDriver(const Dune::ParameterTree& config)
         : UDGMEEGDriver(UDGMEEGDriverData<dim>{}, config)
@@ -66,7 +110,8 @@ namespace duneuro
               std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
-        , eegTransferMatrixSolver_(subTriangulation_, solver_, config.sub("solver"))
+        , eegTransferMatrixSolver_(subTriangulation_, solver_, Traits::scaleToBBox(),
+                                   config.sub("solver"))
         , eegForwardSolver_(subTriangulation_, solver_, elementSearch_, config.sub("solver"))
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
@@ -140,7 +185,8 @@ namespace duneuro
       if (format == "vtk") {
         RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
+            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
+                      Traits::scaleToBBox());
         vtkWriter.addVertexData(eegForwardSolver_,
                                 solution.cast<typename Traits::DomainDOFVector>(), "potential");
         vtkWriter.addVertexDataGradient(eegForwardSolver_,
@@ -169,7 +215,8 @@ namespace duneuro
       if (format == "vtk") {
         RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
+            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
+                      Traits::scaleToBBox());
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));

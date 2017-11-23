@@ -1,10 +1,10 @@
-#ifndef DUNEURO_UDG_MULTI_PHASE_SPACE_HH
-#define DUNEURO_UDG_MULTI_PHASE_SPACE_HH
+#ifndef DUNEURO_CUTFEM_MULTI_PHASE_SPACE_HH
+#define DUNEURO_CUTFEM_MULTI_PHASE_SPACE_HH
+
+#include <dune/localfunctions/lagrange.hh>
+#include <dune/localfunctions/lagrange/equidistantpoints.hh>
 
 #include <dune/pdelab/backend/istl.hh>
-#include <dune/pdelab/finiteelement/l2orthonormal.hh>
-#include <dune/pdelab/finiteelementmap/qkdg.hh>
-#include <dune/pdelab/ordering/chunkedblockordering.hh>
 
 #include <dune/udg/pdelab/finiteelementmap.hh>
 #include <dune/udg/vtriangulation.hh>
@@ -13,43 +13,45 @@
 
 namespace duneuro
 {
-  struct UDGLeafOrderingParams : public Dune::PDELab::NoConstOrderingSize<true> {
+  struct CutFEMLeafOrderingParams : public Dune::PDELab::NoConstOrderingSize<true> {
   };
 
   template <class TGV, class N, int degree, int phases>
-  class UDGQkMultiPhaseSpace
+  class CutFEMMultiPhaseSpace
   {
   public:
     typedef TGV GV;
     enum { dim = GV::dimension };
     typedef typename GV::ctype ctype;
     typedef N NT;
-    typedef Dune::OPBLocalFiniteElement<ctype, NT, degree, dim, Dune::GeometryType::cube,
-                                        Dune::GMPField<512>, Dune::PB::BasisType::Qk>
-        LFE;
+    static const int blockSize = 1;
+    typedef Dune::LagrangeLocalFiniteElement<Dune::EquidistantPointSet, dim, double, double> LFE;
     typedef VirtualSubTriangulation<GV> SubTriangulation;
-    enum { blockSize = Dune::QkStuff::QkSize<degree, dim>::value };
-    typedef Dune::PDELab::istl::VectorBackend<Dune::PDELab::istl::Blocking::fixed, blockSize> VBE;
+    typedef Dune::PDELab::istl::VectorBackend<> VBE;
     typedef Dune::PDELab::UnfittedFiniteElementMapTraits<LFE, typename SubTriangulation::EntityPart>
         UFEMTraits;
     typedef Dune::PDELab::UnfittedFiniteElementMap<UFEMTraits, SubTriangulation> FEM;
-    typedef Dune::PDELab::LeafOrderingTag<UDGLeafOrderingParams> LeafOrderingTag;
+    typedef Dune::PDELab::LeafOrderingTag<CutFEMLeafOrderingParams> LeafOrderingTag;
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE,
                                             LeafOrderingTag>
         DomainGFS;
     typedef Dune::PDELab::istl::VectorBackend<> PVBE;
-    typedef Dune::PDELab::ordering::Chunked<Dune::PDELab::EntityBlockedOrderingTag> OrderingTag;
-    typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE, OrderingTag> GFS;
+    typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE,
+                                                 Dune::PDELab::EntityBlockedOrderingTag>
+        GFS;
     typedef typename Dune::PDELab::Backend::Vector<GFS, N> DOF;
 
-    UDGQkMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
-        : gridView_(gv), entitySet_(gridView_), subTriangulation_(subTriangulation)
+    CutFEMMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
+        : gridView_(gv)
+        , entitySet_(gridView_)
+        , subTriangulation_(subTriangulation)
+        , lfe_(Dune::GeometryType(Dune::GeometryType::BasicType::cube, dim), degree)
     {
       for (unsigned int i = 0; i < phases; ++i) {
-        fems_[i] = std::make_shared<FEM>(lfe_, *subTriangulation_, i);
+        fems_[i] = std::make_shared<FEM>(lfe_, *subTriangulation_, i, false);
         domainGfss_[i] = std::make_shared<DomainGFS>(entitySet_, *(fems_[i]));
       }
-      gfs_ = duneuro::make_power_gfs(domainGfss_, PVBE(), OrderingTag(blockSize));
+      gfs_ = make_power_gfs<DomainGFS, PVBE, typename GFS::Traits::OrderingTag>(domainGfss_);
       gfs_->ordering();
     }
 
@@ -65,8 +67,8 @@ namespace duneuro
       return *gfs_;
     }
 
-    UDGQkMultiPhaseSpace(const UDGQkMultiPhaseSpace&) = delete;
-    UDGQkMultiPhaseSpace& operator=(const UDGQkMultiPhaseSpace&) = delete;
+    CutFEMMultiPhaseSpace(const CutFEMMultiPhaseSpace&) = delete;
+    CutFEMMultiPhaseSpace& operator=(const CutFEMMultiPhaseSpace&) = delete;
 
   private:
     GV gridView_;
@@ -78,4 +80,4 @@ namespace duneuro
     std::shared_ptr<GFS> gfs_;
   };
 }
-#endif // DUNEURO_UDG_MULTI_PHASE_SPACE_HH
+#endif // DUNEURO_CUTFEM_MULTI_PHASE_SPACE_HH

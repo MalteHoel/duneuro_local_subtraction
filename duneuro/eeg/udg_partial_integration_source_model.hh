@@ -35,10 +35,11 @@ namespace duneuro
 
     UDGPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
                                      std::shared_ptr<typename BaseT::SearchType> search,
-                                     std::size_t child)
+                                     std::size_t child, bool scaleToBBox)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
         , child_(child)
+        , scaleToBBox_(scaleToBBox)
         , ulfs_(gfs)
         , ucache_(ulfs_)
     {
@@ -76,8 +77,11 @@ namespace duneuro
         // reset basis transformations
         FESwitch::basis(childLfs.finiteElement()).reset();
 
-        auto boundingBoxLocal = ep.subEntity().boundingBox().local(
-            this->dipoleElement().geometry().global(this->localDipolePosition()));
+        auto boundingBoxLocal =
+            scaleToBBox_ ?
+                ep.subEntity().boundingBox().local(
+                    this->dipoleElement().geometry().global(this->localDipolePosition())) :
+                this->localDipolePosition();
 
         // evaluate gradiant in local bounding box coordinates
         std::vector<Dune::FieldMatrix<Real, 1, dim>> gradpsi(childLfs.size());
@@ -86,11 +90,16 @@ namespace duneuro
         // get transformation of the boundingbox
         const auto& boundingBoxJacobian =
             ep.subEntity().boundingBox().jacobianInverseTransposed(CoordinateType(0.5));
+        const auto& entityJacobian =
+            ep.entity().geometry().jacobianInverseTransposed(CoordinateType(.5));
 
         // multiply local gradiant with bounding box transformation
         Dune::FieldMatrix<Real, 1, dim> tmp;
         for (unsigned int i = 0; i < gradpsi.size(); i++) {
-          boundingBoxJacobian.mv(gradpsi[i][0], tmp[0]);
+          if (scaleToBBox_)
+            boundingBoxJacobian.mv(gradpsi[i][0], tmp[0]);
+          else
+            entityJacobian.mv(gradpsi[i][0], tmp[0]);
           gradpsi[i] = tmp;
         }
 
@@ -111,6 +120,7 @@ namespace duneuro
   private:
     std::shared_ptr<ST> subTriangulation_;
     std::size_t child_;
+    bool scaleToBBox_;
     mutable ULFS ulfs_;
     mutable UCache ucache_;
   };
