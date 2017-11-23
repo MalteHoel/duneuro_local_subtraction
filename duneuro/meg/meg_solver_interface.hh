@@ -25,6 +25,9 @@ namespace duneuro
     virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const = 0;
     virtual std::size_t numberOfCoils() const = 0;
     virtual std::size_t numberOfProjections(std::size_t coil) const = 0;
+    virtual ~MEGSolverInterface()
+    {
+    }
   };
 }
 
