@@ -9,7 +9,7 @@
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #if HAVE_DUNE_UDG
-#include <duneuro/meeg/udg_meeg_driver_data.hh>
+#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
 #endif
 
 namespace duneuro
@@ -18,7 +18,7 @@ namespace duneuro
   struct MEEGDriverData {
     FittedDriverData<dim> fittedData;
 #if HAVE_DUNE_UDG
-    UDGMEEGDriverData<dim> udgData;
+    UnfittedMEEGDriverData<dim> unfittedData;
 #endif
   };
 

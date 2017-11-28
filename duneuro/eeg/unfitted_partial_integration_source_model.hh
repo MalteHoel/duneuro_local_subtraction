@@ -1,5 +1,5 @@
-#ifndef DUNEURO_PARTIALINTEGRATIONUDGRESIDUAL_HH
-#define DUNEURO_PARTIALINTEGRATIONUDGRESIDUAL_HH
+#ifndef DUNEURO_UNFITTED_PARTIAL_INTEGRATION_SOURCE_MODEL_HH
+#define DUNEURO_UNFITTED_PARTIAL_INTEGRATION_SOURCE_MODEL_HH
 
 #include <dune/common/fvector.hh>
 
@@ -17,7 +17,7 @@
 namespace duneuro
 {
   template <class GFS, class ST, class V>
-  class UDGPartialIntegrationSourceModel
+  class UnfittedPartialIntegrationSourceModel
       : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
   public:
@@ -33,9 +33,9 @@ namespace duneuro
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UDGPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
-                                     std::shared_ptr<typename BaseT::SearchType> search,
-                                     std::size_t child, bool scaleToBBox)
+    UnfittedPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
+                                          std::shared_ptr<typename BaseT::SearchType> search,
+                                          std::size_t child, bool scaleToBBox)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
         , child_(child)
@@ -126,4 +126,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_PARTIALINTEGRATIONUDGRESIDUAL_HH
+#endif // DUNEURO_UNFITTED_PARTIAL_INTEGRATION_SOURCE_MODEL_HH

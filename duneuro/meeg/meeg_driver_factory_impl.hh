@@ -2,7 +2,7 @@
 
 #include <duneuro/meeg/fitted_meeg_driver.hh>
 #if HAVE_DUNE_UDG
-#include <duneuro/meeg/udg_meeg_driver.hh>
+#include <duneuro/meeg/unfitted_meeg_driver.hh>
 #endif
 
 extern template class duneuro::FittedMEEGDriver<2, duneuro::ElementType::tetrahedron,
@@ -31,33 +31,33 @@ extern template class duneuro::FittedMEEGDriver<3, duneuro::ElementType::hexahed
 #endif
 
 #if HAVE_DUNE_UDG
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 1>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 2>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 3>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 4>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 5>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 6>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 1>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 2>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 3>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 4>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 5>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 6>;
 
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 1>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 2>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 3>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 4>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 5>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 6>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 1>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 2>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 3>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 4>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 5>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 6>;
 
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 1>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 2>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 3>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 4>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 5>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 6>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 1>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 2>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 3>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 4>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 5>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1, 6>;
 
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 1>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 2>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 3>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 4>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 5>;
-extern template class duneuro::UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 6>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 1>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 2>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 3>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 4>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 5>;
+extern template class duneuro::UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1, 6>;
 #endif
 
 namespace duneuro
@@ -126,46 +126,46 @@ namespace duneuro
       if (solverType == "udg") {
         auto compartments = config.get<unsigned int>("compartments");
         if (compartments == 1) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 1>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           1>>(data.unfittedData, config);
         } else if (compartments == 2) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 2>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           2>>(data.unfittedData, config);
         } else if (compartments == 3) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 3>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           3>>(data.unfittedData, config);
         } else if (compartments == 4) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 4>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           4>>(data.unfittedData, config);
         } else if (compartments == 5) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 5>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           5>>(data.unfittedData, config);
         } else if (compartments == 6) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1, 6>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 2, 1,
+                                                           6>>(data.unfittedData, config);
         } else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
       } else if (solverType == "cutfem") {
         auto compartments = config.get<unsigned int>("compartments");
         if (compartments == 1) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      1>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 1>>(data.unfittedData, config);
         } else if (compartments == 2) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      2>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 2>>(data.unfittedData, config);
         } else if (compartments == 3) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      3>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 3>>(data.unfittedData, config);
         } else if (compartments == 4) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      4>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 4>>(data.unfittedData, config);
         } else if (compartments == 5) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      5>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 5>>(data.unfittedData, config);
         } else if (compartments == 6) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2, 1,
-                                                      6>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 2,
+                                                           1, 6>>(data.unfittedData, config);
         } else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
@@ -242,46 +242,46 @@ namespace duneuro
       if (solverType == "udg") {
         auto compartments = config.get<unsigned int>("compartments");
         if (compartments == 1) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 1>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           1>>(data.unfittedData, config);
         } else if (compartments == 2) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 2>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           2>>(data.unfittedData, config);
         } else if (compartments == 3) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 3>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           3>>(data.unfittedData, config);
         } else if (compartments == 4) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 4>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           4>>(data.unfittedData, config);
         } else if (compartments == 5) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 5>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           5>>(data.unfittedData, config);
         } else if (compartments == 6) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1, 6>>(
-              data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::udg, 3, 1,
+                                                           6>>(data.unfittedData, config);
         } else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
       } else if (solverType == "cutfem") {
         auto compartments = config.get<unsigned int>("compartments");
         if (compartments == 1) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      1>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 1>>(data.unfittedData, config);
         } else if (compartments == 2) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      2>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 2>>(data.unfittedData, config);
         } else if (compartments == 3) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      3>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 3>>(data.unfittedData, config);
         } else if (compartments == 4) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      4>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 4>>(data.unfittedData, config);
         } else if (compartments == 5) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      5>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 5>>(data.unfittedData, config);
         } else if (compartments == 6) {
-          return Dune::Std::make_unique<UDGMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3, 1,
-                                                      6>>(data.udgData, config);
+          return Dune::Std::make_unique<UnfittedMEEGDriver<duneuro::UnfittedSolverType::cutfem, 3,
+                                                           1, 6>>(data.unfittedData, config);
         } else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }

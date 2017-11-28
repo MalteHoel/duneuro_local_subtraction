@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
-#define DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
+#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
+#define DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -9,15 +9,13 @@
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/sparse_vector_container.hh>
-#include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/vector_density.hh>
-#include <duneuro/eeg/udg_source_model_factory.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
   template <class S, class SMF>
-  struct UDGTransferMatrixUserTraits {
+  struct UnfittedTransferMatrixUserTraits {
     using Solver = S;
     using SubTriangulation = typename Solver::Traits::SubTriangulation;
     static const unsigned int dimension = SubTriangulation::dim;
@@ -32,15 +30,15 @@ namespace duneuro
   };
 
   template <class S, class SMF>
-  class UDGTransferMatrixUser
+  class UnfittedTransferMatrixUser
   {
   public:
-    using Traits = UDGTransferMatrixUserTraits<S, SMF>;
+    using Traits = UnfittedTransferMatrixUserTraits<S, SMF>;
 
-    UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                          std::shared_ptr<typename Traits::Solver> solver,
-                          std::shared_ptr<typename Traits::ElementSearch> search,
-                          const Dune::ParameterTree& config)
+    UnfittedTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                               std::shared_ptr<typename Traits::Solver> solver,
+                               std::shared_ptr<typename Traits::ElementSearch> search,
+                               const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation), solver_(solver), search_(search)
     {
     }
@@ -150,4 +148,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
+#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH

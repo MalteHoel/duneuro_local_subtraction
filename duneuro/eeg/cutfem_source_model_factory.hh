@@ -6,7 +6,7 @@
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/eeg/udg_partial_integration_source_model.hh>
+#include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
 
 namespace duneuro
 {
@@ -21,7 +21,7 @@ namespace duneuro
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, false);
       } else {
@@ -40,7 +40,7 @@ namespace duneuro
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, false);
       } else {

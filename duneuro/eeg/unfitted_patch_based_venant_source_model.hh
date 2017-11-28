@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_PATCH_BASED_VENANT_SOURCE_MODEL_HH
-#define DUNEURO_UDG_PATCH_BASED_VENANT_SOURCE_MODEL_HH
+#ifndef DUNEURO_UNFITTED_PATCH_BASED_VENANT_SOURCE_MODEL_HH
+#define DUNEURO_UNFITTED_PATCH_BASED_VENANT_SOURCE_MODEL_HH
 
 #include <Eigen/Dense>
 #include <array>
@@ -22,7 +22,7 @@
 namespace duneuro
 {
   template <class GFS, class ST, class V>
-  class UDGPatchBasedVenantSourceModel
+  class UnfittedPatchBasedVenantSourceModel
       : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
   public:
@@ -37,9 +37,9 @@ namespace duneuro
     using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
     using SearchType = typename BaseT::SearchType;
 
-    UDGPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
-                                   std::shared_ptr<typename BaseT::SearchType> search,
-                                   std::size_t child, const Dune::ParameterTree& params)
+    UnfittedPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
+                                        std::shared_ptr<typename BaseT::SearchType> search,
+                                        std::size_t child, const Dune::ParameterTree& params)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
         , child_(child)
@@ -133,4 +133,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_PATCH_BASED_VENANT_SOURCE_MODEL_HH
+#endif // DUNEURO_UNFITTED_PATCH_BASED_VENANT_SOURCE_MODEL_HH

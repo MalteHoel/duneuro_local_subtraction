@@ -1,18 +1,17 @@
-#ifndef DUNEURO_UDG_TRANSFER_MATRIX_SOLVER_HH
-#define DUNEURO_UDG_TRANSFER_MATRIX_SOLVER_HH
+#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_SOLVER_HH
+#define DUNEURO_UNFITTED_TRANSFER_MATRIX_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/make_dof_vector.hh>
-#include <duneuro/common/udg_solver.hh>
 #include <duneuro/eeg/projection_utilities.hh>
-#include <duneuro/eeg/udg_transfer_matrix_rhs.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_rhs.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
   template <class S>
-  struct UDGTransferMatrixSolverTraits {
+  struct UnfittedTransferMatrixSolverTraits {
     using Solver = S;
     using SubTriangulation = typename Solver::Traits::SubTriangulation;
     static const unsigned int dimension = SubTriangulation::dim;
@@ -26,14 +25,15 @@ namespace duneuro
   };
 
   template <class S>
-  class UDGTransferMatrixSolver
+  class UnfittedTransferMatrixSolver
   {
   public:
-    using Traits = UDGTransferMatrixSolverTraits<S>;
+    using Traits = UnfittedTransferMatrixSolverTraits<S>;
 
-    UDGTransferMatrixSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                            std::shared_ptr<typename Traits::Solver> solver, bool scaleToBBox,
-                            const Dune::ParameterTree& config)
+    UnfittedTransferMatrixSolver(
+        std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+        std::shared_ptr<typename Traits::Solver> solver, bool scaleToBBox,
+        const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
         , scaleToBBox_(scaleToBBox)
@@ -119,7 +119,8 @@ namespace duneuro
       Dune::Timer timer;
       rightHandSideVector = 0.0;
       // assemble right hand side
-      UDGTransferMatrixRHS<typename Traits::FunctionSpace::GFS, typename Traits::SubTriangulation>
+      UnfittedTransferMatrixRHS<typename Traits::FunctionSpace::GFS,
+                                typename Traits::SubTriangulation>
           rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
                        config.get<std::size_t>("compartment"), scaleToBBox_);
       rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
@@ -138,4 +139,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_TRANSFER_MATRIX_SOLVER_HH
+#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_SOLVER_HH

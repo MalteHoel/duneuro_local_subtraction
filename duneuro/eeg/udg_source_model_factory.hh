@@ -6,8 +6,8 @@
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/eeg/udg_partial_integration_source_model.hh>
-#include <duneuro/eeg/udg_patch_based_venant_source_model.hh>
+#include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
+#include <duneuro/eeg/unfitted_patch_based_venant_source_model.hh>
 
 namespace duneuro
 {
@@ -22,11 +22,11 @@ namespace duneuro
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, true);
       } else if (type == "patch_based_venant") {
-        return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
+        return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, config);
       } else {
@@ -45,11 +45,11 @@ namespace duneuro
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
-        return Dune::Std::make_unique<UDGPartialIntegrationSourceModel<
+        return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, true);
       } else if (type == "patch_based_venant") {
-        return Dune::Std::make_unique<UDGPatchBasedVenantSourceModel<
+        return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
             solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, config);
       } else {

@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_MEEG_DRIVER_HH
-#define DUNEURO_UDG_MEEG_DRIVER_HH
+#ifndef DUNEURO_UNFITTED_MEEG_DRIVER_HH
+#define DUNEURO_UNFITTED_MEEG_DRIVER_HH
 
 #if HAVE_TBB
 #include <tbb/tbb.h>
@@ -15,16 +15,18 @@
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
+#include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/udg_solver_backend.hh>
 #include <duneuro/eeg/cutfem_source_model_factory.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
-#include <duneuro/eeg/udg_eeg_forward_solver.hh>
-#include <duneuro/eeg/udg_transfer_matrix_solver.hh>
-#include <duneuro/eeg/udg_transfer_matrix_user.hh>
+#include <duneuro/eeg/udg_source_model_factory.hh>
+#include <duneuro/eeg/unfitted_eeg_forward_solver.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_solver.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_user.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
-#include <duneuro/meeg/udg_meeg_driver_data.hh>
+#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
@@ -63,7 +65,7 @@ namespace duneuro
   };
 
   template <UnfittedSolverType solverType, int dim, int degree, int compartments>
-  struct UDGMEEGDriverTraits {
+  struct UnfittedMEEGDriverTraits {
     using Grid = typename SubTriangulationTraits<dim>::Grid;
     using GridView = typename SubTriangulationTraits<dim>::GridView;
     using SubTriangulation = typename SubTriangulationTraits<dim>::SubTriangulation;
@@ -71,9 +73,9 @@ namespace duneuro
     using Solver = typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverType;
     using SourceModelFactory = typename SelectUnfittedSolver<solverType, dim, degree,
                                                              compartments>::SourceModelFactoryType;
-    using EEGForwardSolver = UDGEEGFowardSolver<Solver, SourceModelFactory>;
-    using EEGTransferMatrixSolver = UDGTransferMatrixSolver<Solver>;
-    using TransferMatrixUser = UDGTransferMatrixUser<Solver, SourceModelFactory>;
+    using EEGForwardSolver = UnfittedEEGFowardSolver<Solver, SourceModelFactory>;
+    using EEGTransferMatrixSolver = UnfittedTransferMatrixSolver<Solver>;
+    using TransferMatrixUser = UnfittedTransferMatrixUser<Solver, SourceModelFactory>;
     using SolverBackend =
         typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
 
@@ -85,17 +87,17 @@ namespace duneuro
   };
 
   template <UnfittedSolverType solverType, int dim, int degree, int compartments>
-  class UDGMEEGDriver : public MEEGDriverInterface<dim>
+  class UnfittedMEEGDriver : public MEEGDriverInterface<dim>
   {
   public:
-    using Traits = UDGMEEGDriverTraits<solverType, dim, degree, compartments>;
+    using Traits = UnfittedMEEGDriverTraits<solverType, dim, degree, compartments>;
 
-    explicit UDGMEEGDriver(const Dune::ParameterTree& config)
-        : UDGMEEGDriver(UDGMEEGDriverData<dim>{}, config)
+    explicit UnfittedMEEGDriver(const Dune::ParameterTree& config)
+        : UnfittedMEEGDriver(UnfittedMEEGDriverData<dim>{}, config)
     {
     }
 
-    explicit UDGMEEGDriver(UDGMEEGDriverData<dim> data, const Dune::ParameterTree& config)
+    explicit UnfittedMEEGDriver(UnfittedMEEGDriverData<dim> data, const Dune::ParameterTree& config)
         : data_(data)
         , numberOfThreads_(config.get<std::size_t>("numberOfThreads", 1))
         , grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
@@ -350,7 +352,7 @@ namespace duneuro
       }
     }
 
-    UDGMEEGDriverData<dim> data_;
+    UnfittedMEEGDriverData<dim> data_;
     std::size_t numberOfThreads_;
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
@@ -373,4 +375,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_MEEG_DRIVER_HH
+#endif // DUNEURO_UNFITTED_MEEG_DRIVER_HH

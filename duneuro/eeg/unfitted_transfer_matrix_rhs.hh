@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
-#define DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
+#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH
+#define DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH
 
 #include <dune/common/fvector.hh>
 
@@ -14,7 +14,7 @@
 namespace duneuro
 {
   template <class GFS, class ST>
-  class UDGTransferMatrixRHS
+  class UnfittedTransferMatrixRHS
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
@@ -27,8 +27,8 @@ namespace duneuro
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UDGTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child,
-                         bool scaleToBBox)
+    UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child,
+                              bool scaleToBBox)
         : st_(st), gfs_(gfs), child_(child), scaleToBBox_(scaleToBBox)
     {
     }
@@ -112,4 +112,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
+#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH

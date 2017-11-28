@@ -1,20 +1,18 @@
-#ifndef DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
-#define DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
+#ifndef DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH
+#define DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
-#include <duneuro/common/udg_solver.hh>
 #include <duneuro/eeg/eeg_forward_solver_interface.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/eeg/udg_source_model_factory.hh>
 
 namespace duneuro
 {
   template <class S, class SMF>
-  struct UDGEEGFowardSolverTraits {
+  struct UnfittedEEGFowardSolverTraits {
     using Solver = S;
     using SubTriangulation = typename Solver::Traits::SubTriangulation;
     static const unsigned int dimension = SubTriangulation::dim;
@@ -27,16 +25,16 @@ namespace duneuro
   };
 
   template <class S, class SMF>
-  class UDGEEGFowardSolver
-      : public EEGForwardSolver<UDGEEGFowardSolver<S, SMF>, UDGEEGFowardSolverTraits<S, SMF>>
+  class UnfittedEEGFowardSolver : public EEGForwardSolver<UnfittedEEGFowardSolver<S, SMF>,
+                                                          UnfittedEEGFowardSolverTraits<S, SMF>>
   {
   public:
-    using Traits = UDGEEGFowardSolverTraits<S, SMF>;
+    using Traits = UnfittedEEGFowardSolverTraits<S, SMF>;
 
-    UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                       std::shared_ptr<typename Traits::Solver> solver,
-                       std::shared_ptr<typename Traits::ElementSearch> search,
-                       const Dune::ParameterTree& config)
+    UnfittedEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                            std::shared_ptr<typename Traits::Solver> solver,
+                            std::shared_ptr<typename Traits::ElementSearch> search,
+                            const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
         , search_(search)
@@ -105,4 +103,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
+#endif // DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH
