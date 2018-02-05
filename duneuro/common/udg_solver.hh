@@ -14,6 +14,7 @@
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/random.hh>
 #include <duneuro/common/udg_multi_phase_space.hh>
+#include <duneuro/common/vector_initialization.hh>
 
 namespace duneuro
 {
@@ -91,7 +92,9 @@ namespace duneuro
                const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       Dune::Timer timer;
-      randomize_uniform(Dune::PDELab::Backend::native(solution), DF(-1.0), DF(1.0));
+      initialize(Dune::PDELab::Backend::native(solution), config.hasSub("initialization") ?
+                                                              config.sub("initialization") :
+                                                              Dune::ParameterTree());
       linearSolver_.apply(solverBackend, solution, config, dataTree);
       dataTree.set("time", timer.elapsed());
     }
