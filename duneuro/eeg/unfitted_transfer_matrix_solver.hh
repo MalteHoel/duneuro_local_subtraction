@@ -123,9 +123,18 @@ namespace duneuro
                                 typename Traits::SubTriangulation>
           rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
                        config.get<std::size_t>("compartment"), scaleToBBox_);
+#if HAVE_TBB
+      {
+        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
+        rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
+                                           electrode.element, electrode.localPosition,
+                                           rightHandSideVector);
+      }
+#else
       rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
                                          electrode.element, electrode.localPosition,
                                          rightHandSideVector);
+#endif
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
