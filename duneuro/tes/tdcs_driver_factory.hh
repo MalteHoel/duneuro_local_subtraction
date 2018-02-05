@@ -10,7 +10,7 @@ namespace duneuro
   struct TDCSDriverData {
     FittedDriverData<dim> fittedData;
 #if HAVE_DUNE_UDG
-    UDGMEEGDriverData<dim> udgData;
+    UnfittedMEEGDriverData<dim> udgData;
 #endif
   };
 

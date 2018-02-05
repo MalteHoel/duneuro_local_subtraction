@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
-#define DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
+#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
+#define DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -9,41 +9,36 @@
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/sparse_vector_container.hh>
-#include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/vector_density.hh>
-#include <duneuro/eeg/udg_source_model_factory.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
-  template <class ST, int compartments, int degree, class DF, class RF, class JF>
-  struct UDGTransferMatrixUserTraits {
-    static const unsigned int dimension = ST::dim;
-    using Solver =
-        UDGSolver<ST, compartments, degree,
-                  ConvectionDiffusion_UDG_DefaultParameter<typename ST::GridView>, DF, RF, JF>;
-    using SubTriangulation = ST;
+  template <class S, class SMF>
+  struct UnfittedTransferMatrixUserTraits {
+    using Solver = S;
+    using SubTriangulation = typename Solver::Traits::SubTriangulation;
+    static const unsigned int dimension = SubTriangulation::dim;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
     using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
                                                   typename DenseRHSVector::ElementType>;
-    using CoordinateFieldType = typename ST::ctype;
+    using CoordinateFieldType = typename SubTriangulation::ctype;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
     using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
-    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
+    using ElementSearch = KDTreeElementSearch<typename SubTriangulation::BaseT::GridView>;
   };
 
-  template <class ST, int compartments, int degree, class DF = double, class RF = double,
-            class JF = double>
-  class UDGTransferMatrixUser
+  template <class S, class SMF>
+  class UnfittedTransferMatrixUser
   {
   public:
-    using Traits = UDGTransferMatrixUserTraits<ST, compartments, degree, DF, RF, JF>;
+    using Traits = UnfittedTransferMatrixUserTraits<S, SMF>;
 
-    UDGTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                          std::shared_ptr<typename Traits::Solver> solver,
-                          std::shared_ptr<typename Traits::ElementSearch> search,
-                          const Dune::ParameterTree& config)
+    UnfittedTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                               std::shared_ptr<typename Traits::Solver> solver,
+                               std::shared_ptr<typename Traits::ElementSearch> search,
+                               const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation), solver_(solver), search_(search)
     {
     }
@@ -54,15 +49,11 @@ namespace duneuro
       denseSourceModel_.reset();
       density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
-        sparseSourceModel_ =
-            UDGSourceModelFactory::template createSparse<typename Traits::SparseRHSVector>(
-                *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"),
-                config);
+        sparseSourceModel_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
+            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
       } else {
-        denseSourceModel_ =
-            UDGSourceModelFactory::template createDense<typename Traits::DenseRHSVector>(
-                *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"),
-                config);
+        denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
+            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
       }
     }
 
@@ -113,7 +104,14 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
+#if HAVE_TBB
+      {
+        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
+        sparseSourceModel_->assembleRightHandSide(rhs);
+      }
+#else
       sparseSourceModel_->assembleRightHandSide(rhs);
+#endif
 
       const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
 
@@ -136,7 +134,14 @@ namespace duneuro
       } else {
         *denseRHSVector_ = 0.0;
       }
+#if HAVE_TBB
+      {
+        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
+        denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
+      }
+#else
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
+#endif
 
       return matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));
@@ -145,7 +150,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>
@@ -157,4 +162,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_TRANSFER_MATRIX_USER_HH
+#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH

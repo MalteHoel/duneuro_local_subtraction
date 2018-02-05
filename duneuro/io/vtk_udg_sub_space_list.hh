@@ -20,22 +20,22 @@ namespace duneuro
     {
     }
     template <class F, class U, class ST>
-    void add(F& func, const U& u, const ST& st) const
+    void add(F& func, const U& u, const ST& st, bool scaleToBBox = true) const
     {
       typedef Dune::UDG::UnfittedVTKGridFunction<SUB, U, ST> GF;
       std::stringstream ss;
       ss << func.name() << i;
-      func.add(new GF(ss.str(), sub, u, st, i));
-      BaseT::add(func, u, st);
+      func.add(new GF(ss.str(), sub, u, st, i, scaleToBBox));
+      BaseT::add(func, u, st, scaleToBBox);
     }
     template <class F, class U, class ST>
-    void addGradient(F& func, const U& u, const ST& st) const
+    void addGradient(F& func, const U& u, const ST& st, bool scaleToBBox = true) const
     {
       typedef Dune::UDG::UnfittedVTKGridFunctionGradient<SUB, U, ST> GF;
       std::stringstream ss;
       ss << func.name() << i;
-      func.add(new GF(ss.str(), sub, u, st, i));
-      BaseT::addGradient(func, u, st);
+      func.add(new GF(ss.str(), sub, u, st, i, scaleToBBox));
+      BaseT::addGradient(func, u, st, scaleToBBox);
     }
     SUB sub;
   };
@@ -46,12 +46,12 @@ namespace duneuro
     {
     }
     template <class F, class U, class ST>
-    void add(F& func, const U& u, const ST& st) const
+    void add(F& func, const U& u, const ST& st, bool scaleToBBox) const
     {
       // nothing to do here
     }
     template <class F, class U, class ST>
-    void addGradient(F& func, const U& u, const ST& st) const
+    void addGradient(F& func, const U& u, const ST& st, bool scaleToBBox) const
     {
       // nothing to do here
     }

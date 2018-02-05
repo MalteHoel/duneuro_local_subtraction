@@ -1,46 +1,40 @@
-#ifndef DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
-#define DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
+#ifndef DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH
+#define DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
-#include <duneuro/common/udg_solver.hh>
 #include <duneuro/eeg/eeg_forward_solver_interface.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/eeg/udg_source_model_factory.hh>
 
 namespace duneuro
 {
-  template <class ST, int compartments, int degree, class DF, class RF, class JF>
-  struct UDGEEGFowardSolverTraits {
-    static const unsigned int dimension = ST::dim;
-    using Solver =
-        UDGSolver<ST, compartments, degree,
-                  ConvectionDiffusion_UDG_DefaultParameter<typename ST::GridView>, DF, RF, JF>;
-    using SubTriangulation = ST;
+  template <class S, class SMF>
+  struct UnfittedEEGFowardSolverTraits {
+    using Solver = S;
+    using SubTriangulation = typename Solver::Traits::SubTriangulation;
+    static const unsigned int dimension = SubTriangulation::dim;
     using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-    using CoordinateFieldType = typename ST::ctype;
+    using CoordinateFieldType = typename SubTriangulation::ctype;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
-    using ElementSearch = KDTreeElementSearch<typename ST::BaseT::GridView>;
+    using ElementSearch = KDTreeElementSearch<typename SubTriangulation::BaseT::GridView>;
   };
 
-  template <class ST, int compartments, int degree, class DF = double, class RF = double,
-            class JF = double>
-  class UDGEEGFowardSolver
-      : public EEGForwardSolver<UDGEEGFowardSolver<ST, compartments, degree, DF, RF, JF>,
-                                UDGEEGFowardSolverTraits<ST, compartments, degree, DF, RF, JF>>
+  template <class S, class SMF>
+  class UnfittedEEGFowardSolver : public EEGForwardSolver<UnfittedEEGFowardSolver<S, SMF>,
+                                                          UnfittedEEGFowardSolverTraits<S, SMF>>
   {
   public:
-    using Traits = UDGEEGFowardSolverTraits<ST, compartments, degree, DF, RF, JF>;
+    using Traits = UnfittedEEGFowardSolverTraits<S, SMF>;
 
-    UDGEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                       std::shared_ptr<typename Traits::Solver> solver,
-                       std::shared_ptr<typename Traits::ElementSearch> search,
-                       const Dune::ParameterTree& config)
+    UnfittedEEGFowardSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+                            std::shared_ptr<typename Traits::Solver> solver,
+                            std::shared_ptr<typename Traits::ElementSearch> search,
+                            const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
         , search_(search)
@@ -51,17 +45,16 @@ namespace duneuro
 
     void setSourceModel(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      denseSourceModel_ =
-          UDGSourceModelFactory::template createDense<typename Traits::RangeDOFVector>(
-              *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
+      denseSourceModel_ = SMF::template createDense<typename Traits::RangeDOFVector>(
+          *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
     }
 
-    void bind(const typename Traits::DipoleType& dipole)
+    void bind(const typename Traits::DipoleType& dipole, DataTree dataTree)
     {
       if (!denseSourceModel_) {
         DUNE_THROW(Dune::Exception, "source model not set");
       }
-      denseSourceModel_->bind(dipole);
+      denseSourceModel_->bind(dipole, dataTree);
     }
 
     template <class SolverBackend>
@@ -101,7 +94,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    std::shared_ptr<KDTreeElementSearch<typename ST::BaseT::GridView>> search_;
+    std::shared_ptr<typename Traits::ElementSearch> search_;
     std::unique_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
     std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>>
@@ -110,4 +103,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_EEG_FORWARD_SOLVER_HH
+#endif // DUNEURO_UNFITTED_EEG_FORWARD_SOLVER_HH

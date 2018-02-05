@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
-#define DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
+#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH
+#define DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH
 
 #include <dune/common/fvector.hh>
 
@@ -14,7 +14,7 @@
 namespace duneuro
 {
   template <class GFS, class ST>
-  class UDGTransferMatrixRHS
+  class UnfittedTransferMatrixRHS
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
@@ -27,8 +27,9 @@ namespace duneuro
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UDGTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child)
-        : st_(st), gfs_(gfs), child_(child)
+    UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child,
+                              bool scaleToBBox)
+        : st_(st), gfs_(gfs), child_(child), scaleToBBox_(scaleToBBox)
     {
     }
 
@@ -66,9 +67,11 @@ namespace duneuro
         }
 
         std::vector<RangeType> phi(childLfs.size());
-        FESwitch::basis(childLfs.finiteElement())
-            .evaluateFunction(
-                ep.boundingBox().local(electrodeElement.geometry().global(electrodeLocal)), phi);
+        auto local =
+            scaleToBBox_ ?
+                ep.boundingBox().local(electrodeElement.geometry().global(electrodeLocal)) :
+                electrodeLocal;
+        FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
 
         for (unsigned int i = 0; i < childLfs.size(); ++i) {
           output[ucache.containerIndex(childLfs.localIndex(i))] = phi[i];
@@ -88,9 +91,11 @@ namespace duneuro
         assert(childLfs.size() > 0);
 
         std::vector<RangeType> phi(childLfs.size());
-        FESwitch::basis(childLfs.finiteElement())
-            .evaluateFunction(
-                ep.boundingBox().local(referenceElement.geometry().global(referenceLocal)), phi);
+        auto local =
+            scaleToBBox_ ?
+                ep.boundingBox().local(referenceElement.geometry().global(referenceLocal)) :
+                referenceLocal;
+        FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
 
         for (unsigned int i = 0; i < childLfs.size(); ++i) {
           output[ucache.containerIndex(childLfs.localIndex(i))] -= phi[i];
@@ -103,7 +108,8 @@ namespace duneuro
     std::shared_ptr<ST> st_;
     const GFS& gfs_;
     std::size_t child_;
+    bool scaleToBBox_;
   };
 }
 
-#endif // DUNEURO_UDG_TRANSFER_MATRIX_RHS_HH
+#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_RHS_HH

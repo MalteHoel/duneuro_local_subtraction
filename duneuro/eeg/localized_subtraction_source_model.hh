@@ -13,6 +13,7 @@
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/common/entityset_volume_conductor.hh>
 #include <duneuro/common/logged_timer.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/sub_function_space.hh>
 #include <duneuro/common/subset_entityset.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -39,7 +40,8 @@ namespace duneuro
     using Problem =
         SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider>;
+    using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using DOF = typename SUBFS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
@@ -59,12 +61,11 @@ namespace duneuro
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
               volumeConductor_->gridView()))
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
+        , weighting_(solverConfig.get<std::string>("weights"))
         , config_(config)
         , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
         , scheme_(
               ConvectionDiffusion_DG_Scheme::fromString(solverConfig.get<std::string>("scheme")))
-        , weights_(solverConfig.get<bool>("weights") ? ConvectionDiffusion_DG_Weights::weightsOn :
-                                                       ConvectionDiffusion_DG_Weights::weightsOff)
         , penalty_(solverConfig.get<double>("penalty"))
     {
     }
@@ -107,7 +108,7 @@ namespace duneuro
                          this->dipole().moment());
       problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
       problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
-      lop_ = std::make_shared<LOP>(*problem_, weights_, config_.get<unsigned int>("intorderadd"),
+      lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd"),
                                    config_.get<unsigned int>("intorderadd_lb"));
       subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
       dataTree.set("sub_dofs", subFS_->getGFS().size());
@@ -162,6 +163,7 @@ namespace duneuro
     std::shared_ptr<Problem> problem_;
     std::shared_ptr<HostProblem> hostProblem_;
     EdgeNormProvider edgeNormProvider_;
+    PenaltyFluxWeighting weighting_;
     std::shared_ptr<LOP> lop_;
     std::shared_ptr<SUBFS> subFS_;
     std::shared_ptr<AS> assembler_;
@@ -171,7 +173,6 @@ namespace duneuro
     std::vector<typename HostGridView::Intersection> patchBoundaryIntersections_;
     unsigned int intorderadd_lb_;
     ConvectionDiffusion_DG_Scheme::Type scheme_;
-    ConvectionDiffusion_DG_Weights::Type weights_;
     double penalty_;
 
     void assembleLocalDefaultSubtraction(VectorType& vector) const
@@ -227,23 +228,8 @@ namespace duneuro
         const auto& A_n = volumeConductor_->tensor(outside);
 
         const auto& n_F = is.centerUnitOuterNormal();
-        RF omega_s;
-        RF omega_n;
-        RF harmonic_average;
-        if (weights_ == ConvectionDiffusion_DG_Weights::weightsOn) {
-          Dune::FieldVector<RF, dim> An_F_s;
-          A_s.mv(n_F, An_F_s);
-          Dune::FieldVector<RF, dim> An_F_n;
-          A_n.mv(n_F, An_F_n);
-          RF delta_s = (An_F_s * n_F);
-          RF delta_n = (An_F_n * n_F);
-          omega_s = delta_n / (delta_s + delta_n + 1e-20);
-          omega_n = delta_s / (delta_s + delta_n + 1e-20);
-          harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-        } else {
-          omega_s = omega_n = 0.5;
-          harmonic_average = 1.0;
-        }
+
+        auto weights = weighting_(is, A_s, A_n);
 
         // note: edgenorm provider needs the intersectiongeometry interface
         RF h_F;
@@ -255,7 +241,7 @@ namespace duneuro
 
         const int degree = std::max(order_s, order_n);
         const RF penalty_factor =
-            (penalty_ / h_F) * harmonic_average * degree * (degree + VC::dim - 1);
+            (penalty_ / h_F) * weights.penaltyWeight * degree * (degree + VC::dim - 1);
 
         const int intorder = intorderadd_lb_ + 2 * degree;
 
@@ -298,14 +284,16 @@ namespace duneuro
           for (unsigned int i = 0; i < hostcache_inside.size(); i++) {
             auto index = hostcache_inside.containerIndex(i);
             vector[index] += phi_s[i] * term1;
-            vector[index] += -phi_s[i] * omega_n * term1;
-            vector[index] += (Agradpsi_s[i] * n_F) * term2 * omega_s; // symmetry term
+            vector[index] += -phi_s[i] * weights.fluxOutsideWeight * term1;
+            vector[index] +=
+                (Agradpsi_s[i] * n_F) * term2 * weights.fluxInsideWeight; // symmetry term
             vector[index] += -phi_s[i] * term3; // penalty term
           }
           for (unsigned int i = 0; i < hostcache_outside.size(); i++) {
             auto index = hostcache_outside.containerIndex(i);
-            vector[index] += -phi_n[i] * omega_s * term1;
-            vector[index] += (Agradpsi_n[i] * n_F) * term2 * omega_n; // symmetry term
+            vector[index] += -phi_n[i] * weights.fluxInsideWeight * term1;
+            vector[index] +=
+                (Agradpsi_n[i] * n_F) * term2 * weights.fluxOutsideWeight; // symmetry term
             vector[index] += phi_n[i] * term3; // penalty term
           }
         }

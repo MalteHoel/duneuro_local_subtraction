@@ -31,6 +31,7 @@ namespace duneuro
   };
 
   enum class FittedSolverType { cg, dg };
+  enum class UnfittedSolverType { cutfem, udg};
 }
 
 #endif // DUNEURO_FLAGS_HH

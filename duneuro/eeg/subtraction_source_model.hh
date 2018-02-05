@@ -7,6 +7,7 @@
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
@@ -22,7 +23,8 @@ namespace duneuro
     using Problem = SubtractionDGDefaultParameter<typename FS::GFS::Traits::GridViewType,
                                                   typename V::field_type, VC>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, continuityType>;
+    using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename FS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
     using ElementType = typename BaseT::ElementType;
@@ -36,10 +38,9 @@ namespace duneuro
         : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
-        , lop_(problem_,
-               solverConfig.get<bool>("weights", true) ? ConvectionDiffusion_DG_Weights::weightsOn :
-                                                         ConvectionDiffusion_DG_Weights::weightsOff,
-               config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
+        , weighting_(solverConfig.get<std::string>("weights", "tensorOnly"))
+        , lop_(problem_, weighting_, config.get<unsigned int>("intorderadd"),
+               config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)
         , res_(fs.getGFS(), 0.0)
         , interp_(fs.getGFS(), 0.0)
@@ -50,7 +51,7 @@ namespace duneuro
     virtual void bind(const typename BaseT::DipoleType& dipole,
                       DataTree dataTree = DataTree()) override
     {
-      BaseT::bind(dipole);
+      BaseT::bind(dipole, dataTree);
       problem_.bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
     }
 
@@ -84,6 +85,7 @@ namespace duneuro
   private:
     Problem problem_;
     EdgeNormProvider edgeNormProvider_;
+    PenaltyFluxWeighting weighting_;
     LOP lop_;
     mutable DOF x_;
     mutable DOF res_;

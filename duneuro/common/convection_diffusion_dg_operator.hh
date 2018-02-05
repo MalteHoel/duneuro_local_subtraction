@@ -49,13 +49,6 @@ namespace duneuro
   };
 
   /**
-   * \brief A struct for choosing the weighted/non-weighted variant of the DG scheme.
-   */
-  struct ConvectionDiffusion_DG_Weights {
-    enum Type { weightsOn, weightsOff };
-  };
-
-  /**
    * \brief Used when evaluating the diffusion tensor on an intersection
    *
    * In UDG, we want to have an diffusion tensor which depends only on the domain index.
@@ -162,16 +155,17 @@ namespace duneuro
 #warning Assuming piecewise constant diffusion tensor at the spots marked by (*).
 #warning Assuming continuity of the velocity field at the spots marked by (**) such that we may choose any side for its evaluation.
 #warning UDG assembler: Skeleton/boundary integrals: We evaluate data functions on the inside/outside "host entities" not on the "fundamental mesh home entities".
-  template <typename T, typename EdgeNormProvider>
+  template <typename T, typename EdgeNormProvider, typename PenaltyFluxWeighting>
   class ConvectionDiffusion_DG_LocalOperator
       : public Dune::PDELab::
-            NumericalJacobianApplyVolume<ConvectionDiffusion_DG_LocalOperator<T, EdgeNormProvider>>,
+            NumericalJacobianApplyVolume<ConvectionDiffusion_DG_LocalOperator<T, EdgeNormProvider,
+                                                                              PenaltyFluxWeighting>>,
         public Dune::PDELab::
-            NumericalJacobianApplySkeleton<ConvectionDiffusion_DG_LocalOperator<T,
-                                                                                EdgeNormProvider>>,
+            NumericalJacobianApplySkeleton<ConvectionDiffusion_DG_LocalOperator<T, EdgeNormProvider,
+                                                                                PenaltyFluxWeighting>>,
         public Dune::PDELab::
-            NumericalJacobianApplyBoundary<ConvectionDiffusion_DG_LocalOperator<T,
-                                                                                EdgeNormProvider>>,
+            NumericalJacobianApplyBoundary<ConvectionDiffusion_DG_LocalOperator<T, EdgeNormProvider,
+                                                                                PenaltyFluxWeighting>>,
         public Dune::PDELab::FullVolumePattern,
         public Dune::PDELab::FullSkeletonPattern,
         public Dune::PDELab::LocalOperatorDefaultFlags,
@@ -199,29 +193,30 @@ namespace duneuro
     //! mesh
     ConvectionDiffusion_DG_LocalOperator(
         T& param_, const EdgeNormProvider& edgenormprovider_,
+        const PenaltyFluxWeighting& weighting_,
         const ConvectionDiffusion_DG_Scheme::Type scheme_ = ConvectionDiffusion_DG_Scheme::NIPG,
-        const ConvectionDiffusion_DG_Weights::Type weights_ =
-            ConvectionDiffusion_DG_Weights::weightsOff,
         Real alpha_ = 0.0, const bool useOutflowBoundaryConditionAndItsFluxOnInflow_ = false,
         const int intorderadd_ = 0)
         : Dune::PDELab::
-              NumericalJacobianApplyVolume<ConvectionDiffusion_DG_LocalOperator<T,
-                                                                                EdgeNormProvider>>(
+              NumericalJacobianApplyVolume<ConvectionDiffusion_DG_LocalOperator<T, EdgeNormProvider,
+                                                                                PenaltyFluxWeighting>>(
                   1.0e-7)
         , Dune::PDELab::
               NumericalJacobianApplySkeleton<ConvectionDiffusion_DG_LocalOperator<T,
-                                                                                  EdgeNormProvider>>(
+                                                                                  EdgeNormProvider,
+                                                                                  PenaltyFluxWeighting>>(
                   1.0e-7)
         , Dune::PDELab::
               NumericalJacobianApplyBoundary<ConvectionDiffusion_DG_LocalOperator<T,
-                                                                                  EdgeNormProvider>>(
+                                                                                  EdgeNormProvider,
+                                                                                  PenaltyFluxWeighting>>(
                   1.0e-7)
         , param(param_)
         , useOutflowBoundaryConditionAndItsFluxOnInflow(
               useOutflowBoundaryConditionAndItsFluxOnInflow_)
         , edgenormprovider(edgenormprovider_)
+        , weighting(weighting_)
         , scheme(scheme_)
-        , weights(weights_)
         , alpha(alpha_)
         , intorderadd(intorderadd_)
         , quadrature_factor(2)
@@ -410,27 +405,14 @@ namespace duneuro
       maxH = std::max(h_F, maxH);
       assert(h_F > 1e-20);
 
-      // compute weights
-      RF omega_s;
-      RF omega_n;
-      RF harmonic_average(0.0);
-      if (weights == ConvectionDiffusion_DG_Weights::weightsOn) {
-        const RF delta_s = (An_F_s * n_F);
-        const RF delta_n = (An_F_n * n_F);
-        omega_s = delta_n / (delta_s + delta_n + 1e-20);
-        omega_n = delta_s / (delta_s + delta_n + 1e-20);
-        harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-      } else {
-        omega_s = omega_n = 0.5;
-        harmonic_average = 1.0;
-      }
+      auto weights = weighting(ig, A_s, A_n);
 
       // get polynomial degree
       const int degree = std::max(order_s, order_n);
 
       // penalty factor
-      const RF penalty_factor = (alpha / h_F) * harmonic_average * degree * (degree + dim - 1);
-      // const RF penalty_factor = (alpha/h_F) * harmonic_average;
+      const RF penalty_factor = (alpha / h_F) * weights.penaltyWeight * degree * (degree + dim - 1);
+      // const RF penalty_factor = (alpha/h_F) * weights.penaltyWeight;
 
       // create copies of inside and outside entities
       const auto& outsideEntity = ig.outside();
@@ -484,7 +466,9 @@ namespace duneuro
         const RF factor = qp.weight() * ig.geometry().integrationElement(qp.position());
 
         // diffusion term
-        const RF term2 = -(omega_s * (An_F_s * gradu_s) + omega_n * (An_F_n * gradu_n)) * factor;
+        const RF term2 = -(weights.fluxInsideWeight * (An_F_s * gradu_s)
+                           + weights.fluxOutsideWeight * (An_F_n * gradu_n))
+                         * factor;
         for (size_type i = 0; i < lfsu_s.size(); i++)
           r_s.accumulate(lfsu_s, i, term2 * phi_s[i]);
         for (size_type i = 0; i < lfsu_n.size(); i++)
@@ -493,11 +477,15 @@ namespace duneuro
         // (non-)symmetric IP term
         const RF term3 = (u_s - u_n) * factor;
         for (size_type i = 0; i < lfsu_s.size(); i++)
-          // r_s.accumulate(lfsu_s,i,term3 * theta * omega_s * (An_F_s*tgradphi_s[i]));
-          r_s.accumulate(lfsu_s, i, term3 * theta * omega_s * (An_F_s * gradphi_s[i][0]));
+          // r_s.accumulate(lfsu_s,i,term3 * theta * weights.fluxInsideWeight *
+          // (An_F_s*tgradphi_s[i]));
+          r_s.accumulate(lfsu_s, i,
+                         term3 * theta * weights.fluxInsideWeight * (An_F_s * gradphi_s[i][0]));
         for (size_type i = 0; i < lfsu_n.size(); i++)
-          // r_n.accumulate(lfsu_n,i,term3 * theta * omega_n * (An_F_n*tgradphi_n[i]));
-          r_n.accumulate(lfsu_n, i, term3 * theta * omega_n * (An_F_n * gradphi_n[i][0]));
+          // r_n.accumulate(lfsu_n,i,term3 * theta * weights.fluxOutsideWeight *
+          // (An_F_n*tgradphi_n[i]));
+          r_n.accumulate(lfsu_n, i,
+                         term3 * theta * weights.fluxOutsideWeight * (An_F_n * gradphi_n[i][0]));
 
         // standard IP term integral
         const RF term4 = penalty_factor * (u_s - u_n) * factor;
@@ -562,26 +550,14 @@ namespace duneuro
       assert(h_F > 1e-20);
 
       // compute weights
-      RF omega_s;
-      RF omega_n;
-      RF harmonic_average(0.0);
-      if (weights == ConvectionDiffusion_DG_Weights::weightsOn) {
-        const RF delta_s = (An_F_s * n_F);
-        const RF delta_n = (An_F_n * n_F);
-        omega_s = delta_n / (delta_s + delta_n + 1e-20);
-        omega_n = delta_s / (delta_s + delta_n + 1e-20);
-        harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-      } else {
-        omega_s = omega_n = 0.5;
-        harmonic_average = 1.0;
-      }
+      auto weights = weighting(ig, A_s, A_n);
 
       // get polynomial degree
       const int degree = std::max(order_s, order_n);
 
       // penalty factor
-      const RF penalty_factor = (alpha / h_F) * harmonic_average * degree * (degree + dim - 1);
-      // const RF penalty_factor = (alpha/h_F) * harmonic_average;
+      const RF penalty_factor = (alpha / h_F) * weights.penaltyWeight * degree * (degree + dim - 1);
+      // const RF penalty_factor = (alpha/h_F) * weights.penaltyWeight;
 
       // create copies of inside and outside entities
       const auto& insideEntity = ig.inside();
@@ -619,12 +595,13 @@ namespace duneuro
 
         // do all terms in the order: I convection, II diffusion, III consistency, IV ip
         for (size_type j = 0; j < lfsu_s.size(); j++) {
-          // const RF temp1 = -(An_F_s*tgradphi_s[j])*omega_s*factor;
-          const RF temp1 = -(An_F_s * gradphi_s[j][0]) * omega_s * factor;
+          // const RF temp1 = -(An_F_s*tgradphi_s[j])*weights.fluxInsideWeight*factor;
+          const RF temp1 = -(An_F_s * gradphi_s[j][0]) * weights.fluxInsideWeight * factor;
           for (size_type i = 0; i < lfsu_s.size(); i++) {
             mat_ss.accumulate(lfsu_s, i, lfsu_s, j, temp1 * phi_s[i]);
-            mat_ss.accumulate(lfsu_s, i, lfsu_s, j,
-                              phi_s[j] * factor * theta * omega_s * (An_F_s * gradphi_s[i][0]));
+            mat_ss.accumulate(lfsu_s, i, lfsu_s, j, phi_s[j] * factor * theta
+                                                        * weights.fluxInsideWeight
+                                                        * (An_F_s * gradphi_s[i][0]));
             mat_ss.accumulate(lfsu_s, i, lfsu_s, j, phi_s[j] * ipfactor * phi_s[i]);
             if (std::isnan(mat_ss.container()(lfsu_s, i, lfsu_s, j))) {
               for (int k = 0; k < ig.geometry().corners(); ++k) {
@@ -658,11 +635,12 @@ namespace duneuro
           }
         }
         for (size_type j = 0; j < lfsu_n.size(); j++) {
-          const RF temp1 = -(An_F_n * gradphi_n[j][0]) * omega_n * factor;
+          const RF temp1 = -(An_F_n * gradphi_n[j][0]) * weights.fluxOutsideWeight * factor;
           for (size_type i = 0; i < lfsu_s.size(); i++) {
             mat_sn.accumulate(lfsu_s, i, lfsu_n, j, temp1 * phi_s[i]);
-            mat_sn.accumulate(lfsu_s, i, lfsu_n, j,
-                              -phi_n[j] * factor * theta * omega_s * (An_F_s * gradphi_s[i][0]));
+            mat_sn.accumulate(lfsu_s, i, lfsu_n, j, -phi_n[j] * factor * theta
+                                                        * weights.fluxInsideWeight
+                                                        * (An_F_s * gradphi_s[i][0]));
             mat_sn.accumulate(lfsu_s, i, lfsu_n, j, -phi_n[j] * ipfactor * phi_s[i]);
             if (std::isnan(mat_sn.container()(lfsu_s, i, lfsu_n, j))) {
               DUNE_THROW(Dune::Exception, "NAN found");
@@ -670,11 +648,12 @@ namespace duneuro
           }
         }
         for (size_type j = 0; j < lfsu_s.size(); j++) {
-          const RF temp1 = -(An_F_s * gradphi_s[j][0]) * omega_s * factor;
+          const RF temp1 = -(An_F_s * gradphi_s[j][0]) * weights.fluxInsideWeight * factor;
           for (size_type i = 0; i < lfsu_n.size(); i++) {
             mat_ns.accumulate(lfsu_n, i, lfsu_s, j, -temp1 * phi_n[i]);
-            mat_ns.accumulate(lfsu_n, i, lfsu_s, j,
-                              phi_s[j] * factor * theta * omega_n * (An_F_n * gradphi_n[i][0]));
+            mat_ns.accumulate(lfsu_n, i, lfsu_s, j, phi_s[j] * factor * theta
+                                                        * weights.fluxOutsideWeight
+                                                        * (An_F_n * gradphi_n[i][0]));
             mat_ns.accumulate(lfsu_n, i, lfsu_s, j, -phi_s[j] * ipfactor * phi_n[i]);
             if (std::isnan(mat_ns.container()(lfsu_n, i, lfsu_s, j))) {
               DUNE_THROW(Dune::Exception, "NAN found");
@@ -682,11 +661,12 @@ namespace duneuro
           }
         }
         for (size_type j = 0; j < lfsu_n.size(); j++) {
-          const RF temp1 = -(An_F_n * gradphi_n[j][0]) * omega_n * factor;
+          const RF temp1 = -(An_F_n * gradphi_n[j][0]) * weights.fluxOutsideWeight * factor;
           for (size_type i = 0; i < lfsu_n.size(); i++) {
             mat_nn.accumulate(lfsu_n, i, lfsu_n, j, -temp1 * phi_n[i]);
-            mat_nn.accumulate(lfsu_n, i, lfsu_n, j,
-                              -phi_n[j] * factor * theta * omega_n * (An_F_n * gradphi_n[i][0]));
+            mat_nn.accumulate(lfsu_n, i, lfsu_n, j, -phi_n[j] * factor * theta
+                                                        * weights.fluxOutsideWeight
+                                                        * (An_F_n * gradphi_n[i][0]));
             mat_nn.accumulate(lfsu_n, i, lfsu_n, j, phi_n[j] * ipfactor * phi_n[i]);
             if (std::isnan(mat_nn.container()(lfsu_n, i, lfsu_n, j))) {
               DUNE_THROW(Dune::Exception, "NAN found");
@@ -736,10 +716,6 @@ namespace duneuro
       Dune::FieldVector<RF, dim> An_F_s;
       A_s.mv(n_F, An_F_s);
 
-      // evaluate boundary condition type (see also (***))
-      const Dune::FieldVector<DF, dim - 1> face_local =
-          Dune::ReferenceElements<DF, dim - 1>::general(gtface).position(0, 0);
-
       // face diameter
       RF h_F;
       edgenormprovider.edgeNorm(ig, h_F, true);
@@ -748,18 +724,14 @@ namespace duneuro
       assert(h_F > 1e-20);
 
       // compute weights
-      RF harmonic_average;
-      if (weights == ConvectionDiffusion_DG_Weights::weightsOn)
-        harmonic_average = An_F_s * n_F;
-      else
-        harmonic_average = 1.0;
+      auto weights = weighting(ig, A_s, A_s);
 
       // get polynomial degree
       const int degree = order_s;
 
       // penalty factor
-      const RF penalty_factor = (alpha / h_F) * harmonic_average * degree * (degree + dim - 1);
-      // const RF penalty_factor = (alpha/h_F) * harmonic_average;
+      const RF penalty_factor = (alpha / h_F) * weights.penaltyWeight * degree * (degree + dim - 1);
+      // const RF penalty_factor = (alpha/h_F) * weights.penaltyWeight;
 
       // create copy of inside Entity
       const auto& insideEntity = ig.inside();
@@ -887,18 +859,14 @@ namespace duneuro
       assert(h_F > 1e-20);
 
       // compute weights
-      RF harmonic_average;
-      if (weights == ConvectionDiffusion_DG_Weights::weightsOn)
-        harmonic_average = An_F_s * n_F;
-      else
-        harmonic_average = 1.0;
+      auto weights = weighting(ig, A_s, A_s);
 
       // get polynomial degree
       const int degree = order_s;
 
       // penalty factor
-      const RF penalty_factor = (alpha / h_F) * harmonic_average * degree * (degree + dim - 1);
-      // const RF penalty_factor = (alpha/h_F) * harmonic_average;
+      const RF penalty_factor = (alpha / h_F) * weights.penaltyWeight * degree * (degree + dim - 1);
+      // const RF penalty_factor = (alpha/h_F) * weights.penaltyWeight;
 
       // create copy of inside entity
       const auto& insideEntity = ig.inside();
@@ -1026,8 +994,8 @@ namespace duneuro
 
     // DG scheme related parameters
     EdgeNormProvider edgenormprovider;
+    const PenaltyFluxWeighting weighting;
     const ConvectionDiffusion_DG_Scheme::Type scheme;
-    const ConvectionDiffusion_DG_Weights::Type weights;
     Real alpha;
     Real theta;
 

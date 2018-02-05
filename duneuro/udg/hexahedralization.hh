@@ -6,14 +6,14 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 
 #include <duneuro/common/structured_grid_utilities.hh>
-#include <duneuro/meeg/udg_meeg_driver_data.hh>
+#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
 namespace duneuro
 {
   template <class GV>
   std::vector<std::size_t> hexahedralize(const GV& fundamentalGridView, const GV& levelSetGridView,
-                                         UDGMEEGDriverData<GV::dimension> data,
+                                         UnfittedMEEGDriverData<GV::dimension> data,
                                          const Dune::ParameterTree& config)
   {
     SimpleTPMCDomain<GV, GV> domain(levelSetGridView, data.levelSetData, config.sub("domain"));
@@ -40,7 +40,7 @@ namespace duneuro
   }
 
   template <int dim>
-  std::vector<std::size_t> hexahedralize(UDGMEEGDriverData<dim> data,
+  std::vector<std::size_t> hexahedralize(UnfittedMEEGDriverData<dim> data,
                                          const Dune::ParameterTree& config)
   {
     auto grid = make_structured_grid<dim>(config.sub("volume_conductor.grid"));

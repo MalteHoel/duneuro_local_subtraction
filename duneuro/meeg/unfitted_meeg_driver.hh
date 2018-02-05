@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UDG_MEEG_DRIVER_HH
-#define DUNEURO_UDG_MEEG_DRIVER_HH
+#ifndef DUNEURO_UNFITTED_MEEG_DRIVER_HH
+#define DUNEURO_UNFITTED_MEEG_DRIVER_HH
 
 #if HAVE_TBB
 #include <tbb/tbb.h>
@@ -10,50 +10,95 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
+#include <duneuro/common/cutfem_solver.hh>
+#include <duneuro/common/cutfem_solver_backend.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/structured_grid_utilities.hh>
+#include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/udg_solver_backend.hh>
+#include <duneuro/eeg/cutfem_source_model_factory.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
-#include <duneuro/eeg/udg_eeg_forward_solver.hh>
-#include <duneuro/eeg/udg_transfer_matrix_solver.hh>
-#include <duneuro/eeg/udg_transfer_matrix_user.hh>
+#include <duneuro/eeg/udg_source_model_factory.hh>
+#include <duneuro/eeg/unfitted_eeg_forward_solver.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_solver.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_user.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
-#include <duneuro/meeg/udg_meeg_driver_data.hh>
+#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
-  template <int dim, int degree, int compartments>
-  struct UDGMEEGDriverTraits {
+  template <int dim>
+  struct SubTriangulationTraits {
     using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
     using GridView = typename Grid::LevelGridView;
-    using ElementSearch = KDTreeElementSearch<GridView>;
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
-    using Solver = UDGSolver<SubTriangulation, compartments, degree>;
-    using EEGForwardSolver = UDGEEGFowardSolver<SubTriangulation, compartments, degree>;
-    using EEGTransferMatrixSolver = UDGTransferMatrixSolver<SubTriangulation, compartments, degree>;
-    using TransferMatrixUser = UDGTransferMatrixUser<SubTriangulation, compartments, degree>;
-    using SolverBackend = UDGSolverBackend<Solver>;
+  };
 
-    using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
+  struct SelectUnfittedSolver;
+
+  template <int dim, int degree, int compartments>
+  struct SelectUnfittedSolver<UnfittedSolverType::udg, dim, degree, compartments> {
+    using SolverType =
+        UDGSolver<typename SubTriangulationTraits<dim>::SubTriangulation, compartments, degree>;
+    using SourceModelFactoryType = UDGSourceModelFactory;
+    using SolverBackendType = UDGSolverBackend<SolverType>;
+    static constexpr bool scaleToBBox()
+    {
+      return true;
+    }
   };
 
   template <int dim, int degree, int compartments>
-  class UDGMEEGDriver : public MEEGDriverInterface<dim>
+  struct SelectUnfittedSolver<UnfittedSolverType::cutfem, dim, degree, compartments> {
+    using SolverType =
+        CutFEMSolver<typename SubTriangulationTraits<dim>::SubTriangulation, compartments, degree>;
+    using SourceModelFactoryType = CutFEMSourceModelFactory;
+    using SolverBackendType = CutFEMSolverBackend<SolverType>;
+    static constexpr bool scaleToBBox()
+    {
+      return false;
+    }
+  };
+
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
+  struct UnfittedMEEGDriverTraits {
+    using Grid = typename SubTriangulationTraits<dim>::Grid;
+    using GridView = typename SubTriangulationTraits<dim>::GridView;
+    using SubTriangulation = typename SubTriangulationTraits<dim>::SubTriangulation;
+    using ElementSearch = KDTreeElementSearch<GridView>;
+    using Solver = typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverType;
+    using SourceModelFactory = typename SelectUnfittedSolver<solverType, dim, degree,
+                                                             compartments>::SourceModelFactoryType;
+    using EEGForwardSolver = UnfittedEEGFowardSolver<Solver, SourceModelFactory>;
+    using EEGTransferMatrixSolver = UnfittedTransferMatrixSolver<Solver>;
+    using TransferMatrixUser = UnfittedTransferMatrixUser<Solver, SourceModelFactory>;
+    using SolverBackend =
+        typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
+
+    using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
+    static constexpr bool scaleToBBox()
+    {
+      return SelectUnfittedSolver<solverType, dim, degree, compartments>::scaleToBBox();
+    }
+  };
+
+  template <UnfittedSolverType solverType, int dim, int degree, int compartments>
+  class UnfittedMEEGDriver : public MEEGDriverInterface<dim>
   {
   public:
-    using Traits = UDGMEEGDriverTraits<dim, degree, compartments>;
+    using Traits = UnfittedMEEGDriverTraits<solverType, dim, degree, compartments>;
 
-    explicit UDGMEEGDriver(const Dune::ParameterTree& config)
-        : UDGMEEGDriver(UDGMEEGDriverData<dim>{}, config)
+    explicit UnfittedMEEGDriver(const Dune::ParameterTree& config)
+        : UnfittedMEEGDriver(UnfittedMEEGDriverData<dim>{}, config)
     {
     }
 
-    explicit UDGMEEGDriver(UDGMEEGDriverData<dim> data, const Dune::ParameterTree& config)
+    explicit UnfittedMEEGDriver(UnfittedMEEGDriverData<dim> data, const Dune::ParameterTree& config)
         : data_(data)
-        , numberOfThreads_(config.get<std::size_t>("numberOfThreads", 1))
         , grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid")))
         , fundamentalGridView_(grid_->levelGridView(0))
         , levelSetGridView_(grid_->levelGridView(grid_->maxLevel()))
@@ -66,7 +111,8 @@ namespace duneuro
               std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
-        , eegTransferMatrixSolver_(subTriangulation_, solver_, config.sub("solver"))
+        , eegTransferMatrixSolver_(subTriangulation_, solver_, Traits::scaleToBBox(),
+                                   config.sub("solver"))
         , eegForwardSolver_(subTriangulation_, solver_, elementSearch_, config.sub("solver"))
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
@@ -77,7 +123,7 @@ namespace duneuro
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.setSourceModel(config.sub("source_model"));
-      eegForwardSolver_.bind(dipole);
+      eegForwardSolver_.bind(dipole, dataTree);
 #if HAVE_TBB
       eegForwardSolver_.solve(solverBackend_.local().get(),
                               solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);
@@ -140,7 +186,8 @@ namespace duneuro
       if (format == "vtk") {
         RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
+            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
+                      Traits::scaleToBBox());
         vtkWriter.addVertexData(eegForwardSolver_,
                                 solution.cast<typename Traits::DomainDOFVector>(), "potential");
         vtkWriter.addVertexDataGradient(eegForwardSolver_,
@@ -150,6 +197,8 @@ namespace duneuro
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
         vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                    typename Traits::GridView>>(fundamentalGridView_));
+        vtkWriter.addVertexData(std::make_shared<Dune::UDG::HostCellIndexUnfittedVTKGridFunction<
                                     typename Traits::GridView>>(fundamentalGridView_));
         auto modeString = config.get<std::string>("mode", "volume");
         if ((modeString == "faces") || (modeString == "boundary")) {
@@ -169,11 +218,14 @@ namespace duneuro
       if (format == "vtk") {
         RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS());
+            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
+                      Traits::scaleToBBox());
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
         vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
+                                    typename Traits::GridView>>(fundamentalGridView_));
+        vtkWriter.addVertexData(std::make_shared<Dune::UDG::HostCellIndexUnfittedVTKGridFunction<
                                     typename Traits::GridView>>(fundamentalGridView_));
         auto modeString = config.get<std::string>("mode", "volume");
         if ((modeString == "faces") || (modeString == "boundary")) {
@@ -303,8 +355,7 @@ namespace duneuro
       }
     }
 
-    UDGMEEGDriverData<dim> data_;
-    std::size_t numberOfThreads_;
+    UnfittedMEEGDriverData<dim> data_;
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
     typename Traits::GridView levelSetGridView_;
@@ -326,4 +377,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UDG_MEEG_DRIVER_HH
+#endif // DUNEURO_UNFITTED_MEEG_DRIVER_HH
