@@ -10,6 +10,7 @@
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/tes/tdcs_patch_udg_parameter.hh>
 
 namespace duneuro
@@ -25,7 +26,9 @@ namespace duneuro
     static const int dimension = FundamentalGridView::dimension;
     using Problem = TDCSPatchUDGParameter<FundamentalGridView>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
+    using PenaltyFluxWeighting = UnfittedDynamicPenaltyFluxWeights;
+    using LocalOperator =
+        ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
@@ -37,9 +40,10 @@ namespace duneuro
     TDCSPatchUDGAssembler(Problem& problem, std::shared_ptr<ST> subTriangulation, const FS& fs,
                           const Dune::ParameterTree& config)
         : edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
+        , weighting_(config.get<std::string>("weighting"))
         , lop_(problem, edgeNormProvider_,
                ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),
-               ConvectionDiffusion_DG_Weights::weightsOn, config.get<double>("penalty"))
+               weighting_, config.get<double>("penalty"))
         , wlop_(lop_)
         , ust_(subTriangulation->gridView(), *subTriangulation)
         , go_(fs.getGFS(), fs.getGFS(), ust_, wlop_, MatrixBackend(2 * dimension + 1))
@@ -56,6 +60,7 @@ namespace duneuro
 
   private:
     EdgeNormProvider edgeNormProvider_;
+    PenaltyFluxWeighting weighting_;
     LocalOperator lop_;
     WrappedLocalOperator wlop_;
     UnfittedSubTriangulation ust_;

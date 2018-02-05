@@ -25,19 +25,17 @@
 namespace duneuro
 {
   /**** class definition ****/
-  template <class PROBLEMDATA>
+  template <class PROBLEMDATA, class PenaltyFluxWeighting>
   class SubtractionDGLambda
   {
   public:
     /*** constructor ***/
-    SubtractionDGLambda(
-        PROBLEMDATA& problem_, unsigned int intorderadd_ = 0, unsigned int intorderadd_lb_ = 0,
-        ConvectionDiffusion_DG_Weights::Type weights_ = ConvectionDiffusion_DG_Weights::weightsOn)
-        : param(problem_)
+    SubtractionDGLambda(PROBLEMDATA& problem_, const PenaltyFluxWeighting& weighting_,
+                        unsigned int intorderadd_ = 0, unsigned int intorderadd_lb_ = 0)
+        : param(problem_), weighting(weighting_)
     {
       intorderadd = intorderadd_;
       intorderadd_lb = intorderadd_lb_;
-      weights = weights_;
     }
 
     /*** lambda_boundary method ***/
@@ -203,32 +201,13 @@ namespace duneuro
       A_s = param.A(insideEntity, inside_local);
       A_n = param.A(outsideEntity, outside_local);
 
-      /* evaluate normal at intersectino center */
-      const Dune::FieldVector<DF, dim> n_F = ig.centerUnitOuterNormal();
-
       /* tensor times normal */
-      Dune::FieldVector<RF, dim> An_F_s;
-      A_s.mv(n_F, An_F_s);
-      Dune::FieldVector<RF, dim> An_F_n;
-      A_n.mv(n_F, An_F_n);
-      RF omega_s;
-      RF omega_n;
-      RF harmonic_average(0.0);
-      if (weights == ConvectionDiffusion_DG_Weights::weightsOn) {
-        RF delta_s = (An_F_s * n_F);
-        RF delta_n = (An_F_n * n_F);
-        omega_s = delta_n / (delta_s + delta_n + 1e-20);
-        omega_n = delta_s / (delta_s + delta_n + 1e-20);
-        harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-      } else {
-        omega_s = omega_n = 0.5;
-        harmonic_average = 1.0;
-      }
+      auto weights = weighting(ig, A_s, A_n);
 
       std::vector<RangeType> phi_s(lfsv_s.size());
       std::vector<RangeType> phi_n(lfsv_n.size());
       /** loop over quadrature points **/
-      for (const auto& qp: rule) {
+      for (const auto& qp : rule) {
         /* unit outer normal */
         const Dune::FieldVector<DF, dim> n_F_local = ig.unitOuterNormal(qp.position());
 
@@ -264,8 +243,8 @@ namespace duneuro
         }
 
         /* combine the terms */
-        RF termls = (omega_s * (sigma_corr_grad_u_infty_s * n_F_local)
-                     + omega_n * (sigma_corr_grad_u_infty_n * n_F_local))
+        RF termls = (weights.fluxInsideWeight * (sigma_corr_grad_u_infty_s * n_F_local)
+                     + weights.fluxOutsideWeight * (sigma_corr_grad_u_infty_n * n_F_local))
                     * factor;
 
         if (std::isnan(termls)) {
@@ -282,9 +261,9 @@ namespace duneuro
 
   private:
     PROBLEMDATA& param;
+    PenaltyFluxWeighting weighting;
     unsigned int intorderadd;
     unsigned int intorderadd_lb;
-    ConvectionDiffusion_DG_Weights::Type weights;
   };
 }
 

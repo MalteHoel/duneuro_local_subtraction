@@ -11,6 +11,7 @@
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/linear_problem_solver.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/random.hh>
 #include <duneuro/io/data_tree.hh>
 
@@ -44,7 +45,9 @@ namespace duneuro
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
+    using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
+    using LocalOperator =
+        ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using Assembler = GalerkinGlobalAssembler<FunctionSpace, LocalOperator, DF, RF, JF>;
     using LinearSolver =
         LinearProblemSolver<typename Assembler::GO, DomainDOFVector, RangeDOFVector>;
@@ -64,11 +67,10 @@ namespace duneuro
         , problem_(problem)
         , functionSpace_(volumeConductor_->gridView())
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
+        , weighting_(config.get<std::string>("weighting"))
         , localOperator_(
-              *problem_, edgeNormProvider_,
+              *problem_, edgeNormProvider_, weighting_,
               ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),
-              config.get<bool>("weights") ? ConvectionDiffusion_DG_Weights::weightsOn :
-                                            ConvectionDiffusion_DG_Weights::weightsOff,
               config.get<DF>("penalty"), false, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, 2 * VC::dim + 1)
         , linearSolver_(*assembler_, config)
@@ -146,6 +148,7 @@ namespace duneuro
     std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;
+    typename Traits::PenaltyFluxWeighting weighting_;
     typename Traits::LocalOperator localOperator_;
     typename Traits::Assembler assembler_;
     typename Traits::LinearSolver linearSolver_;

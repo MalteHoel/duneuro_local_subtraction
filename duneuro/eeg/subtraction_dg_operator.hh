@@ -9,9 +9,9 @@ namespace duneuro
   enum class SubtractionContinuityType { continuous, discontinuous };
 
   /**** class definition of the operator ****/
-  template <typename PROBLEMDATA, typename EdgeNormProvider,
+  template <typename PROBLEMDATA, typename EdgeNormProvider, typename PenaltyFluxWeighting,
             SubtractionContinuityType continuityType = SubtractionContinuityType::discontinuous>
-  class SubtractionDG : public SubtractionDGLambda<PROBLEMDATA>,
+  class SubtractionDG : public SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>,
                         public Dune::PDELab::FullVolumePattern,
                         public Dune::PDELab::FullSkeletonPattern,
                         public Dune::PDELab::LocalOperatorDefaultFlags
@@ -22,15 +22,15 @@ namespace duneuro
     enum { doLambdaVolume = true };
     enum { doLambdaSkeleton = continuityType == SubtractionContinuityType::discontinuous };
 
-    using SubtractionDGLambda<PROBLEMDATA>::lambda_volume;
-    using SubtractionDGLambda<PROBLEMDATA>::lambda_boundary;
-    using SubtractionDGLambda<PROBLEMDATA>::lambda_skeleton;
+    using SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>::lambda_volume;
+    using SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>::lambda_boundary;
+    using SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>::lambda_skeleton;
 
     /*** Constructor ***/
-    SubtractionDG(PROBLEMDATA& problem_, const ConvectionDiffusion_DG_Weights::Type weights_ =
-                                             ConvectionDiffusion_DG_Weights::weightsOn,
+    SubtractionDG(PROBLEMDATA& problem_, const PenaltyFluxWeighting& weighting_,
                   unsigned int intorderadd_ = 0, unsigned int intorderadd_lb_ = 0)
-        : SubtractionDGLambda<PROBLEMDATA>(problem_, intorderadd_, intorderadd_lb_, weights_)
+        : SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>(problem_, weighting_, intorderadd_,
+                                                                 intorderadd_lb_)
     {
     }
   };

@@ -16,7 +16,7 @@
 #include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/linear_problem_solver.hh>
-#include <duneuro/common/random.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/udg_multi_phase_space.hh>
 #include <duneuro/common/vector_initialization.hh>
 
@@ -35,7 +35,9 @@ namespace duneuro
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LocalOperator = ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider>;
+    using PenaltyFluxWeighting = UnfittedDynamicPenaltyFluxWeights;
+    using LocalOperator =
+        ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
@@ -68,9 +70,11 @@ namespace duneuro
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
-        , localOperator_(*problem_, edgeNormProvider_, ConvectionDiffusion_DG_Scheme::fromString(
-                                                           config.get<std::string>("scheme")),
-                         ConvectionDiffusion_DG_Weights::weightsOn, config.get<RF>("penalty"))
+        , weighting_(config.get<std::string>("weighting"))
+        , localOperator_(
+              *problem_, edgeNormProvider_, weighting_,
+              ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),
+              config.get<RF>("penalty"), false, config.get<RF>("intorderadd"))
         , wrappedLocalOperator_(localOperator_)
         , unfittedSubTriangulation_(subTriangulation_->gridView(), *subTriangulation_)
         , gridOperator_(functionSpace_.getGFS(), functionSpace_.getGFS(), unfittedSubTriangulation_,
@@ -130,6 +134,7 @@ namespace duneuro
     std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;
+    typename Traits::PenaltyFluxWeighting weighting_;
     typename Traits::LocalOperator localOperator_;
     typename Traits::WrappedLocalOperator wrappedLocalOperator_;
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
