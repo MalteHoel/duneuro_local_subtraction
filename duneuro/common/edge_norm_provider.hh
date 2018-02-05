@@ -256,6 +256,7 @@ namespace duneuro
     }
   };
 
+
   /**
    * \brief Edge norm provider for using local operators which implement
    *        interior penalty DG schemes together with the PDELab assembler,
@@ -350,92 +351,6 @@ namespace duneuro
     const FundamentalCellBasedEdgeNormProvider fundamentalCellBasedENP_;
     const HoustonEdgeNormProvider houstonENP_;
   };
-
-  // #include <algorithm>  // provides std::min, std::max
-
-  // #include <dune/common/fvector.hh>  // provides FieldVector
-
-  // #include <dune/geometry/type.hh>               // provides GeometryType
-  // #include <dune/geometry/referenceelements.hh>  // provides GenericReferenceElements
-
-  // /**
-  //  * \brief Edge norm provider for using local operators which implement
-  //  *        interior penalty DG schemes together with the PDELab assembler,
-  //  *        i.e. the Dune::PDELab::GridOperator.
-  //  *        Computes an edge norm using the length of the adjacent domain
-  //  *        cells' edges.
-  //  *
-  //  * \author Sebastian Westerheide.
-  //  */
-  // class EdgeBasedEdgeNormProvider
-  //   : public EdgeNormProviderInterface
-  // {
-  // public:
-  //   template <typename IntersectionGeometry>
-  //   void edgeNorm (const IntersectionGeometry& ig,
-  //                  typename IntersectionGeometry::Geometry::ctype& h,
-  //                  const bool boundary = false) const
-  //   {
-  //     static const bool use_udg_assembler
-  //       = UDGAssemblerSwitch<IntersectionGeometry>::use_udg_assembler;
-  //     if (use_udg_assembler)
-  //       DUNE_THROW(Dune::NotImplemented,"UDG assembler detected but "
-  //                  << "EdgeBasedEdgeNormProvider only implemented for "
-  //                  << "PDELab assembler.");
-  //     else
-  //     {
-  //       // TODO: should be revised for anisotropic meshes?
-  //       typedef IntersectionGeometry IG;
-  //       typedef typename IG::Geometry::ctype ctype;
-  //       ctype h_s, h_n;
-  //       ctype hmax_s, hmax_n;
-  //       element_size(ig.inside()->geometry(),h_s,hmax_s);
-  //       if (boundary)
-  //         h_n = h_s;
-  //       else
-  //         element_size(ig.outside()->geometry(),h_n,hmax_n);
-  //       h = std::min(h_s,h_n);
-  //     }
-  //   }
-
-  // protected:
-  //   /**
-  //    * \brief Computes an entity's minimum and maximum edge length.
-  //    */
-  //   template <class GEO>
-  //   void element_size (const GEO& geo,
-  //                      typename GEO::ctype& hmin, typename GEO::ctype hmax) const
-  //   {
-  //     typedef typename GEO::ctype DF;
-  //     hmin = 1.0E100;
-  //     hmax = -1.0E00;
-  //     const int dim = GEO::coorddimension;
-  //     if (dim == 1)
-  //     {
-  //       Dune::FieldVector<DF,dim> x = geo.corner(0);
-  //       x -= geo.corner(1);
-  //       hmin = hmax = x.two_norm();
-  //       return;
-  //     }
-  //     else
-  //     {
-  //       const Dune::GeometryType gt = geo.type();
-  //       for (int i = 0;
-  //            i < Dune::GenericReferenceElements<DF,dim>::general(gt).size(dim-1);
-  //            i++)
-  //       {
-  //         Dune::FieldVector<DF,dim> x
-  //           = geo.corner(Dune::GenericReferenceElements<DF,dim>
-  //                        ::general(gt).subEntity(i,dim-1,0,dim));
-  //         x -= geo.corner(Dune::GenericReferenceElements<DF,dim>
-  //                         ::general(gt).subEntity(i,dim-1,1,dim));
-  //         hmin = std::min(hmin,x.two_norm());
-  //         hmax = std::max(hmax,x.two_norm());
-  //       }
-  //     }
-  //     return;
-  //   }
-  // };
 }
 
 #endif // DUNEURO_EDGE_NORM_PROVIDER_HH
