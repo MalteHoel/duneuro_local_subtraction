@@ -124,7 +124,7 @@ namespace duneuro
                                  DataTree dataTree = DataTree()) override
     {
       eegForwardSolver_.setSourceModel(config.sub("source_model"));
-      eegForwardSolver_.bind(dipole);
+      eegForwardSolver_.bind(dipole, dataTree);
 #if HAVE_TBB
       eegForwardSolver_.solve(solverBackend_.local().get(),
                               solution.cast<typename Traits::DomainDOFVector>(), config, dataTree);

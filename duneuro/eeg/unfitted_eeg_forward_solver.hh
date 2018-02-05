@@ -49,12 +49,12 @@ namespace duneuro
           *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config);
     }
 
-    void bind(const typename Traits::DipoleType& dipole)
+    void bind(const typename Traits::DipoleType& dipole, DataTree dataTree)
     {
       if (!denseSourceModel_) {
         DUNE_THROW(Dune::Exception, "source model not set");
       }
-      denseSourceModel_->bind(dipole);
+      denseSourceModel_->bind(dipole, dataTree);
     }
 
     template <class SolverBackend>

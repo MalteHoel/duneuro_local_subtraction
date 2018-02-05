@@ -51,7 +51,7 @@ namespace duneuro
     virtual void bind(const typename BaseT::DipoleType& dipole,
                       DataTree dataTree = DataTree()) override
     {
-      BaseT::bind(dipole);
+      BaseT::bind(dipole, dataTree);
       problem_.bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
     }
 
