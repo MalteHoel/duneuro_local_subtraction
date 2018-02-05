@@ -164,6 +164,44 @@ namespace duneuro
     }
   };
 
+  class FundamentalCellBasedEdgeNormProvider
+      : public EdgeNormProviderInterface<FundamentalCellBasedEdgeNormProvider>
+  {
+  public:
+#if HAVE_DUNE_UDG
+    template <typename Impl>
+    void edgeNorm(const Dune::PDELab::UnfittedIntersectionWrapper<Impl>& ig,
+                  typename Dune::PDELab::UnfittedIntersectionWrapper<Impl>::ctype& h,
+                  const bool boundary = false) const
+    {
+      // {harmonic average of inside and outside volume}^{1/dim}
+      // == 2.0*getEdgeNorm() of Dune::UDG::MarchingCube33SubTriangulation
+      typedef Dune::PDELab::UnfittedIntersectionWrapper<Impl> IG;
+      typedef typename IG::Geometry::ctype ctype;
+      const ctype iv = ig.inside().geometry().volume();
+      const ctype ov = boundary ? iv : ig.outside().geometry().volume();
+      const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
+      const int dim = IG::dimension;
+      h = std::pow(harmonic_av, 1.0 / ctype(dim));
+    }
+#endif
+
+    template <typename Impl>
+    void edgeNorm(const Dune::PDELab::IntersectionGeometry<Impl>& ig,
+                  typename Dune::PDELab::IntersectionGeometry<Impl>::Geometry::ctype& h,
+                  const bool boundary = false) const
+    {
+      // {harmonic average of inside and outside volume}^{1/dim}
+      typedef Dune::PDELab::IntersectionGeometry<Impl> IG;
+      typedef typename IG::Geometry::ctype ctype;
+      const ctype iv = ig.inside().geometry().volume();
+      const ctype ov = boundary ? iv : ig.outside().geometry().volume();
+      const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
+      const int dim = IG::dimension;
+      h = std::pow(harmonic_av, 1.0 / ctype(dim));
+    }
+  };
+
   /**
    * \brief Edge norm provider for using local operators which implement
    *        interior penalty DG schemes together with the PDELab assembler,
@@ -236,6 +274,7 @@ namespace duneuro
         , structuredENP_(gridWidth)
         , faceBasedENP_()
         , cellBasedENP_()
+        , fundamentalCellBasedENP_()
         , houstonENP_()
     {
     }
@@ -246,7 +285,11 @@ namespace duneuro
     }
 
     MultiEdgeNormProvider(const std::string& type, double gridWidth)
-        : structuredENP_(gridWidth), faceBasedENP_(), cellBasedENP_(), houstonENP_()
+        : structuredENP_(gridWidth)
+        , faceBasedENP_()
+        , cellBasedENP_()
+        , fundamentalCellBasedENP_()
+        , houstonENP_()
     {
       if (type == "structured") {
         realEdgeNormProviderType_ = 0;
@@ -256,8 +299,10 @@ namespace duneuro
         realEdgeNormProviderType_ = 2;
       } else if (type == "houston") {
         realEdgeNormProviderType_ = 3;
+      } else if (type == "fundamentalcell") {
+        realEdgeNormProviderType_ = 4;
       } else {
-        DUNE_THROW(Dune::Exception, "unknown edge norm type");
+        DUNE_THROW(Dune::Exception, "unknown edge norm type \"" << type << "\"");
       }
     }
 
@@ -283,6 +328,10 @@ namespace duneuro
         // edge norm provider using Houston's choice
         houstonENP_.edgeNorm(ig, h, boundary);
         break;
+      case 4:
+        // edge norm provider using volume of fundamental cells
+        fundamentalCellBasedENP_.edgeNorm(ig, h, boundary);
+        break;
       default:
         DUNE_THROW(Dune::RangeError,
                    "Invalid edge norm type: " << (unsigned int) realEdgeNormProviderType_);
@@ -298,6 +347,7 @@ namespace duneuro
     const StructuredGridEdgeNormProvider structuredENP_;
     const FaceBasedEdgeNormProvider faceBasedENP_;
     const CellBasedEdgeNormProvider cellBasedENP_;
+    const FundamentalCellBasedEdgeNormProvider fundamentalCellBasedENP_;
     const HoustonEdgeNormProvider houstonENP_;
   };
 
