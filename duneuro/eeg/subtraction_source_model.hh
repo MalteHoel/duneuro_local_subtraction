@@ -38,7 +38,7 @@ namespace duneuro
         : BaseT(search)
         , problem_(volumeConductor->gridView(), volumeConductor)
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
-        , weighting_(solverConfig.get<std::string>("weighting", "tensorOnly"))
+        , weighting_(solverConfig.get<std::string>("weights", "tensorOnly"))
         , lop_(problem_, weighting_, config.get<unsigned int>("intorderadd"),
                config.get<unsigned int>("intorderadd_lb"))
         , x_(fs.getGFS(), 0.0)

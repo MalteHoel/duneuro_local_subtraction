@@ -61,7 +61,7 @@ namespace duneuro
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
               volumeConductor_->gridView()))
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
-        , weighting_(solverConfig.get<std::string>("weighting"))
+        , weighting_(solverConfig.get<std::string>("weights"))
         , config_(config)
         , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
         , scheme_(

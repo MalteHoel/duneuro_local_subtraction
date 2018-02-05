@@ -70,7 +70,7 @@ namespace duneuro
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
-        , weighting_(config.get<std::string>("weighting"))
+        , weighting_(config.get<std::string>("weights"))
         , localOperator_(
               *problem_, edgeNormProvider_, weighting_,
               ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),

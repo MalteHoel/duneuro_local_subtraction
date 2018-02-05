@@ -40,7 +40,7 @@ namespace duneuro
     TDCSPatchUDGAssembler(Problem& problem, std::shared_ptr<ST> subTriangulation, const FS& fs,
                           const Dune::ParameterTree& config)
         : edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
-        , weighting_(config.get<std::string>("weighting"))
+        , weighting_(config.get<std::string>("weights"))
         , lop_(problem, edgeNormProvider_,
                ConvectionDiffusion_DG_Scheme::fromString(config.get<std::string>("scheme")),
                weighting_, config.get<double>("penalty"))

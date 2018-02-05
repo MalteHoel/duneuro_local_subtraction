@@ -2,8 +2,11 @@
 #define DUNEURO_PENALTY_FLUX_WEIGHTING_HH
 
 #include <dune/common/fmatrix.hh>
+#include <dune/common/parametertree.hh>
 
 #include <dune/geometry/referenceelements.hh>
+
+#include <duneuro/common/deprecated.hh>
 
 namespace duneuro
 {
@@ -157,8 +160,21 @@ namespace duneuro
   };
 
   enum class PenaltyFluxWeightsTypes { constant, tensorOnly, annavarapu, barrau };
-  static inline PenaltyFluxWeightsTypes penaltyFluxWeightingFromString(const std::string& name)
+  static inline PenaltyFluxWeightsTypes penaltyFluxWeightingFromString(std::string name)
   {
+    // deprecation mechanism, issue warning if type is convertible to bool (old behaviour)
+    // should be removed after some period of time
+    try {
+      Dune::ParameterTree tree;
+      tree["type"] = name;
+      bool v = tree.get<bool>("type");
+      issueDeprecationWarning(
+          "the behavior of \"weights\" has been changed. To obtain the old weighting, set "
+          "\"weights\" to \"tensorOnly\", to turn weighting off, set \"weights\" to "
+          "\"constant\"");
+      name = v ? "tensorOnly" : "constant";
+    } catch (Dune::RangeError& ex) {
+    }
     if (name == "constant")
       return PenaltyFluxWeightsTypes::constant;
     else if (name == "tensorOnly")
