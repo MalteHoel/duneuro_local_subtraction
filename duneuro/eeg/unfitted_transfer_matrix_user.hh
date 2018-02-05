@@ -104,7 +104,14 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
+#if HAVE_TBB
+      {
+        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
+        sparseSourceModel_->assembleRightHandSide(rhs);
+      }
+#else
       sparseSourceModel_->assembleRightHandSide(rhs);
+#endif
 
       const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
 
@@ -127,7 +134,14 @@ namespace duneuro
       } else {
         *denseRHSVector_ = 0.0;
       }
+#if HAVE_TBB
+      {
+        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
+        denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
+      }
+#else
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
+#endif
 
       return matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));

@@ -1,6 +1,10 @@
 #ifndef DUNEURO_UDG_SOLVER_HH
 #define DUNEURO_UDG_SOLVER_HH
 
+#if HAVE_TBB
+#include <tbb/tbb.h>
+#endif
+
 #include <dune/udg/pdelab/multiphaseoperator.hh>
 #include <dune/udg/pdelab/operator.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
@@ -114,6 +118,13 @@ namespace duneuro
       return *problem_;
     }
 
+#if HAVE_TBB
+    tbb::mutex& functionSpaceMutex()
+    {
+      return fsMutex_;
+    }
+#endif
+
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Problem> problem_;
@@ -124,6 +135,10 @@ namespace duneuro
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
+
+#if HAVE_TBB
+    tbb::mutex fsMutex_;
+#endif
   };
 }
 

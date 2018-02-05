@@ -121,6 +121,13 @@ namespace duneuro
       return *problem_;
     }
 
+#if HAVE_TBB
+    tbb::mutex& functionSpaceMutex()
+    {
+      return fsMutex_;
+    }
+#endif
+
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Problem> problem_;
@@ -132,6 +139,10 @@ namespace duneuro
     typename Traits::RawGridOperator rawGridOperator_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
+
+#if HAVE_TBB
+    tbb::mutex fsMutex_;
+#endif
   };
 }
 
