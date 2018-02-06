@@ -21,6 +21,7 @@
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
 #include <duneuro/common/volume_conductor.hh>
+#include <duneuro/common/volume_conductor_statistics.hh>
 #include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
 #include <duneuro/eeg/conforming_eeg_forward_solver.hh>
@@ -403,6 +404,21 @@ namespace duneuro
     getProjectedElectrodes() const override
     {
       return projectedGlobalElectrodes_;
+    }
+
+    virtual void statistics(DataTree dataTree) const override
+    {
+      auto volumeConductorStatistics =
+          computeVolumeConductorStatistics(*(volumeConductorStorage_.get()));
+      auto sub = dataTree.sub("volume_conductor");
+      for (const auto& dtv : volumeConductorStatistics.domainToVolume) {
+        sub.set("volume_label_" + std::to_string(dtv.first), dtv.second);
+      }
+      for (const auto& itv : volumeConductorStatistics.interfaceToVolume) {
+        sub.set("surface_labels_" + std::to_string(itv.first.first) + "_"
+                    + std::to_string(itv.first.second),
+                itv.second);
+      }
     }
 
   private:

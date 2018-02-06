@@ -141,6 +141,15 @@ namespace duneuro
 
     virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
+    /**
+     * \brief obtain different statistics of the driver
+     *
+     * The results will be stored in the dataTree object. The entries depend on the implementation
+     * and might contain information such as the volume of the different compartments or the number
+     * of entities of different codimensions
+     */
+    virtual void statistics(DataTree dataTree) const = 0;
+
     virtual ~MEEGDriverInterface()
     {
     }

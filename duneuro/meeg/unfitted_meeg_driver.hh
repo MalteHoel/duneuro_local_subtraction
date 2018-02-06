@@ -27,6 +27,7 @@
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/udg/subtriangulation_statistics.hh>
 
 namespace duneuro
 {
@@ -345,6 +346,20 @@ namespace duneuro
     getProjectedElectrodes() const override
     {
       return projectedGlobalElectrodes_;
+    }
+
+    virtual void statistics(DataTree dataTree) const override
+    {
+      auto subtriangulationStatistics = computeSubtriangulationStatistics(*subTriangulation_);
+      auto sub = dataTree.sub("subtriangulation");
+      for (const auto& dtv : subtriangulationStatistics.domainToVolume) {
+        sub.set("volume_label_" + std::to_string(dtv.first), dtv.second);
+      }
+      for (const auto& itv : subtriangulationStatistics.interfaceToVolume) {
+        sub.set("surface_labels_" + std::to_string(itv.first.first) + "_"
+                    + std::to_string(itv.first.second),
+                itv.second);
+      }
     }
 
   private:
