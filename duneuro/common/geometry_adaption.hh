@@ -257,7 +257,7 @@ namespace duneuro
     return deformedPositions;
   }
 
-  template <class HostGrid, class L = char>
+  template <class HostGrid, class L = std::size_t>
   std::unique_ptr<Dune::GeometryGrid<HostGrid,
                                      DeformationFunction<typename HostGrid::LeafGridView>>>
   create_geometry_adapted_grid(std::unique_ptr<HostGrid> hostGrid,
@@ -297,7 +297,7 @@ namespace duneuro
 
     std::unique_ptr<GeometryGrid> geometryGrid;
     std::unique_ptr<GridType> grid;
-    std::unique_ptr<std::vector<char>> labels;
+    std::unique_ptr<std::vector<std::size_t>> labels;
   };
 
   template <int dim>
@@ -325,7 +325,7 @@ namespace duneuro
     }
     grid->createEnd();
     auto sgGv = grid->leafGridView();
-    auto subLabels = Dune::Std::make_unique<std::vector<char>>(grid->size(0));
+    auto subLabels = Dune::Std::make_unique<std::vector<std::size_t>>(grid->size(0));
     for (const auto& subElement : Dune::elements(sgGv)) {
       (*subLabels)[sgGv.indexSet().index(subElement)] =
           data.labels[ggGv.indexSet().index(grid->template getHostEntity<0>(subElement))] - 1;
@@ -337,12 +337,11 @@ namespace duneuro
   std::shared_ptr<VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>>
   make_geometry_adapted_volume_conductor(
       std::unique_ptr<typename GeometryAdaptedGrid<dim>::GridType> grid,
-      std::unique_ptr<std::vector<char>> labels, const std::vector<double>& conductivities,
+      std::unique_ptr<std::vector<std::size_t>> labels, const std::vector<double>& conductivities,
       const Dune::ParameterTree& config)
   {
     using VC = VolumeConductor<typename GeometryAdaptedGrid<dim>::GridType>;
     using Tensor = typename VC::TensorType;
-    using MappingType = typename VC::MappingType;
     std::vector<Tensor> tensors;
     for (auto value : conductivities) {
       Tensor t;
@@ -354,10 +353,7 @@ namespace duneuro
       tensors.push_back(t);
     }
     typename VC::GridView gv = grid->leafGridView();
-    return std::make_shared<VC>(
-        std::move(grid),
-        Dune::Std::make_unique<MappingType>(
-            IndirectEntityMapping<typename VC::GridView, Tensor, char>(gv, tensors, *labels)));
+    return std::make_shared<VC>(std::move(grid), *labels, tensors);
   }
 
 #if HAVE_NIFTI
@@ -365,7 +361,7 @@ namespace duneuro
   struct GeometryAdaptedGridReader {
     static GeometryAdaptedGrid<dim> read(const Dune::ParameterTree& config)
     {
-      std::vector<char> labels;
+      std::vector<std::size_t> labels;
       std::array<unsigned int, dim> cells;
       NiftiImageReader::read<dim>(config.get<std::string>("filename"), std::back_inserter(labels),
                                   cells);
@@ -389,7 +385,7 @@ namespace duneuro
       }
       grid->createEnd();
       auto sgGv = grid->leafGridView();
-      auto subLabels = Dune::Std::make_unique<std::vector<char>>(grid->size(0));
+      auto subLabels = Dune::Std::make_unique<std::vector<std::size_t>>(grid->size(0));
       for (const auto& subElement : Dune::elements(sgGv)) {
         (*subLabels)[sgGv.indexSet().index(subElement)] =
             labels[ggGv.indexSet().index(grid->template getHostEntity<0>(subElement))] - 1;
