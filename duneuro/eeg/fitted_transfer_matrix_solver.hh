@@ -1,5 +1,5 @@
-#ifndef DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
-#define DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
+#ifndef DUNEURO_FITTED_TRANSFER_MATRIX_SOLVER_HH
+#define DUNEURO_FITTED_TRANSFER_MATRIX_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -13,7 +13,7 @@
 namespace duneuro
 {
   template <class S>
-  struct ConformingTransferMatrixSolverTraits {
+  struct FittedTransferMatrixSolverTraits {
     using Solver = S;
     static const unsigned int dimension = S::Traits::dimension;
     using VolumeConductor = typename S::Traits::VolumeConductor;
@@ -27,14 +27,13 @@ namespace duneuro
   };
 
   template <class S>
-  class ConformingTransferMatrixSolver
+  class FittedTransferMatrixSolver
   {
   public:
-    using Traits = ConformingTransferMatrixSolverTraits<S>;
+    using Traits = FittedTransferMatrixSolverTraits<S>;
 
-    ConformingTransferMatrixSolver(
-        std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-        std::shared_ptr<typename Traits::Solver> solver)
+    FittedTransferMatrixSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                               std::shared_ptr<typename Traits::Solver> solver)
         : volumeConductor_(volumeConductor)
         , solver_(solver)
         , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
@@ -145,4 +144,4 @@ namespace duneuro
     }
   };
 }
-#endif // DUNEURO_CONFORMING_TRANSFER_MATRIX_SOLVER_HH
+#endif // DUNEURO_FITTED_TRANSFER_MATRIX_SOLVER_HH
