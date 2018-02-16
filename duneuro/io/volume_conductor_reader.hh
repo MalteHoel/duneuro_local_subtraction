@@ -24,7 +24,6 @@ namespace duneuro
   {
   public:
     typedef typename VolumeConductor<G>::TensorType TensorType;
-    typedef typename VolumeConductor<G>::MappingType MappingType;
     typedef typename G::LeafGridView GV;
     typedef typename G::ctype ctype;
     enum { dim = G::dimension };
@@ -93,10 +92,8 @@ namespace duneuro
         timer.stop();
         dataTree.set("time_reordering_labels", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(
-            std::move(grid),
-            std::unique_ptr<MappingType>(new MappingType(
-                IndirectEntityMapping<GV, TensorType>(gv, data.tensors, reordered_labels))));
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels,
+                                                    data.tensors);
       } else if (data.labels.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -134,10 +131,7 @@ namespace duneuro
           tensors.push_back(t);
         }
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(
-            std::move(grid),
-            std::unique_ptr<MappingType>(new MappingType(
-                IndirectEntityMapping<GV, TensorType>(gv, tensors, reordered_labels))));
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors);
       } else {
         DUNE_THROW(Dune::Exception, "you have to provide labels or tensors");
       }
@@ -188,10 +182,7 @@ namespace duneuro
         timer.stop();
         dataTree.set("time_reordering_indices", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(
-            std::move(grid),
-            std::unique_ptr<MappingType>(new MappingType(
-                IndirectEntityMapping<GV, TensorType>(gv, tensors, indexToTensor))));
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), indexToTensor, tensors);
       } else if (extension == "dgf") {
         timer.start();
         typedef Dune::SingleCodimSingleGeomTypeMapper<GV, 0> Mapper;
@@ -224,10 +215,8 @@ namespace duneuro
         timer.stop();
         dataTree.set("time_reordering_tensors", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(
-            std::unique_ptr<G>(gptr.release()),
-            std::unique_ptr<MappingType>(new MappingType(
-                IndirectEntityMapping<GV, TensorType>(gv, tensors, indexToTensor))));
+        return std::make_shared<VolumeConductor<G>>(std::unique_ptr<G>(gptr.release()),
+                                                    indexToTensor, tensors);
       } else if (extension == "geo") {
         // assuming cauchy grid format
         Dune::GridFactory<G> factory;
@@ -238,13 +227,18 @@ namespace duneuro
         Mapper mapper(gv);
         std::vector<TensorType> tensors;
         CauchyTensorReader<G>::read(tensorFilename, std::back_inserter(tensors));
+        if (tensors.size() != mapper.size()) {
+          DUNE_THROW(Dune::Exception,
+                     "grid file contains a different number of elements than the tensors file ("
+                         << mapper.size() << " != " << tensors.size() << ")");
+        }
         std::vector<TensorType> reorderedTensors(tensors.size());
+        std::vector<std::size_t> labels(tensors.size());
         for (const auto& element : Dune::elements(gv)) {
+          labels.push_back(labels.size());
           reorderedTensors[mapper.index(element)] = tensors[factory.insertionIndex(element)];
         }
-        return std::make_shared<VolumeConductor<G>>(
-            std::move(grid), std::unique_ptr<MappingType>(new MappingType(
-                                 DirectEntityMapping<GV, TensorType>(gv, reorderedTensors))));
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), labels, reorderedTensors);
       } else {
         DUNE_THROW(Dune::IOError, "cannot infer file type from extension \"" << extension << "\"");
       }

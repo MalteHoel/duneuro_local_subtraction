@@ -40,28 +40,6 @@ namespace duneuro
       }
       return result;
     }
-
-    std::map<std::size_t, double> domainVolumes() const
-    {
-      Dune::PDELab::UnfittedSubTriangulation<typename STTraits::GridView> ust(fundamentalGridView_,
-                                                                              *subTriangulation_);
-      std::map<std::size_t, double> volume;
-      for (const auto& element : Dune::elements(fundamentalGridView_)) {
-        ust.create(element);
-        for (const auto& part : ust) {
-          const auto& geometry = part.geometry();
-          const auto& quadRule =
-              Dune::QuadratureRules<typename STTraits::GridView::ctype, dim>::rule(
-                  geometry.type(), geometry.type().isCube() ? 2 : 0);
-          for (const auto& quadPoint : quadRule) {
-            volume[part.domainIndex()] +=
-                quadPoint.weight() * geometry.integrationElement(quadPoint.position());
-          }
-        }
-      }
-      return volume;
-    }
-
   private:
     UnfittedMEEGDriverData<dim> data_;
     std::unique_ptr<typename STTraits::Grid> grid_;

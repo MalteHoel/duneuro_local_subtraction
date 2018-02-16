@@ -13,66 +13,6 @@
 
 namespace duneuro
 {
-  template <class GV, class T, class I = std::size_t>
-  class IndirectEntityMapping
-  {
-  public:
-    typedef T TensorType;
-    typedef typename GV::template Codim<0>::Entity EntityType;
-
-    IndirectEntityMapping(const GV& gridView, const std::vector<T>& tensors,
-                          const std::vector<I>& indexToTensor)
-        : gridView_(gridView), mapper_(gridView), tensors_(tensors), indexToTensor_(indexToTensor)
-    {
-      assert(tensors.size() > 0);
-      assert(indexToTensor_.size() == static_cast<std::size_t>(gridView_.size(0)));
-    }
-
-    const T& operator()(const EntityType& e) const
-    {
-      auto index = mapper_.index(e);
-      assert(index < indexToTensor_.size());
-      auto tensorIndex = indexToTensor_[index];
-      assert(tensorIndex < tensors_.size());
-      return tensors_[tensorIndex];
-    }
-
-  private:
-    // copy the grid view so that the mapper is always valid
-    GV gridView_;
-    Dune::SingleCodimSingleGeomTypeMapper<GV, 0> mapper_;
-    std::vector<T> tensors_;
-    // maps an entity index to the tensor index
-    std::vector<I> indexToTensor_;
-  };
-
-  template <class GV, class T>
-  class DirectEntityMapping
-  {
-  public:
-    typedef T TensorsType;
-    typedef typename GV::template Codim<0>::Entity EntityType;
-
-    DirectEntityMapping(const GV& gridView, const std::vector<T>& tensors)
-        : gridView_(gridView), mapper_(gridView_), tensors_(tensors)
-    {
-      assert(gridView_.size(0) == tensors_.size());
-    }
-
-    const T& operator()(const EntityType& e) const
-    {
-      auto index = mapper_.index(e);
-      assert(index < tensors_.size());
-      return tensors_[index];
-    }
-
-  private:
-    // copy the grid view so that the mapper is always valid
-    GV gridView_;
-    Dune::SingleCodimSingleGeomTypeMapper<GV, 0> mapper_;
-    std::vector<T> tensors_;
-  };
-
   template <class G>
   class VolumeConductor
   {
@@ -82,12 +22,31 @@ namespace duneuro
     typedef typename G::ctype ctype;
     typedef typename G::template Codim<0>::Entity EntityType;
     typedef Dune::FieldMatrix<ctype, dim, dim> TensorType;
-    typedef std::function<const TensorType&(const EntityType&)> MappingType;
     typedef typename G::LeafGridView GridView;
 
-    VolumeConductor(std::unique_ptr<G> grid, std::unique_ptr<MappingType> mapper)
-        : grid_(std::move(grid)), mapper_(std::move(mapper)), gridView_(grid_->leafGridView())
+    VolumeConductor(std::unique_ptr<G> grid, std::vector<std::size_t> labels,
+                    std::vector<TensorType> tensors)
+        : grid_(std::move(grid))
+        , labels_(labels)
+        , tensors_(tensors)
+        , gridView_(grid_->leafGridView())
+        , elementMapper_(gridView_)
     {
+      // check if we are given one label for each element
+      if (labels.size() != elementMapper_.size()) {
+        DUNE_THROW(Dune::Exception, "number of labels ("
+                                        << labels.size()
+                                        << ") has to match the number of elements ("
+                                        << elementMapper_.size() << ")");
+      }
+      // check if all labels are valid
+      for (const auto& l : labels) {
+        if (l >= tensors_.size()) {
+          DUNE_THROW(Dune::Exception,
+                     "label " << l << " is not a valid index into the tensors vector of size "
+                              << tensors_.size());
+        }
+      }
     }
 
     const G& grid() const
@@ -107,7 +66,12 @@ namespace duneuro
 
     const TensorType& tensor(const EntityType& entity) const
     {
-      return (*mapper_)(entity);
+      return tensors_[label(entity)];
+    }
+
+    std::size_t label(const EntityType& entity) const
+    {
+      return labels_[elementMapper_.index(entity)];
     }
 
     G* releaseGrid()
@@ -115,15 +79,12 @@ namespace duneuro
       return grid_.release();
     }
 
-    MappingType* releaseMapping()
-    {
-      return mapper_.release();
-    }
-
   private:
     std::unique_ptr<G> grid_;
-    std::unique_ptr<MappingType> mapper_;
+    const std::vector<std::size_t> labels_;
+    const std::vector<TensorType> tensors_;
     GridView gridView_;
+    Dune::SingleCodimSingleGeomTypeMapper<GridView, 0> elementMapper_;
   };
 }
 
