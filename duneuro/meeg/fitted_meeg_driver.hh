@@ -24,16 +24,16 @@
 #include <duneuro/common/volume_conductor_statistics.hh>
 #include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
-#include <duneuro/eeg/conforming_eeg_forward_solver.hh>
-#include <duneuro/eeg/conforming_transfer_matrix_solver.hh>
-#include <duneuro/eeg/conforming_transfer_matrix_user.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
 #include <duneuro/eeg/electrode_projection_factory.hh>
+#include <duneuro/eeg/fitted_eeg_forward_solver.hh>
+#include <duneuro/eeg/fitted_transfer_matrix_solver.hh>
+#include <duneuro/eeg/fitted_transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
-#include <duneuro/meg/conforming_meg_transfer_matrix_solver.hh>
+#include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
 
@@ -321,8 +321,8 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User = ConformingTransferMatrixUser<typename Traits::Solver,
-                                                typename Traits::SourceModelFactory>;
+      using User =
+          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -371,8 +371,8 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User = ConformingTransferMatrixUser<typename Traits::Solver,
-                                                typename Traits::SourceModelFactory>;
+      using User =
+          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -433,9 +433,9 @@ namespace duneuro
 #else
     typename Traits::SolverBackend solverBackend_;
 #endif
-    ConformingTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
-    ConformingMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
-    ConformingEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
+    FittedTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
+    FittedMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
+    FittedEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;
     std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
         electrodeProjection_;

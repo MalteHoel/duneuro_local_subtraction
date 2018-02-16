@@ -1,5 +1,5 @@
-#ifndef DUNEURO_CONFORMING_EEG_FORWARD_SOLVER_HH
-#define DUNEURO_CONFORMING_EEG_FORWARD_SOLVER_HH
+#ifndef DUNEURO_FITTED_EEG_FORWARD_SOLVER_HH
+#define DUNEURO_FITTED_EEG_FORWARD_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 
@@ -12,7 +12,7 @@
 namespace duneuro
 {
   template <class S>
-  struct ConformingEEGForwardSolverTraits {
+  struct FittedEEGForwardSolverTraits {
     static const unsigned int dimension = S::Traits::dimension;
     using Solver = S;
     using VolumeConductor = typename S::Traits::VolumeConductor;
@@ -25,15 +25,15 @@ namespace duneuro
   };
 
   template <class S, class SMF>
-  class ConformingEEGForwardSolver : public EEGForwardSolver<ConformingEEGForwardSolver<S, SMF>,
-                                                             ConformingEEGForwardSolverTraits<S>>
+  class FittedEEGForwardSolver
+      : public EEGForwardSolver<FittedEEGForwardSolver<S, SMF>, FittedEEGForwardSolverTraits<S>>
   {
   public:
-    using Traits = ConformingEEGForwardSolverTraits<S>;
+    using Traits = FittedEEGForwardSolverTraits<S>;
 
-    ConformingEEGForwardSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                               std::shared_ptr<typename Traits::ElementSearch> search,
-                               std::shared_ptr<typename Traits::Solver> solver)
+    FittedEEGForwardSolver(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                           std::shared_ptr<typename Traits::ElementSearch> search,
+                           std::shared_ptr<typename Traits::Solver> solver)
         : volumeConductor_(volumeConductor)
         , search_(search)
         , solver_(solver)
@@ -106,4 +106,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_CONFORMING_EEG_FORWARD_SOLVER_HH
+#endif // DUNEURO_FITTED_EEG_FORWARD_SOLVER_HH

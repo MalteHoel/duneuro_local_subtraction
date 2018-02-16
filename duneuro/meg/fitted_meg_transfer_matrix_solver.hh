@@ -1,5 +1,5 @@
-#ifndef DUNEURO_CONFORMING_MEG_TRANSFER_MATRIX_SOLVER_HH
-#define DUNEURO_CONFORMING_MEG_TRANSFER_MATRIX_SOLVER_HH
+#ifndef DUNEURO_FITTED_MEG_TRANSFER_MATRIX_SOLVER_HH
+#define DUNEURO_FITTED_MEG_TRANSFER_MATRIX_SOLVER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -13,7 +13,7 @@
 namespace duneuro
 {
   template <class S>
-  struct ConformingMEGTransferMatrixSolverTraits {
+  struct FittedMEGTransferMatrixSolverTraits {
     using Solver = S;
     static const unsigned int dimension = S::Traits::dimension;
     using VolumeConductor = typename S::Traits::VolumeConductor;
@@ -27,13 +27,13 @@ namespace duneuro
   };
 
   template <class S>
-  class ConformingMEGTransferMatrixSolver
+  class FittedMEGTransferMatrixSolver
   {
   public:
-    using Traits = ConformingMEGTransferMatrixSolverTraits<S>;
+    using Traits = FittedMEGTransferMatrixSolverTraits<S>;
 
-    ConformingMEGTransferMatrixSolver(std::shared_ptr<typename Traits::Solver> solver,
-                                      std::shared_ptr<typename Traits::MEGSolver> megSolver)
+    FittedMEGTransferMatrixSolver(std::shared_ptr<typename Traits::Solver> solver,
+                                  std::shared_ptr<typename Traits::MEGSolver> megSolver)
         : solver_(solver)
         , megSolver_(megSolver)
         , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
@@ -155,4 +155,4 @@ namespace duneuro
     }
   };
 }
-#endif // DUNEURO_CONFORMING_MEG_TRANSFER_MATRIX_SOLVER_HH
+#endif // DUNEURO_FITTED_MEG_TRANSFER_MATRIX_SOLVER_HH

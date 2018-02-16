@@ -1,5 +1,5 @@
-#ifndef DUNEURO_CONFORMING_TRANSFER_MATRIX_USER_HH
-#define DUNEURO_CONFORMING_TRANSFER_MATRIX_USER_HH
+#ifndef DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
+#define DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -17,7 +17,7 @@
 namespace duneuro
 {
   template <class S>
-  struct ConformingTransferMatrixUserTraits {
+  struct FittedTransferMatrixUserTraits {
     static const unsigned int dimension = S::Traits::dimension;
     using VolumeConductor = typename S::Traits::VolumeConductor;
     using EEGForwardSolver = S;
@@ -32,14 +32,14 @@ namespace duneuro
   };
 
   template <class S, class SMF>
-  class ConformingTransferMatrixUser
+  class FittedTransferMatrixUser
   {
   public:
-    using Traits = ConformingTransferMatrixUserTraits<S>;
+    using Traits = FittedTransferMatrixUserTraits<S>;
 
-    ConformingTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                                 std::shared_ptr<typename Traits::ElementSearch> search,
-                                 std::shared_ptr<typename Traits::EEGForwardSolver> solver)
+    FittedTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
+                             std::shared_ptr<typename Traits::ElementSearch> search,
+                             std::shared_ptr<typename Traits::EEGForwardSolver> solver)
         : volumeConductor_(volumeConductor), search_(search), solver_(solver)
     {
     }
@@ -169,4 +169,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_CONFORMING_TRANSFER_MATRIX_USER_HH
+#endif // DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
