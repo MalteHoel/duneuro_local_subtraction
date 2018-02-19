@@ -15,7 +15,7 @@ namespace duneuro
     typedef typename VC::GridView GV;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, typename GV::ctype> Traits;
 
-    explicit ConvectionDiffusion_DG_DefaultParameter(std::shared_ptr<VC> volumeConductor)
+    explicit ConvectionDiffusion_DG_DefaultParameter(std::shared_ptr<const VC> volumeConductor)
         : volumeConductor_(volumeConductor)
     {
       assert(volumeConductor_);
@@ -94,7 +94,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
   };
 }
 

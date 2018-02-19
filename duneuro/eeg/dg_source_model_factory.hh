@@ -12,69 +12,70 @@
 namespace duneuro
 {
   struct DGSourceModelFactory {
-    template <class V, class VC, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
-    createDense(std::shared_ptr<VC> volumeConductor, const Solver& solver,
-                std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
-                const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig)
+    template <class V, class Solver>
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+                                                Solver::Traits::VolumeConductor::dim, V>>
+    createDense(const Solver& solver, const Dune::ParameterTree& config,
+                const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
-                                                             search);
+                                                             solver.elementSearch());
       } else if (type == "patch_based_venant") {
-        return std::
-            make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                    V>>(
-                volumeConductor, solver.functionSpace().getGFS(), search, config);
+        return std::make_shared<PatchBasedVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
+                config);
       } else if (type == "subtraction") {
         return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V,
-            SubtractionContinuityType::discontinuous>>(volumeConductor, solver.functionSpace(),
-                                                       search, config, solverConfig);
+            SubtractionContinuityType::discontinuous>>(
+            solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
+            solverConfig);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
-            volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
-            config, solverConfig);
+            solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(), config, solverConfig);
       } else if (type == "truncated_spatial_venant") {
-        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
-                                                                          FunctionSpace::GFS,
-                                                                  V>>(
-            volumeConductor, solver.functionSpace().getGFS(), search, config);
+        return std::make_shared<TruncatedSpatialVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
+                config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
       }
     }
 
-    template <class V, class VC, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename VC::ctype, VC::dim, V>>
-    createSparse(std::shared_ptr<VC> volumeConductor, const Solver& solver,
-                 std::shared_ptr<KDTreeElementSearch<typename VC::GridView>> search,
-                 const Dune::ParameterTree& config, const Dune::ParameterTree& solverConfig)
+    template <class V, class Solver>
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+                                                Solver::Traits::VolumeConductor::dim, V>>
+    createSparse(const Solver& solver, const Dune::ParameterTree& config,
+                 const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return std::make_shared<PartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, V>>(solver.functionSpace().getGFS(),
-                                                             search);
+                                                             solver.elementSearch());
       } else if (type == "patch_based_venant") {
-        return std::
-            make_shared<PatchBasedVenantSourceModel<VC, typename Solver::Traits::FunctionSpace::GFS,
-                                                    V>>(
-                volumeConductor, solver.functionSpace().getGFS(), search, config);
+        return std::make_shared<PatchBasedVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
+                config);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
-            volumeConductor, Dune::stackobject_to_shared_ptr(solver.functionSpace()), search,
-            config, solverConfig);
+            solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(), config, solverConfig);
       } else if (type == "truncated_spatial_venant") {
-        return std::make_shared<TruncatedSpatialVenantSourceModel<VC, typename Solver::Traits::
-                                                                          FunctionSpace::GFS,
-                                                                  V>>(
-            volumeConductor, solver.functionSpace().getGFS(), search, config);
+        return std::make_shared<TruncatedSpatialVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
+                config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

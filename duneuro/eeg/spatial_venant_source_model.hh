@@ -43,8 +43,9 @@ namespace duneuro
     using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
     using RangeType = typename BasisSwitch::Range;
 
-    SpatialVenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                             std::shared_ptr<SearchType> search, const Dune::ParameterTree& params)
+    SpatialVenantSourceModel(std::shared_ptr<const VC> volumeConductor, const GFS& gfs,
+                             std::shared_ptr<const SearchType> search,
+                             const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , elementNeighborhoodMap_(
@@ -107,7 +108,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
     VertexMapper vertexMapper_;

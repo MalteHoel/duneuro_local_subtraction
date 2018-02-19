@@ -18,7 +18,7 @@ namespace duneuro
   public:
     using Writer = Dune::SubsamplingVTKWriter<typename VC::GridView>;
 
-    explicit VTKWriter(std::shared_ptr<VC> volumeConductor, unsigned int subsampling)
+    explicit VTKWriter(std::shared_ptr<const VC> volumeConductor, unsigned int subsampling)
         : writer_(volumeConductor->gridView(), subsampling), volumeConductor_(volumeConductor)
     {
     }
@@ -96,7 +96,7 @@ namespace duneuro
 
   private:
     Writer writer_;
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
   };
 }
 #endif // DUNEURO_VTK_WRITER_HH

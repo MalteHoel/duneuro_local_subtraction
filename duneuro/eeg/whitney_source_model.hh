@@ -93,11 +93,11 @@ public:
   using SearchType = typename BaseT::SearchType;
   using Vector = Eigen::VectorXd;
 
-  WhitneySourceModel(std::shared_ptr<VC> volumeConductor, const GFS &gfs,
+  WhitneySourceModel(std::shared_ptr<const VC> volumeConductor, const GFS &gfs,
                      Real referenceLength, bool restricted,
                      WhitneyFaceBased faceSources, WhitneyEdgeBased edgeSources,
                      std::string interpolation,
-                     std::shared_ptr<SearchType> search)
+                     std::shared_ptr<const SearchType> search)
       : BaseT(search), volumeConductor_(volumeConductor), gfs_(gfs),
         referenceLength_(referenceLength), restricted_(restricted),
         faceSources_(faceSources), edgeSources_(edgeSources),
@@ -107,8 +107,8 @@ public:
       DUNE_THROW(Dune::Exception, "please select at least some dipoles");
   }
 
-  WhitneySourceModel(std::shared_ptr<VC> volumeConductor, const GFS &gfs,
-                     std::shared_ptr<SearchType> search,
+  WhitneySourceModel(std::shared_ptr<const VC> volumeConductor, const GFS &gfs,
+                     std::shared_ptr<const SearchType> search,
                      const Dune::ParameterTree &params)
       : WhitneySourceModel(
             volumeConductor, gfs, params.get<Real>("referenceLength"),
@@ -461,7 +461,7 @@ public:
   }
 
 private:
-  std::shared_ptr<VC> volumeConductor_;
+  std::shared_ptr<const VC> volumeConductor_;
   const GFS &gfs_;
   const Real referenceLength_;
   const bool restricted_;

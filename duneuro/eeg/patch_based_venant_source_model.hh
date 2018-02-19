@@ -35,8 +35,8 @@ namespace duneuro
     using Element = typename GV::template Codim<0>::Entity;
     using SearchType = typename BaseT::SearchType;
 
-    PatchBasedVenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                                std::shared_ptr<SearchType> search,
+    PatchBasedVenantSourceModel(std::shared_ptr<const VC> volumeConductor, const GFS& gfs,
+                                std::shared_ptr<const SearchType> search,
                                 const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
@@ -105,7 +105,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
     MonopolarVenant<Real, dim> monopolarVenant_;

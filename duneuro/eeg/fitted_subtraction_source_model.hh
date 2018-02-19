@@ -33,8 +33,8 @@ namespace duneuro
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
 
-    FittedSubtractionSourceModel(std::shared_ptr<VC> volumeConductor, const FS& fs,
-                                 std::shared_ptr<SearchType> search,
+    FittedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor, const FS& fs,
+                                 std::shared_ptr<const SearchType> search,
                                  const Dune::ParameterTree& config,
                                  const Dune::ParameterTree& solverConfig)
         : BaseT(search)

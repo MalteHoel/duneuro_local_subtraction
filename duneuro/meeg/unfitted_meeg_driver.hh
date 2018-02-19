@@ -18,9 +18,9 @@
 #include <duneuro/common/udg_solver.hh>
 #include <duneuro/common/udg_solver_backend.hh>
 #include <duneuro/eeg/cutfem_source_model_factory.hh>
+#include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/eeg/udg_source_model_factory.hh>
-#include <duneuro/eeg/unfitted_eeg_forward_solver.hh>
 #include <duneuro/eeg/unfitted_transfer_matrix_solver.hh>
 #include <duneuro/eeg/unfitted_transfer_matrix_user.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
@@ -74,13 +74,12 @@ namespace duneuro
     using Solver = typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverType;
     using SourceModelFactory = typename SelectUnfittedSolver<solverType, dim, degree,
                                                              compartments>::SourceModelFactoryType;
-    using EEGForwardSolver = UnfittedEEGFowardSolver<Solver, SourceModelFactory>;
     using EEGTransferMatrixSolver = UnfittedTransferMatrixSolver<Solver>;
     using TransferMatrixUser = UnfittedTransferMatrixUser<Solver, SourceModelFactory>;
     using SolverBackend =
         typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
 
-    using DomainDOFVector = typename EEGForwardSolver::Traits::DomainDOFVector;
+    using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     static constexpr bool scaleToBBox()
     {
       return SelectUnfittedSolver<solverType, dim, degree, compartments>::scaleToBBox();
@@ -109,13 +108,13 @@ namespace duneuro
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement", false)))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(fundamentalGridView_))
-        , solver_(
-              std::make_shared<typename Traits::Solver>(subTriangulation_, config.sub("solver")))
+        , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, elementSearch_,
+                                                            config.sub("solver")))
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
         , eegTransferMatrixSolver_(subTriangulation_, solver_, Traits::scaleToBBox(),
                                    config.sub("solver"))
-        , eegForwardSolver_(subTriangulation_, solver_, elementSearch_, config.sub("solver"))
+        , eegForwardSolver_(solver_)
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
     }
@@ -147,7 +146,7 @@ namespace duneuro
 
     virtual std::unique_ptr<Function> makeDomainFunction() const override
     {
-      return Dune::Std::make_unique<Function>(make_domain_dof_vector(eegForwardSolver_, 0.0));
+      return Dune::Std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     }
 
     virtual void
@@ -155,7 +154,7 @@ namespace duneuro
                   const Dune::ParameterTree& config) override
     {
       projectedElectrodes_ = Dune::Std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
-          electrodes, eegForwardSolver_.functionSpace().getGFS(), *subTriangulation_);
+          electrodes, solver_->functionSpace().getGFS(), *subTriangulation_);
       projectedGlobalElectrodes_.clear();
       for (unsigned int i = 0; i < projectedElectrodes_->size(); ++i) {
         projectedGlobalElectrodes_.push_back(projectedElectrodes_->projection(i));
@@ -165,10 +164,10 @@ namespace duneuro
     virtual std::vector<double> evaluateAtElectrodes(const Function& solution) const override
     {
       checkElectrodes();
-      using OuterGFS = Dune::PDELab::GridFunctionSubSpace<
-          typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
-          Dune::TypeTree::TreePath<0>>;
-      OuterGFS outerGfs(eegForwardSolver_.functionSpace().getGFS());
+      using OuterGFS =
+          Dune::PDELab::GridFunctionSubSpace<typename Traits::Solver::Traits::FunctionSpace::GFS,
+                                             Dune::TypeTree::TreePath<0>>;
+      OuterGFS outerGfs(solver_->functionSpace().getGFS());
       return projectedElectrodes_->evaluate(outerGfs,
                                             solution.cast<typename Traits::DomainDOFVector>());
     }
@@ -186,14 +185,12 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
+        RefinedVTKWriter<typename Traits::Solver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
-                      Traits::scaleToBBox());
-        vtkWriter.addVertexData(eegForwardSolver_,
-                                solution.cast<typename Traits::DomainDOFVector>(), "potential");
-        vtkWriter.addVertexDataGradient(eegForwardSolver_,
-                                        solution.cast<typename Traits::DomainDOFVector>(),
+            vtkWriter(subTriangulation_, solver_->functionSpace().getGFS(), Traits::scaleToBBox());
+        vtkWriter.addVertexData(*solver_, solution.cast<typename Traits::DomainDOFVector>(),
+                                "potential");
+        vtkWriter.addVertexDataGradient(*solver_, solution.cast<typename Traits::DomainDOFVector>(),
                                         "gradient_potential");
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
@@ -218,10 +215,9 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        RefinedVTKWriter<typename Traits::EEGForwardSolver::Traits::FunctionSpace::GFS,
+        RefinedVTKWriter<typename Traits::Solver::Traits::FunctionSpace::GFS,
                          typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, eegForwardSolver_.functionSpace().getGFS(),
-                      Traits::scaleToBBox());
+            vtkWriter(subTriangulation_, solver_->functionSpace().getGFS(), Traits::scaleToBBox());
         vtkWriter.addVertexData(
             std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
                 fundamentalGridView_, conductivities_));
@@ -386,7 +382,8 @@ namespace duneuro
     typename Traits::SolverBackend solverBackend_;
 #endif
     typename Traits::EEGTransferMatrixSolver eegTransferMatrixSolver_;
-    typename Traits::EEGForwardSolver eegForwardSolver_;
+    EEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
+        eegForwardSolver_;
     std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>>
         projectedGlobalElectrodes_;

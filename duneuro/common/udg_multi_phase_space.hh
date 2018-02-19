@@ -42,7 +42,7 @@ namespace duneuro
     typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE, OrderingTag> GFS;
     typedef typename Dune::PDELab::Backend::Vector<GFS, N> DOF;
 
-    UDGQkMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
+    UDGQkMultiPhaseSpace(const GV& gv, std::shared_ptr<const SubTriangulation> subTriangulation)
         : gridView_(gv), entitySet_(gridView_), subTriangulation_(subTriangulation)
     {
       for (unsigned int i = 0; i < phases; ++i) {
@@ -71,7 +71,7 @@ namespace duneuro
   private:
     GV gridView_;
     Dune::PDELab::AllEntitySet<GV> entitySet_;
-    std::shared_ptr<SubTriangulation> subTriangulation_;
+    std::shared_ptr<const SubTriangulation> subTriangulation_;
     LFE lfe_;
     std::array<std::shared_ptr<FEM>, phases> fems_;
     std::array<std::shared_ptr<DomainGFS>, phases> domainGfss_;

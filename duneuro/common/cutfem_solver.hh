@@ -14,6 +14,7 @@
 #include <duneuro/common/cutfem_gridoperator.hh>
 #include <duneuro/common/cutfem_multi_phase_space.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/kdtree.hh>
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/random.hh>
@@ -25,6 +26,8 @@ namespace duneuro
   struct CutFEMSolverTraits {
     using SubTriangulation = ST;
     using FundamentalGridView = typename ST::BaseT::GridView;
+    using CoordinateFieldType = typename FundamentalGridView::ctype;
+    using ElementSearch = KDTreeElementSearch<FundamentalGridView>;
     static const int dimension = FundamentalGridView::dimension;
     static const int compartments = comps;
     using Problem = P;
@@ -58,18 +61,22 @@ namespace duneuro
   public:
     using Traits = CutFEMSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
-    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+                 std::shared_ptr<const typename Traits::ElementSearch> search,
                  const Dune::ParameterTree& config)
-        : CutFEMSolver(subTriangulation, std::make_shared<typename Traits::Problem>(
-                                             config.get<std::vector<double>>("conductivities")),
+        : CutFEMSolver(subTriangulation, search,
+                       std::make_shared<typename Traits::Problem>(
+                           config.get<std::vector<double>>("conductivities")),
                        config)
     {
     }
 
-    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+                 std::shared_ptr<const typename Traits::ElementSearch> search,
                  std::shared_ptr<typename Traits::Problem> problem,
                  const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
+        , search_(search)
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
@@ -116,14 +123,19 @@ namespace duneuro
       return functionSpace_;
     }
 
-    const typename Traits::SubTriangulation& subTriangulation() const
+    std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation() const
     {
-      return *subTriangulation_;
+      return subTriangulation_;
     }
 
     typename Traits::Problem& problem()
     {
       return *problem_;
+    }
+
+    std::shared_ptr<const typename Traits::ElementSearch> elementSearch() const
+    {
+      return search_;
     }
 
 #if HAVE_TBB
@@ -134,7 +146,8 @@ namespace duneuro
 #endif
 
   private:
-    std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<const typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;

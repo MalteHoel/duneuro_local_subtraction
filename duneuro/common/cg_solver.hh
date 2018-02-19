@@ -7,6 +7,7 @@
 #include <duneuro/common/assembler.hh>
 #include <duneuro/common/convection_diffusion_cg_default_parameter.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/kdtree.hh>
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/random.hh>
@@ -38,6 +39,8 @@ namespace duneuro
   struct CGSolverTraits {
     static const int dimension = VC::dim;
     using VolumeConductor = VC;
+    using CoordinateFieldType = typename VC::ctype;
+    using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
     using Problem = ConvectionDiffusionCGDefaultParameter<VC>;
     using DirichletExtension = Dune::PDELab::ConvectionDiffusionDirichletExtensionAdapter<Problem>;
     using BoundaryCondition = Dune::PDELab::ConvectionDiffusionBoundaryConditionAdapter<Problem>;
@@ -59,12 +62,17 @@ namespace duneuro
   public:
     using Traits = CGSolverTraits<VC, elementType, degree, DF, RF, JF>;
 
-    CGSolver(std::shared_ptr<VC> volumeConductor, const Dune::ParameterTree& config,
-             DataTree dataTree = DataTree())
-        : problem_(volumeConductor)
+    CGSolver(std::shared_ptr<const VC> volumeConductor,
+             std::shared_ptr<const typename Traits::ElementSearch> search,
+             const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+        : volumeConductor_(volumeConductor)
+        , search_(search)
+        , problem_(volumeConductor)
         , dirichletExtension_(volumeConductor->gridView(), problem_)
         , boundaryCondition_(volumeConductor->gridView(), problem_)
-        , functionSpace_(volumeConductor->grid(), boundaryCondition_)
+        , functionSpace_(const_cast<typename VC::GridType&>(volumeConductor->grid()),
+                         boundaryCondition_)
+        // const_cast due to misused non-const reference in pdelab boilerplate
         , localOperator_(problem_, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
@@ -91,7 +99,19 @@ namespace duneuro
       return functionSpace_;
     }
 
+    std::shared_ptr<const typename Traits::VolumeConductor> volumeConductor() const
+    {
+      return volumeConductor_;
+    }
+
+    std::shared_ptr<const typename Traits::ElementSearch> elementSearch() const
+    {
+      return search_;
+    }
+
   private:
+    std::shared_ptr<const typename Traits::VolumeConductor> volumeConductor_;
+    std::shared_ptr<const typename Traits::ElementSearch> search_;
     typename Traits::Problem problem_;
     typename Traits::DirichletExtension dirichletExtension_;
     typename Traits::BoundaryCondition boundaryCondition_;

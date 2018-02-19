@@ -12,7 +12,7 @@ namespace duneuro
     using GV = typename VC::GridType::LeafGridView;
     using Traits = Dune::PDELab::ConvectionDiffusionParameterTraits<GV, typename GV::ctype>;
 
-    explicit ConvectionDiffusionCGDefaultParameter(std::shared_ptr<VC> volumeConductor)
+    explicit ConvectionDiffusionCGDefaultParameter(std::shared_ptr<const VC> volumeConductor)
         : volumeConductor_(volumeConductor)
     {
       assert(volumeConductor_);
@@ -74,7 +74,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
   };
 }
 

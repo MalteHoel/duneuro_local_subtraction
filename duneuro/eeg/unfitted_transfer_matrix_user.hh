@@ -51,12 +51,10 @@ namespace duneuro
       density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config,
-            solverConfig);
+            *solver_, config, solverConfig);
       } else {
         denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
-            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config,
-            solverConfig);
+            *solver_, config, solverConfig);
       }
     }
 

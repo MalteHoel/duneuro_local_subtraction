@@ -37,7 +37,7 @@ namespace duneuro
     using ElementType = typename GV::template Codim<0>::Entity;
     using SearchType = KDTreeElementSearch<GV>;
 
-    explicit SourceModelBase(std::shared_ptr<SearchType> search) : search_(search)
+    explicit SourceModelBase(std::shared_ptr<const SearchType> search) : search_(search)
     {
     }
 
@@ -84,7 +84,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<SearchType> search_;
+    std::shared_ptr<const SearchType> search_;
     std::shared_ptr<DipoleType> dipole_;
     ElementType dipoleElement_;
     CoordinateType localDipolePosition_;

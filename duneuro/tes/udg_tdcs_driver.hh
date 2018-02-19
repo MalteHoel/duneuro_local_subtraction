@@ -23,6 +23,7 @@ namespace duneuro
     using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
     using GridView = typename Grid::LevelGridView;
     using SubTriangulation = Dune::UDG::SimpleTpmcTriangulation<GridView, GridView>;
+    using ElementSearch = KDTreeElementSearch<GridView>;
     using Problem = TDCSPatchUDGParameter<GridView>;
     using Solver = UDGSolver<SubTriangulation, compartments, degree, Problem>;
     using SolverBackend = UDGSolverBackend<Solver>;
@@ -55,8 +56,9 @@ namespace duneuro
               config.get<bool>("udg.force_refinement", false)))
         , problem_(std::make_shared<typename Traits::Problem>(
               config_.get<std::vector<double>>("solver.conductivities"), patchSet))
-        , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, problem_,
-                                                            config.sub("solver")))
+        , elementSearch_(std::make_shared<typename Traits::ElementSearch>(fundamentalGridView_))
+        , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, elementSearch_,
+                                                            problem_, config.sub("solver")))
         , solverBackend_(std::make_shared<typename Traits::SolverBackend>(
               solver_, config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
@@ -134,6 +136,7 @@ namespace duneuro
     typename Traits::GridView levelSetGridView_;
     SimpleTPMCDomain<typename Traits::GridView, typename Traits::GridView> domain_;
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<typename Traits::ElementSearch> elementSearch_;
     std::shared_ptr<typename Traits::Problem> problem_;
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::SolverBackend> solverBackend_;

@@ -45,8 +45,8 @@ namespace duneuro
     using RangeType = typename BasisSwitch::Range;
     using DOFIndex = typename GFS::Ordering::Traits::DOFIndex;
 
-    TruncatedSpatialVenantSourceModel(std::shared_ptr<VC> volumeConductor, const GFS& gfs,
-                                      std::shared_ptr<SearchType> search,
+    TruncatedSpatialVenantSourceModel(std::shared_ptr<const VC> volumeConductor, const GFS& gfs,
+                                      std::shared_ptr<const SearchType> search,
                                       const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
@@ -105,7 +105,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
     VertexMapper vertexMapper_;

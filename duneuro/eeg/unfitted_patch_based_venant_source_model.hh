@@ -37,8 +37,8 @@ namespace duneuro
     using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
     using SearchType = typename BaseT::SearchType;
 
-    UnfittedPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
-                                        std::shared_ptr<typename BaseT::SearchType> search,
+    UnfittedPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<const ST> subTriangulation,
+                                        std::shared_ptr<const typename BaseT::SearchType> search,
                                         std::size_t child, const Dune::ParameterTree& params)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
@@ -123,7 +123,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<ST> subTriangulation_;
+    std::shared_ptr<const ST> subTriangulation_;
     std::size_t child_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;

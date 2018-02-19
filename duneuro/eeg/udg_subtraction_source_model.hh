@@ -42,8 +42,8 @@ namespace duneuro
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
 
-    UDGSubtractionSourceModel(const FS& fs, std::shared_ptr<ST> subTriangulation,
-                              std::shared_ptr<SearchType> search, unsigned int dipolePhase,
+    UDGSubtractionSourceModel(const FS& fs, std::shared_ptr<const ST> subTriangulation,
+                              std::shared_ptr<const SearchType> search, unsigned int dipolePhase,
                               const Dune::ParameterTree& config,
                               const Dune::ParameterTree& solverConfig)
         : BaseT(search)
@@ -95,7 +95,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<ST> subTriangulation_;
+    std::shared_ptr<const ST> subTriangulation_;
     Problem problem_;
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;

@@ -41,7 +41,7 @@ namespace duneuro
         GFS;
     typedef typename Dune::PDELab::Backend::Vector<GFS, N> DOF;
 
-    CutFEMMultiPhaseSpace(const GV& gv, std::shared_ptr<SubTriangulation> subTriangulation)
+    CutFEMMultiPhaseSpace(const GV& gv, std::shared_ptr<const SubTriangulation> subTriangulation)
         : gridView_(gv)
         , entitySet_(gridView_)
         , subTriangulation_(subTriangulation)
@@ -73,7 +73,7 @@ namespace duneuro
   private:
     GV gridView_;
     Dune::PDELab::AllEntitySet<GV> entitySet_;
-    std::shared_ptr<SubTriangulation> subTriangulation_;
+    std::shared_ptr<const SubTriangulation> subTriangulation_;
     LFE lfe_;
     std::array<std::shared_ptr<FEM>, phases> fems_;
     std::array<std::shared_ptr<DomainGFS>, phases> domainGfss_;
