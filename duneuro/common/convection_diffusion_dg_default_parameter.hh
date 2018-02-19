@@ -12,7 +12,7 @@ namespace duneuro
   {
   public:
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
-    typedef typename VC::GridType::LeafGridView GV;
+    typedef typename VC::GridView GV;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, typename GV::ctype> Traits;
 
     explicit ConvectionDiffusion_DG_DefaultParameter(std::shared_ptr<VC> volumeConductor)

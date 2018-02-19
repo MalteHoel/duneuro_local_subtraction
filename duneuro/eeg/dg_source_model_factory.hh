@@ -4,10 +4,10 @@
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/exceptions.hh>
+#include <duneuro/eeg/fitted_subtraction_source_model.hh>
 #include <duneuro/eeg/localized_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/eeg/subtraction_source_model.hh>
 
 namespace duneuro
 {
@@ -29,10 +29,10 @@ namespace duneuro
                                                     V>>(
                 volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
-        return std::make_shared<SubtractionSourceModel<typename Solver::Traits::VolumeConductor,
-                                                       typename Solver::Traits::FunctionSpace, V,
-                                                       SubtractionContinuityType::discontinuous>>(
-            volumeConductor, solver.functionSpace(), search, config, solverConfig);
+        return std::make_shared<FittedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V,
+            SubtractionContinuityType::discontinuous>>(volumeConductor, solver.functionSpace(),
+                                                       search, config, solverConfig);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(

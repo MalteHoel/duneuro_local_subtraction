@@ -4,15 +4,14 @@
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/exceptions.hh>
+#include <duneuro/eeg/fitted_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/patch_based_venant_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/spatial_venant_source_model.hh>
-#include <duneuro/eeg/subtraction_source_model.hh>
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
-
 
 namespace duneuro
 {
@@ -50,7 +49,7 @@ namespace duneuro
                                                                   Vector>>(
             volumeConductor, solver.functionSpace().getGFS(), search, config);
       } else if (type == "subtraction") {
-        return std::make_shared<SubtractionSourceModel<
+        return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
             Vector, SubtractionContinuityType::continuous>>(volumeConductor, solver.functionSpace(),
                                                             search, config, solverConfig);

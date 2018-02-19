@@ -1,58 +1,40 @@
-#ifndef DUNEURO_SUBTRACTION_DG_DEFAULT_PARAMETER_HH
-#define DUNEURO_SUBTRACTION_DG_DEFAULT_PARAMETER_HH
+#ifndef DUNEURO_SUBTRACTION_UDG_DEFAULT_PARAMETER_HH
+#define DUNEURO_SUBTRACTION_UDG_DEFAULT_PARAMETER_HH
 
-/*
- * problemdata.hh
- *
- *	Parameter class that contains the necessary parameter functions and values for the
- *simulation.
- *	This class does not contain the parameters for multiple dipoles, rather it is updated for
- *each
- *	dipole.
- *
- *  Created on: Apr 25, 2013
- *      Author: jakob
- */
-
-/**** includes ****/
-#include <dune/common/timer.hh>
 #include <dune/pdelab/localoperator/convectiondiffusionparameter.hh>
 
-/**** our includes ****/
-#include <duneuro/common/convection_diffusion_dg_default_parameter.hh>
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
+#include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/eeg/subtraction_dg_uinfty.hh>
 
 namespace duneuro
 {
-  /**** class definition ****/
-  template <typename GV, typename RF, typename VC>
-  class SubtractionDGDefaultParameter : public ConvectionDiffusion_DG_DefaultParameter<VC>
+  template <typename GV, typename RF>
+  class SubtractionUDGDefaultParameter : public ConvectionDiffusion_UDG_DefaultParameter<GV>
   {
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
 
   public:
-    /*** Typedefs ***/
-    using BaseT = ConvectionDiffusion_DG_DefaultParameter<VC>;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
-    typedef typename Traits::GridViewType::Traits::IndexSet IndexSet;
-    typedef typename Traits::GridViewType::Traits::Grid GridType;
+    using BaseT = ConvectionDiffusion_UDG_DefaultParameter<GV>;
 
-    /*** Constructor ***/
-    SubtractionDGDefaultParameter(const typename Traits::GridViewType& gv_,
-                                  std::shared_ptr<VC> volumeConductor)
-        : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
+    explicit SubtractionUDGDefaultParameter(const GV& gv_,
+                                            const std::vector<double>& conductivities,
+                                            unsigned int dipolePhase)
+        : BaseT(conductivities), gv(gv_), dipolePhase_(dipolePhase), u_infty(gv), grad_u_infty(gv)
     {
     }
 
-    typename Traits::RangeFieldType j(const typename Traits::IntersectionType& e,
-                                      const typename Traits::IntersectionDomainType& x)
+    /** Neumann boundary condition **/
+    template <class IG>
+    typename Traits::RangeFieldType j(const IG& ig,
+                                      const typename Traits::IntersectionDomainType& local) const
     {
       /* map position on the intersection x(2D coordinates) to global position global_x in
        * the grid(3D coordinates) for evaluation of graduinfty.
        */
-      typename Traits::DomainType global_x = e.geometry().global(x);
+      typename Traits::DomainType global_x = ig.geometry().global(local);
 
       /* evaluate graduinfty*/
       Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> graduinfty;
@@ -66,11 +48,12 @@ namespace duneuro
 
       /* normal vector at the integration point */
       Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> normal =
-          e.unitOuterNormal(x);
+          ig.unitOuterNormal(local);
 
       return temp * normal;
     }
 
+    /** evaluate graduinfty and uinfty at global coordinates **/
     typename Traits::RangeType get_grad_u_infty(const typename Traits::DomainType& x) const
     {
       typename Traits::RangeType ret;
@@ -95,18 +78,13 @@ namespace duneuro
       return sigma_infty_inv;
     }
 
-    typename Traits::GridViewType& get_gridview()
-    {
-      return gv;
-    }
-
     /** set the the dipole position and moment **/
     void bind(const typename Traits::ElementType& element,
               const typename Traits::DomainType& localDipolePosition,
               const typename Traits::DomainType& dipoleMoment)
     {
       /* find the new source's surrounding and the conductivity in it */
-      sigma_infty = this->A(element, localDipolePosition);
+      sigma_infty = this->A(dipolePhase_);
       sigma_infty_inv = sigma_infty;
       sigma_infty_inv.invert();
 
@@ -124,8 +102,8 @@ namespace duneuro
     }
 
   private:
-    /*** gridview ***/
-    typename Traits::GridViewType gv;
+    GV gv;
+    unsigned int dipolePhase_;
 
     /*** the parameters for the forward simulation(dipole moment, position, etc.) ***/
     typename Traits::PermTensorType sigma_infty;
@@ -138,4 +116,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_SUBTRACTION_DG_DEFAULT_PARAMETER_HH
+#endif // DUNEURO_SUBTRACTION_UDG_DEFAULT_PARAMETER_HH
