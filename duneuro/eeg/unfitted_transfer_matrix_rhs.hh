@@ -11,96 +11,64 @@
 #include <dune/udg/pdelab/assembler/ulocalfunctionspace.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
 
+#include <duneuro/eeg/transfer_matrix_rhs_interface.hh>
+
 namespace duneuro
 {
   template <class GFS, class ST>
   class UnfittedTransferMatrixRHS
+      : public TransferMatrixRHSInterface<
+            typename GFS::Traits::GridViewType,
+            Dune::PDELab::Backend::Vector<GFS, typename GFS::Traits::GridViewType::ctype>>
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
+    using BaseT = TransferMatrixRHSInterface<GV, Dune::PDELab::Backend::Vector<GFS, Real>>;
     using Coordinate = Dune::FieldVector<Real, dim>;
-    using Element = typename GV::template Codim<0>::Entity;
-    using DOFVector = Dune::PDELab::Backend::Vector<GFS, Real>;
+    using LocalCoordinate = typename BaseT::LocalCoordinate;
+    using Element = typename BaseT::Element;
+    using VectorType = typename BaseT::VectorType;
     using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
+    using ChildLFS = typename ULFS::template Child<0>::Type;
+    using FESwitch =
+        Dune::FiniteElementInterfaceSwitch<typename ChildLFS::Traits::FiniteElementType>;
+    using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
+    using RangeType = typename BasisSwitch::Range;
 
     UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child,
                               bool scaleToBBox)
-        : st_(st), gfs_(gfs), child_(child), scaleToBBox_(scaleToBBox)
+        : st_(st)
+        , gfs_(gfs)
+        , child_(child)
+        , scaleToBBox_(scaleToBBox)
+        , ulfsReference_(gfs_)
+        , cacheReference_(ulfsReference_)
+        , ulfsElectrode_(gfs_)
+        , cacheElectrode_(ulfsElectrode_)
     {
     }
 
-    void assembleRightHandSide(const Element& referenceElement, const Coordinate& referenceLocal,
-                               const Element& electrodeElement, const Coordinate& electrodeLocal,
-                               DOFVector& output)
+    virtual void bind(const Element& referenceElement, const LocalCoordinate& referenceLocal,
+                      const Element& electrodeElement,
+                      const LocalCoordinate& electrodeLocal) override
     {
-      using ChildLFS = typename ULFS::template Child<0>::Type;
-      using FESwitch =
-          Dune::FiniteElementInterfaceSwitch<typename ChildLFS::Traits::FiniteElementType>;
-      using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
-      using RangeType = typename BasisSwitch::Range;
+      bind(ulfsReference_, cacheReference_, phiReference_, referenceElement, referenceLocal);
+      bind(ulfsElectrode_, cacheElectrode_, phiElectrode_, electrodeElement, electrodeLocal);
+    }
 
-      UST ust(st_->gridView(), *st_);
-
-      ULFS ulfs(gfs_);
-      UCache ucache(ulfs);
-
-      ChildLFS& childLfs = ulfs.child(child_);
-
-      ust.create(electrodeElement);
-      if (ust.begin() == ust.end()) {
-        DUNE_THROW(Dune::Exception, "subtriangulation has no parts");
+    virtual void assembleRightHandSide(VectorType& output) const override
+    {
+      const ChildLFS& childElectrode = ulfsElectrode_.child(child_);
+      for (unsigned int i = 0; i < childElectrode.size(); ++i) {
+        output[cacheElectrode_.containerIndex(childElectrode.localIndex(i))] = phiElectrode_[i];
       }
-
-      for (const auto& ep : ust) {
-        if (ep.domainIndex() != child_)
-          continue;
-        ulfs.bind(ep.subEntity(), true);
-        ucache.update();
-        FESwitch::basis(childLfs.finiteElement()).reset();
-
-        if (childLfs.size() == 0) {
-          DUNE_THROW(Dune::Exception, "child lfs has zero size");
-        }
-
-        std::vector<RangeType> phi(childLfs.size());
-        auto local =
-            scaleToBBox_ ?
-                ep.boundingBox().local(electrodeElement.geometry().global(electrodeLocal)) :
-                electrodeLocal;
-        FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
-
-        for (unsigned int i = 0; i < childLfs.size(); ++i) {
-          output[ucache.containerIndex(childLfs.localIndex(i))] = phi[i];
-        }
-        break;
-      }
-
-      ust.create(referenceElement);
-
-      for (const auto& ep : ust) {
-        if (ep.domainIndex() != child_)
-          continue;
-        ulfs.bind(ep.subEntity(), true);
-        ucache.update();
-        FESwitch::basis(childLfs.finiteElement()).reset();
-
-        assert(childLfs.size() > 0);
-
-        std::vector<RangeType> phi(childLfs.size());
-        auto local =
-            scaleToBBox_ ?
-                ep.boundingBox().local(referenceElement.geometry().global(referenceLocal)) :
-                referenceLocal;
-        FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
-
-        for (unsigned int i = 0; i < childLfs.size(); ++i) {
-          output[ucache.containerIndex(childLfs.localIndex(i))] -= phi[i];
-        }
-        break;
+      const ChildLFS& childReference = ulfsReference_.child(child_);
+      for (unsigned int i = 0; i < childReference.size(); ++i) {
+        output[cacheReference_.containerIndex(childReference.localIndex(i))] -= phiReference_[i];
       }
     }
 
@@ -109,6 +77,38 @@ namespace duneuro
     const GFS& gfs_;
     std::size_t child_;
     bool scaleToBBox_;
+    ULFS ulfsReference_;
+    UCache cacheReference_;
+    std::vector<RangeType> phiReference_;
+    ULFS ulfsElectrode_;
+    UCache cacheElectrode_;
+    std::vector<RangeType> phiElectrode_;
+
+    void bind(ULFS& ulfs, UCache& ucache, std::vector<RangeType>& phi, const Element& element,
+              const LocalCoordinate& local)
+    {
+      UST ust(st_->gridView(), *st_);
+      ChildLFS& childLfs = ulfs.child(child_);
+      ust.create(element);
+      if (ust.begin() == ust.end()) {
+        DUNE_THROW(Dune::Exception, "subtriangulation has no parts");
+      }
+      for (const auto& ep : ust) {
+        if (ep.domainIndex() != child_)
+          continue;
+        ulfs.bind(ep.subEntity(), true);
+        ucache.update();
+        FESwitch::basis(childLfs.finiteElement()).reset();
+        if (childLfs.size() == 0) {
+          DUNE_THROW(Dune::Exception, "child lfs has zero size");
+        }
+        phi.resize(childLfs.size());
+        auto felocal =
+            scaleToBBox_ ? ep.boundingBox().local(element.geometry().global(local)) : local;
+        FESwitch::basis(childLfs.finiteElement()).evaluateFunction(felocal, phi);
+        break;
+      }
+    }
   };
 }
 

@@ -129,9 +129,9 @@ namespace duneuro
       rightHandSideVector = 0.0;
       TransferMatrixRHS<typename Traits::FunctionSpace::GFS> rhsAssembler(
           solver_->functionSpace().getGFS());
-      rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
-                                         electrode.element, electrode.localPosition,
-                                         rightHandSideVector);
+      rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
+                        electrode.localPosition);
+      rhsAssembler.assembleRightHandSide(rightHandSideVector);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();

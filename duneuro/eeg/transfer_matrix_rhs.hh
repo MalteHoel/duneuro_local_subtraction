@@ -7,60 +7,74 @@
 #include <dune/pdelab/gridfunctionspace/lfsindexcache.hh>
 #include <dune/pdelab/gridfunctionspace/localfunctionspace.hh>
 
+#include <duneuro/eeg/transfer_matrix_rhs_interface.hh>
+
 namespace duneuro
 {
   template <class GFS>
   class TransferMatrixRHS
+      : public TransferMatrixRHSInterface<
+            typename GFS::Traits::GridViewType,
+            Dune::PDELab::Backend::Vector<GFS, typename GFS::Traits::GridViewType::ctype>>
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
-    using Coordinate = Dune::FieldVector<Real, dim>;
-    using Element = typename GV::template Codim<0>::Entity;
-    using DOFVector = Dune::PDELab::Backend::Vector<GFS, Real>;
+    using BaseT = TransferMatrixRHSInterface<GV, Dune::PDELab::Backend::Vector<GFS, Real>>;
+    using LocalCoordinate = typename BaseT::LocalCoordinate;
+    using Element = typename BaseT::Element;
+    using VectorType = typename BaseT::VectorType;
     using LFS = Dune::PDELab::LocalFunctionSpace<GFS>;
     using Cache = Dune::PDELab::LFSIndexCache<LFS>;
+    using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
+    using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
+    using RangeType = typename BasisSwitch::Range;
 
-    TransferMatrixRHS(const GFS& gfs) : gfs_(gfs)
+    TransferMatrixRHS(const GFS& gfs)
+        : gfs_(gfs)
+        , lfsReference_(gfs_)
+        , cacheReference_(lfsReference_)
+        , lfsElectrode_(gfs_)
+        , cacheElectrode_(lfsElectrode_)
     {
     }
 
-    void assembleRightHandSide(const Element& referenceElement, const Coordinate& referenceLocal,
-                               const Element& electrodeElement, const Coordinate& electrodeLocal,
-                               DOFVector& output)
+    virtual void bind(const Element& referenceElement, const LocalCoordinate& referenceLocal,
+                      const Element& electrodeElement,
+                      const LocalCoordinate& electrodeLocal) override
     {
-      using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
-      using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
-      using RangeType = typename BasisSwitch::Range;
+      bind(lfsReference_, cacheReference_, phiReference_, referenceElement, referenceLocal);
+      bind(lfsElectrode_, cacheElectrode_, phiElectrode_, electrodeElement, electrodeLocal);
+    }
 
-      // evaluate basis functions at reference position
-      LFS lfs(gfs_);
-      Cache cache(lfs);
-      lfs.bind(electrodeElement);
-      cache.update();
-
-      std::vector<RangeType> phi(lfs.size());
-      FESwitch::basis(lfs.finiteElement()).evaluateFunction(electrodeLocal, phi);
-
-      for (unsigned int i = 0; i < lfs.size(); ++i) {
-        output[cache.containerIndex(i)] = phi[i];
+    virtual void assembleRightHandSide(VectorType& output) const override
+    {
+      for (unsigned int i = 0; i < cacheElectrode_.size(); ++i) {
+        output[cacheElectrode_.containerIndex(i)] = phiElectrode_[i];
       }
-
-      // evaluate basis functions at electrode
-      lfs.bind(referenceElement);
-      cache.update();
-
-      phi.resize(lfs.size());
-      FESwitch::basis(lfs.finiteElement()).evaluateFunction(referenceLocal, phi);
-
-      for (unsigned int i = 0; i < lfs.size(); ++i) {
-        output[cache.containerIndex(i)] -= phi[i];
+      for (unsigned int i = 0; i < cacheReference_.size(); ++i) {
+        output[cacheReference_.containerIndex(i)] -= phiReference_[i];
       }
     }
 
   private:
     const GFS& gfs_;
+    LFS lfsReference_;
+    Cache cacheReference_;
+    std::vector<RangeType> phiReference_;
+    LFS lfsElectrode_;
+    Cache cacheElectrode_;
+    std::vector<RangeType> phiElectrode_;
+
+    void bind(LFS& lfs, Cache& cache, std::vector<RangeType>& phi, const Element& element,
+              const LocalCoordinate& local)
+    {
+      lfs.bind(element);
+      cache.update();
+      phi.resize(lfs.size());
+      FESwitch::basis(lfs.finiteElement()).evaluateFunction(local, phi);
+    }
   };
 }
 

@@ -124,16 +124,16 @@ namespace duneuro
           rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
                        config.get<std::size_t>("compartment"), scaleToBBox_);
 #if HAVE_TBB
-      {
+      { // mutex, as the finite element map is not thread safe
         tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
-                                           electrode.element, electrode.localPosition,
-                                           rightHandSideVector);
+        rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
+                          electrode.localPosition);
       }
+      rhsAssembler.assembleRightHandSide(rightHandSideVector);
 #else
-      rhsAssembler.assembleRightHandSide(reference.element, reference.localPosition,
-                                         electrode.element, electrode.localPosition,
-                                         rightHandSideVector);
+      rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
+                        electrode.localPosition);
+      rhsAssembler.assembleRightHandSide(rightHandSideVector);
 #endif
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
