@@ -12,7 +12,8 @@
 namespace duneuro
 {
   template <class GFS, class V>
-  class TransferMatrixRHS : public TransferMatrixRHSInterface<typename GFS::Traits::GridViewType, V>
+  class FittedPointTransferMatrixRHS
+      : public TransferMatrixRHSInterface<typename GFS::Traits::GridViewType, V>
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
@@ -28,7 +29,7 @@ namespace duneuro
     using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
     using RangeType = typename BasisSwitch::Range;
 
-    TransferMatrixRHS(const GFS& gfs)
+    FittedPointTransferMatrixRHS(const GFS& gfs)
         : gfs_(gfs)
         , lfsReference_(gfs_)
         , cacheReference_(lfsReference_)

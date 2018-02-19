@@ -5,7 +5,6 @@
 
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/projection_utilities.hh>
-#include <duneuro/eeg/unfitted_transfer_matrix_rhs.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro

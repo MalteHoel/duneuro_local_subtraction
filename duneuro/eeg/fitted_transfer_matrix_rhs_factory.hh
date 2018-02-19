@@ -3,7 +3,7 @@
 
 #include <dune/common/parametertree.hh>
 
-#include <duneuro/eeg/transfer_matrix_rhs.hh>
+#include <duneuro/eeg/fitted_point_transfer_matrix_rhs.hh>
 #include <duneuro/eeg/transfer_matrix_rhs_interface.hh>
 
 namespace duneuro
@@ -16,8 +16,8 @@ namespace duneuro
     {
       auto type = config.get<std::string>("type", "point");
       if (type == "point") {
-        return std::make_unique<TransferMatrixRHS<typename Solver::Traits::FunctionSpace::GFS,
-                                                  Vector>>(solver.functionSpace().getGFS());
+        return std::make_unique<FittedPointTransferMatrixRHS<
+            typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS());
       } else {
         DUNE_THROW(Dune::Exception, "unknown transfer matrix type \"" << type << "\"");
       }

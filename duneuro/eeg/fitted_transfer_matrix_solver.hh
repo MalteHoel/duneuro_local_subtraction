@@ -7,7 +7,6 @@
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/eeg/electrode_projection_interface.hh>
-#include <duneuro/eeg/transfer_matrix_rhs.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro

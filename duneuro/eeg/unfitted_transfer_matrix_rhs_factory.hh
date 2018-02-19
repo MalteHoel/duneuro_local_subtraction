@@ -4,7 +4,7 @@
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/eeg/transfer_matrix_rhs_interface.hh>
-#include <duneuro/eeg/unfitted_transfer_matrix_rhs.hh>
+#include <duneuro/eeg/unfitted_point_transfer_matrix_rhs.hh>
 
 namespace duneuro
 {
@@ -16,7 +16,7 @@ namespace duneuro
     {
       auto type = config.get<std::string>("type", "point");
       if (type == "point") {
-        return std::make_unique<UnfittedTransferMatrixRHS<
+        return std::make_unique<UnfittedPointTransferMatrixRHS<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
                      config.get<std::size_t>("compartment"), solver.scaleToBBox());

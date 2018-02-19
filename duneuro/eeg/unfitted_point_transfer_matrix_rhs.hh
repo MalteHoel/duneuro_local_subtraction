@@ -16,7 +16,7 @@
 namespace duneuro
 {
   template <class GFS, class ST, class V>
-  class UnfittedTransferMatrixRHS
+  class UnfittedPointTransferMatrixRHS
       : public TransferMatrixRHSInterface<typename GFS::Traits::GridViewType, V>
   {
   public:
@@ -37,8 +37,8 @@ namespace duneuro
     using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
     using RangeType = typename BasisSwitch::Range;
 
-    UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<const ST> st, std::size_t child,
-                              bool scaleToBBox)
+    UnfittedPointTransferMatrixRHS(const GFS& gfs, std::shared_ptr<const ST> st, std::size_t child,
+                                   bool scaleToBBox)
         : st_(st)
         , gfs_(gfs)
         , child_(child)
