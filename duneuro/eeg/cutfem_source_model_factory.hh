@@ -17,7 +17,8 @@ namespace duneuro
     createDense(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
+        const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
@@ -36,7 +37,8 @@ namespace duneuro
     createSparse(
         const Solver& solver, std::shared_ptr<ST> subTriangulation,
         std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config)
+        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
+        const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {

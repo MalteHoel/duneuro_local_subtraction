@@ -7,6 +7,7 @@
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
 #include <duneuro/eeg/subtraction_udg_default_parameter.hh>
@@ -26,7 +27,9 @@ namespace duneuro
     enum { dim = GV::dimension };
     using Problem = SubtractionUDGDefaultParameter<GV, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, SubtractionContinuityType::discontinuous>;
+    using PenaltyFluxWeighting = UnfittedDynamicPenaltyFluxWeights;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting,
+                              SubtractionContinuityType::discontinuous>;
     using WLOP = Dune::UDG::MultiPhaseLocalOperatorWrapper<LOP>;
     using DOF = typename FS::DOF;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GV>;
@@ -48,10 +51,9 @@ namespace duneuro
         , problem_(subTriangulation->gridView(),
                    solverConfig.get<std::vector<double>>("conductivities"), dipolePhase)
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
-        , lop_(problem_,
-               solverConfig.get<bool>("weights", true) ? ConvectionDiffusion_DG_Weights::weightsOn :
-                                                         ConvectionDiffusion_DG_Weights::weightsOff,
-               config.get<unsigned int>("intorderadd"), config.get<unsigned int>("intorderadd_lb"))
+        , weighting_(solverConfig.get<std::string>("weights", "tensorOnly"))
+        , lop_(problem_, weighting_, config.get<unsigned int>("intorderadd"),
+               config.get<unsigned int>("intorderadd_lb"))
         , wlop_(lop_)
         , ust_(subTriangulation->gridView(), *subTriangulation_)
         , gridOperator_(fs.getGFS(), fs.getGFS(), ust_, wlop_, MatrixBackend(2 * dim + 1))
@@ -96,6 +98,7 @@ namespace duneuro
     std::shared_ptr<ST> subTriangulation_;
     Problem problem_;
     EdgeNormProvider edgeNormProvider_;
+    PenaltyFluxWeighting weighting_;
     LOP lop_;
     WLOP wlop_;
     UnfittedSubTriangulation ust_;

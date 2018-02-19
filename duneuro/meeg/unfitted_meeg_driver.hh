@@ -371,9 +371,8 @@ namespace duneuro
       }
     }
 
-    UDGMEEGDriverData<dim> data_;
+    UnfittedMEEGDriverData<dim> data_;
     Dune::ParameterTree config_;
-    std::size_t numberOfThreads_;
     std::unique_ptr<typename Traits::Grid> grid_;
     typename Traits::GridView fundamentalGridView_;
     typename Traits::GridView levelSetGridView_;
