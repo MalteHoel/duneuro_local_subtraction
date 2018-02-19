@@ -21,6 +21,7 @@
 #include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/eeg/udg_source_model_factory.hh>
+#include <duneuro/eeg/unfitted_transfer_matrix_rhs_factory.hh>
 #include <duneuro/eeg/unfitted_transfer_matrix_solver.hh>
 #include <duneuro/eeg/unfitted_transfer_matrix_user.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
@@ -74,7 +75,8 @@ namespace duneuro
     using Solver = typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverType;
     using SourceModelFactory = typename SelectUnfittedSolver<solverType, dim, degree,
                                                              compartments>::SourceModelFactoryType;
-    using EEGTransferMatrixSolver = UnfittedTransferMatrixSolver<Solver>;
+    using TransferMatrixRHSFactory = UnfittedTransferMatrixRHSFactory;
+    using EEGTransferMatrixSolver = UnfittedTransferMatrixSolver<Solver, TransferMatrixRHSFactory>;
     using TransferMatrixUser = UnfittedTransferMatrixUser<Solver, SourceModelFactory>;
     using SolverBackend =
         typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
@@ -112,8 +114,7 @@ namespace duneuro
                                                             config.sub("solver")))
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
-        , eegTransferMatrixSolver_(subTriangulation_, solver_, Traits::scaleToBBox(),
-                                   config.sub("solver"))
+        , eegTransferMatrixSolver_(subTriangulation_, solver_, config.sub("solver"))
         , eegForwardSolver_(solver_)
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {

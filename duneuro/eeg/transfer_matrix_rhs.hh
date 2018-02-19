@@ -11,17 +11,14 @@
 
 namespace duneuro
 {
-  template <class GFS>
-  class TransferMatrixRHS
-      : public TransferMatrixRHSInterface<
-            typename GFS::Traits::GridViewType,
-            Dune::PDELab::Backend::Vector<GFS, typename GFS::Traits::GridViewType::ctype>>
+  template <class GFS, class V>
+  class TransferMatrixRHS : public TransferMatrixRHSInterface<typename GFS::Traits::GridViewType, V>
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
-    using BaseT = TransferMatrixRHSInterface<GV, Dune::PDELab::Backend::Vector<GFS, Real>>;
+    using BaseT = TransferMatrixRHSInterface<GV, V>;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
     using VectorType = typename BaseT::VectorType;

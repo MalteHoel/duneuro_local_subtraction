@@ -24,7 +24,7 @@ namespace duneuro
     using ProjectedPosition = duneuro::ProjectedPosition<Element, Coordinate>;
   };
 
-  template <class S>
+  template <class S, class RHSFactory>
   class UnfittedTransferMatrixSolver
   {
   public:
@@ -32,11 +32,9 @@ namespace duneuro
 
     UnfittedTransferMatrixSolver(
         std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-        std::shared_ptr<typename Traits::Solver> solver, bool scaleToBBox,
-        const Dune::ParameterTree& config)
+        std::shared_ptr<typename Traits::Solver> solver, const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
         , solver_(solver)
-        , scaleToBBox_(scaleToBBox)
         , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
         , config_(config)
     {
@@ -101,7 +99,6 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<typename Traits::Solver> solver_;
-    bool scaleToBBox_;
 #if HAVE_TBB
     tbb::enumerable_thread_specific<typename Traits::RangeDOFVector> rightHandSideVector_;
 #else
@@ -119,21 +116,19 @@ namespace duneuro
       Dune::Timer timer;
       rightHandSideVector = 0.0;
       // assemble right hand side
-      UnfittedTransferMatrixRHS<typename Traits::FunctionSpace::GFS,
-                                typename Traits::SubTriangulation>
-          rhsAssembler(solver_->functionSpace().getGFS(), subTriangulation_,
-                       config.get<std::size_t>("compartment"), scaleToBBox_);
+      auto rhsAssembler =
+          RHSFactory::template create<typename Traits::RangeDOFVector>(*solver_, config);
 #if HAVE_TBB
       { // mutex, as the finite element map is not thread safe
         tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
-                          electrode.localPosition);
+        rhsAssembler->bind(reference.element, reference.localPosition, electrode.element,
+                           electrode.localPosition);
       }
-      rhsAssembler.assembleRightHandSide(rightHandSideVector);
+      rhsAssembler->assembleRightHandSide(rightHandSideVector);
 #else
-      rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
-                        electrode.localPosition);
-      rhsAssembler.assembleRightHandSide(rightHandSideVector);
+      rhsAssembler->bind(reference.element, reference.localPosition, electrode.element,
+                         electrode.localPosition);
+      rhsAssembler->assembleRightHandSide(rightHandSideVector);
 #endif
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());

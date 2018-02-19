@@ -15,17 +15,15 @@
 
 namespace duneuro
 {
-  template <class GFS, class ST>
+  template <class GFS, class ST, class V>
   class UnfittedTransferMatrixRHS
-      : public TransferMatrixRHSInterface<
-            typename GFS::Traits::GridViewType,
-            Dune::PDELab::Backend::Vector<GFS, typename GFS::Traits::GridViewType::ctype>>
+      : public TransferMatrixRHSInterface<typename GFS::Traits::GridViewType, V>
   {
   public:
     using GV = typename GFS::Traits::GridViewType;
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
-    using BaseT = TransferMatrixRHSInterface<GV, Dune::PDELab::Backend::Vector<GFS, Real>>;
+    using BaseT = TransferMatrixRHSInterface<GV, V>;
     using Coordinate = Dune::FieldVector<Real, dim>;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
@@ -39,7 +37,7 @@ namespace duneuro
     using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
     using RangeType = typename BasisSwitch::Range;
 
-    UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<ST> st, std::size_t child,
+    UnfittedTransferMatrixRHS(const GFS& gfs, std::shared_ptr<const ST> st, std::size_t child,
                               bool scaleToBBox)
         : st_(st)
         , gfs_(gfs)
@@ -73,7 +71,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<ST> st_;
+    std::shared_ptr<const ST> st_;
     const GFS& gfs_;
     std::size_t child_;
     bool scaleToBBox_;

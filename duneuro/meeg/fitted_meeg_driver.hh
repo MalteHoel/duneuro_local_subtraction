@@ -27,6 +27,7 @@
 #include <duneuro/eeg/dg_source_model_factory.hh>
 #include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/electrode_projection_factory.hh>
+#include <duneuro/eeg/fitted_transfer_matrix_rhs_factory.hh>
 #include <duneuro/eeg/fitted_transfer_matrix_solver.hh>
 #include <duneuro/eeg/fitted_transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
@@ -66,6 +67,7 @@ namespace duneuro
         typename SelectFittedSolver<solverType, VC, elementType, degree>::SolverBackendType;
     using SourceModelFactory =
         typename SelectFittedSolver<solverType, VC, elementType, degree>::SourceModelFactoryType;
+    using TransferMatrixRHSFactory = FittedTransferMatrixRHSFactory;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   };
@@ -430,7 +432,8 @@ namespace duneuro
 #else
     typename Traits::SolverBackend solverBackend_;
 #endif
-    FittedTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
+    FittedTransferMatrixSolver<typename Traits::Solver, typename Traits::TransferMatrixRHSFactory>
+        eegTransferMatrixSolver_;
     FittedMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
     EEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;

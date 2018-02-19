@@ -134,6 +134,11 @@ namespace duneuro
       return search_;
     }
 
+    bool scaleToBBox() const
+    {
+      return true;
+    }
+
 #if HAVE_TBB
     tbb::mutex& functionSpaceMutex()
     {

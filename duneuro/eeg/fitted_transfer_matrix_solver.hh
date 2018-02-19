@@ -26,7 +26,7 @@ namespace duneuro
     using ProjectedPosition = ProjectedElectrode<typename VolumeConductor::GridView>;
   };
 
-  template <class S>
+  template <class S, class RHSFactory>
   class FittedTransferMatrixSolver
   {
   public:
@@ -127,11 +127,11 @@ namespace duneuro
       Dune::Timer timer;
       // assemble right hand side
       rightHandSideVector = 0.0;
-      TransferMatrixRHS<typename Traits::FunctionSpace::GFS> rhsAssembler(
-          solver_->functionSpace().getGFS());
-      rhsAssembler.bind(reference.element, reference.localPosition, electrode.element,
-                        electrode.localPosition);
-      rhsAssembler.assembleRightHandSide(rightHandSideVector);
+      auto rhsAssembler =
+          RHSFactory::template create<typename Traits::RangeDOFVector>(*solver_, config);
+      rhsAssembler->bind(reference.element, reference.localPosition, electrode.element,
+                         electrode.localPosition);
+      rhsAssembler->assembleRightHandSide(rightHandSideVector);
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
