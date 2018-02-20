@@ -10,8 +10,7 @@ namespace duneuro
 {
   struct UnfittedTransferMatrixRHSFactory {
     template <class Vector, class Solver>
-    static std::unique_ptr<TransferMatrixRHSInterface<typename Solver::Traits::FundamentalGridView,
-                                                      Vector>>
+    static std::unique_ptr<TransferMatrixRHSInterface<typename Solver::Traits::GridView, Vector>>
     create(const Solver& solver, const Dune::ParameterTree& config)
     {
       auto type = config.get<std::string>("type", "point");

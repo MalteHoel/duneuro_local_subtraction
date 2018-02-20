@@ -25,13 +25,13 @@ namespace duneuro
   template <class ST, int comps, int degree, class P, class DF, class RF, class JF>
   struct CutFEMSolverTraits {
     using SubTriangulation = ST;
-    using FundamentalGridView = typename ST::BaseT::GridView;
-    using CoordinateFieldType = typename FundamentalGridView::ctype;
-    using ElementSearch = KDTreeElementSearch<FundamentalGridView>;
-    static const int dimension = FundamentalGridView::dimension;
+    using GridView = typename ST::BaseT::GridView;
+    using CoordinateFieldType = typename GridView::ctype;
+    using ElementSearch = KDTreeElementSearch<GridView>;
+    static const int dimension = GridView::dimension;
     static const int compartments = comps;
     using Problem = P;
-    using FunctionSpace = CutFEMMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
+    using FunctionSpace = CutFEMMultiPhaseSpace<GridView, RF, degree, compartments>;
     using DomainField = DF;
     using RangeField = RF;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
@@ -42,7 +42,7 @@ namespace duneuro
         ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::CutFEMMultiPhaseLocalOperatorWrapper<LocalOperator>;
     // using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
-    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
+    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
     using RawGridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
@@ -143,13 +143,6 @@ namespace duneuro
       return false;
     }
 
-#if HAVE_TBB
-    tbb::mutex& functionSpaceMutex()
-    {
-      return fsMutex_;
-    }
-#endif
-
   private:
     std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<const typename Traits::ElementSearch> search_;
@@ -163,10 +156,6 @@ namespace duneuro
     typename Traits::RawGridOperator rawGridOperator_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
-
-#if HAVE_TBB
-    tbb::mutex fsMutex_;
-#endif
   };
 }
 

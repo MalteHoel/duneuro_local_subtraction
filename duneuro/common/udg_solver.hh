@@ -26,13 +26,13 @@ namespace duneuro
   template <class ST, int comps, int degree, class P, class DF, class RF, class JF>
   struct UDGSolverTraits {
     using SubTriangulation = ST;
-    using FundamentalGridView = typename ST::BaseT::GridView;
-    using CoordinateFieldType = typename FundamentalGridView::ctype;
-    using ElementSearch = KDTreeElementSearch<FundamentalGridView>;
-    static const int dimension = FundamentalGridView::dimension;
+    using GridView = typename ST::BaseT::GridView;
+    using CoordinateFieldType = typename GridView::ctype;
+    using ElementSearch = KDTreeElementSearch<GridView>;
+    static const int dimension = GridView::dimension;
     static const int compartments = comps;
     using Problem = P;
-    using FunctionSpace = UDGQkMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
+    using FunctionSpace = UDGQkMultiPhaseSpace<GridView, RF, degree, compartments>;
     using DomainField = DF;
     using RangeField = RF;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
@@ -42,7 +42,7 @@ namespace duneuro
     using LocalOperator =
         ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
-    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
+    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
     using GridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
@@ -139,13 +139,6 @@ namespace duneuro
       return true;
     }
 
-#if HAVE_TBB
-    tbb::mutex& functionSpaceMutex()
-    {
-      return fsMutex_;
-    }
-#endif
-
   private:
     std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<const typename Traits::ElementSearch> search_;
@@ -158,10 +151,6 @@ namespace duneuro
     typename Traits::UnfittedSubTriangulation unfittedSubTriangulation_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
-
-#if HAVE_TBB
-    tbb::mutex fsMutex_;
-#endif
   };
 }
 

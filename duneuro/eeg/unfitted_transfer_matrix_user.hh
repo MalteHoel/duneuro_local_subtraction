@@ -35,10 +35,11 @@ namespace duneuro
   public:
     using Traits = UnfittedTransferMatrixUserTraits<S, SMF>;
 
-    UnfittedTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                               std::shared_ptr<typename Traits::Solver> solver,
-                               std::shared_ptr<typename Traits::ElementSearch> search,
-                               const Dune::ParameterTree& config)
+    UnfittedTransferMatrixUser(
+        std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+        std::shared_ptr<const typename Traits::Solver> solver,
+        std::shared_ptr<const typename Traits::ElementSearch> search,
+        const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation), solver_(solver), search_(search)
     {
     }
@@ -105,14 +106,7 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
-#if HAVE_TBB
-      {
-        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        sparseSourceModel_->assembleRightHandSide(rhs);
-      }
-#else
       sparseSourceModel_->assembleRightHandSide(rhs);
-#endif
 
       const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
 
@@ -135,23 +129,16 @@ namespace duneuro
       } else {
         *denseRHSVector_ = 0.0;
       }
-#if HAVE_TBB
-      {
-        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
-      }
-#else
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
-#endif
 
       return matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));
     }
 
   private:
-    std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    std::shared_ptr<typename Traits::Solver> solver_;
-    std::shared_ptr<typename Traits::ElementSearch> search_;
+    std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<const typename Traits::Solver> solver_;
+    std::shared_ptr<const typename Traits::ElementSearch> search_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>

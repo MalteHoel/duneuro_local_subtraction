@@ -28,8 +28,8 @@
 #include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/electrode_projection_factory.hh>
 #include <duneuro/eeg/fitted_transfer_matrix_rhs_factory.hh>
-#include <duneuro/eeg/fitted_transfer_matrix_solver.hh>
 #include <duneuro/eeg/fitted_transfer_matrix_user.hh>
+#include <duneuro/eeg/transfer_matrix_solver.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
@@ -104,7 +104,8 @@ namespace duneuro
                   nullptr)
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
-        , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
+        , eegTransferMatrixSolver_(solver_, config.hasSub("solver") ? config.sub("solver") :
+                                                                      Dune::ParameterTree())
         , megTransferMatrixSolver_(solver_, megSolver_)
         , eegForwardSolver_(solver_)
     {
@@ -432,7 +433,7 @@ namespace duneuro
 #else
     typename Traits::SolverBackend solverBackend_;
 #endif
-    FittedTransferMatrixSolver<typename Traits::Solver, typename Traits::TransferMatrixRHSFactory>
+    TransferMatrixSolver<typename Traits::Solver, typename Traits::TransferMatrixRHSFactory>
         eegTransferMatrixSolver_;
     FittedMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
     EEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>

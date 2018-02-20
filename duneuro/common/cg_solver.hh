@@ -39,8 +39,9 @@ namespace duneuro
   struct CGSolverTraits {
     static const int dimension = VC::dim;
     using VolumeConductor = VC;
+    using GridView = typename VC::GridView;
     using CoordinateFieldType = typename VC::ctype;
-    using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
+    using ElementSearch = KDTreeElementSearch<GridView>;
     using Problem = ConvectionDiffusionCGDefaultParameter<VC>;
     using DirichletExtension = Dune::PDELab::ConvectionDiffusionDirichletExtensionAdapter<Problem>;
     using BoundaryCondition = Dune::PDELab::ConvectionDiffusionBoundaryConditionAdapter<Problem>;

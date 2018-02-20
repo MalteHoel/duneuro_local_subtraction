@@ -19,13 +19,13 @@
 #include <duneuro/common/kdtree.hh>
 #endif
 //#include <dune/biomag/localoperator/boundaryprojection.hh>
-#include <duneuro/eeg/projection_utilities.hh>
+#include <duneuro/eeg/electrode_projection_interface.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
   template <class GV>
-  class ProjectedElectrodes
+  class ProjectedElectrodes : public ElectrodeProjectionInterface<GV>
   {
     typedef typename GV::template Codim<0>::Entity Element;
 
@@ -33,7 +33,7 @@ namespace duneuro
     typedef typename GV::ctype ctype;
     enum { dim = GV::dimension };
 
-    using Projection = ProjectedPosition<Element, Dune::FieldVector<ctype, dim>>;
+    using Projection = ProjectedElectrode<GV>;
 
     ProjectedElectrodes(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes, const GV& gv,
                         DataTree dataTree = DataTree())
@@ -43,7 +43,7 @@ namespace duneuro
       std::vector<std::pair<Projection, ctype>> minDistance;
       for (std::size_t i = 0; i < electrodes.size(); ++i) {
         minDistance.push_back(std::make_pair(
-            Projection(gridView_.template begin<0>(), Dune::FieldVector<ctype, dim>(0.0)),
+            Projection{gridView_.template begin<0>(), Dune::FieldVector<ctype, dim>(0.0)},
             std::numeric_limits<ctype>::max()));
       }
       std::cout << "\n";
@@ -62,34 +62,10 @@ namespace duneuro
           diff -= eg.global(local);
           auto diff2n = diff.two_norm();
           if (diff2n < minDistance[i].second) {
-            minDistance[i].first = Projection(element, local);
+            minDistance[i].first = Projection{element, local};
             minDistance[i].second = diff2n;
           }
           //}
-          /*          for (const auto& intersection : intersections(gridView_, element)) {
-                      if (intersection.neighbor())
-                        continue;
-                      const auto& ig = intersection.geometry();
-                      const auto& reference = ReferenceElements<ctype, dim - 1>::general(ig.type());
-                      for (unsigned int i = 0; i < electrodes.size(); ++i) {
-                        auto local = ig.local(electrodes[i]);
-                        if (reference.checkInside(local)) {
-                          auto projectedGlobal = ig.global(local);
-                          auto diff = electrodes[i];
-                          diff -= projectedGlobal;
-                          // if (Dune::FloatCmp::ge(intersection.centerUnitOuterNormal() * diff,
-             0.0)) {
-                          auto diff2n = diff.two_norm();
-                          if (diff2n < minDistance[i].second) {
-                            minDistance[i].first = Projection(
-                                intersection.inside(),
-             intersection.geometryInInside().global(local));
-                            minDistance[i].second = diff2n;
-                          }
-                          //}
-                        }
-                      }
-                    }*/
         }
       }
       ctype maxdiff = 0.0;
@@ -119,11 +95,17 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "element of electrode at "
                                           << electrode << " is not a host cell for any domain");
         }
-        projections_.push_back(Projection(element, element.geometry().local(electrode)));
+        projections_.push_back(Projection{element, element.geometry().local(electrode)});
       }
       dataTree.set("time", timer.elapsed());
     }
 #endif
+
+    virtual void
+    setElectrodes(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes) override
+    {
+      DUNE_THROW(Dune::Exception, "should not be called");
+    }
 
     template <class DGF, class OutputIterator>
     void evaluateAtProjections(const DGF& dgf, OutputIterator out) const
@@ -163,12 +145,12 @@ namespace duneuro
       return projections_[i].element;
     }
 
-    const Projection& projectedPosition(std::size_t i) const
+    virtual const Projection& getProjection(std::size_t i) const override
     {
       return projections_[i];
     }
 
-    std::size_t size() const
+    virtual std::size_t size() const override
     {
       return projections_.size();
     }

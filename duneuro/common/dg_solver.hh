@@ -41,8 +41,9 @@ namespace duneuro
   struct DGSolverTraits {
     static const int dimension = VC::dim;
     using VolumeConductor = VC;
+    using GridView = typename VC::GridView;
     using CoordinateFieldType = typename VC::ctype;
-    using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
+    using ElementSearch = KDTreeElementSearch<GridView>;
     using Problem = P;
     using FunctionSpace = typename DGFunctionSpaceTraits<VC, degree, elementType>::Type;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
