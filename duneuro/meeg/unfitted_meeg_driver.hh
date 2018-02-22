@@ -21,9 +21,9 @@
 #include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/eeg/transfer_matrix_solver.hh>
+#include <duneuro/eeg/transfer_matrix_user.hh>
 #include <duneuro/eeg/udg_source_model_factory.hh>
 #include <duneuro/eeg/unfitted_transfer_matrix_rhs_factory.hh>
-#include <duneuro/eeg/unfitted_transfer_matrix_user.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
@@ -77,7 +77,7 @@ namespace duneuro
                                                              compartments>::SourceModelFactoryType;
     using TransferMatrixRHSFactory = UnfittedTransferMatrixRHSFactory;
     using EEGTransferMatrixSolver = TransferMatrixSolver<Solver, TransferMatrixRHSFactory>;
-    using TransferMatrixUser = UnfittedTransferMatrixUser<Solver, SourceModelFactory>;
+    using TransferMatrixUser = duneuro::TransferMatrixUser<Solver, SourceModelFactory>;
     using SolverBackend =
         typename SelectUnfittedSolver<solverType, dim, degree, compartments>::SolverBackendType;
 
@@ -108,7 +108,8 @@ namespace duneuro
         , domain_(levelSetGridView_, data_.levelSetData, config.sub("domain"))
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
-              config.get<bool>("udg.force_refinement", false)))
+              config.get<bool>("udg.force_refinement", false),
+              config.get<double>("udg.value_tolerance", 1e-8)))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(fundamentalGridView_))
         , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, elementSearch_,
                                                             config.sub("solver")))
@@ -268,8 +269,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(subTriangulation_, solver_, elementSearch_,
-                                      config.sub("solver"));
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -285,7 +285,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(subTriangulation_, solver_, elementSearch_, config.sub("solver"));
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -319,8 +319,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(subTriangulation_, solver_, elementSearch_,
-                                      config.sub("solver"));
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -329,7 +328,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(subTriangulation_, solver_, elementSearch_, config.sub("solver"));
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));

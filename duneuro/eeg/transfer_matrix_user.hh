@@ -1,46 +1,40 @@
-#ifndef DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
-#define DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
+#ifndef DUNEURO_TRANSFER_MATRIX_USER_HH
+#define DUNEURO_TRANSFER_MATRIX_USER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
 
-#include <duneuro/common/dg_solver.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/make_dof_vector.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/sparse_vector_container.hh>
 #include <duneuro/common/vector_density.hh>
-#include <duneuro/eeg/dg_source_model_factory.hh>
 #include <duneuro/io/data_tree.hh>
 
 namespace duneuro
 {
-  template <class S>
-  struct FittedTransferMatrixUserTraits {
+  template <class S, class SMF>
+  struct TransferMatrixUserTraits {
+    using Solver = S;
     static const unsigned int dimension = S::Traits::dimension;
-    using VolumeConductor = typename S::Traits::VolumeConductor;
-    using EEGForwardSolver = S;
-    using DenseRHSVector = typename EEGForwardSolver::Traits::RangeDOFVector;
+    using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
     using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
                                                   typename DenseRHSVector::ElementType>;
-    using CoordinateField = typename VolumeConductor::ctype;
-    using Coordinate = Dune::FieldVector<CoordinateField, dimension>;
-    using DipoleType = Dipole<CoordinateField, dimension>;
-    using DomainField = typename EEGForwardSolver::Traits::DomainDOFVector::field_type;
-    using ElementSearch = KDTreeElementSearch<typename VolumeConductor::GridView>;
+    using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
+    using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
+    using DipoleType = Dipole<CoordinateFieldType, dimension>;
+    using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
   };
 
   template <class S, class SMF>
-  class FittedTransferMatrixUser
+  class TransferMatrixUser
   {
   public:
-    using Traits = FittedTransferMatrixUserTraits<S>;
+    using Traits = TransferMatrixUserTraits<S, SMF>;
 
-    FittedTransferMatrixUser(std::shared_ptr<typename Traits::VolumeConductor> volumeConductor,
-                             std::shared_ptr<typename Traits::ElementSearch> search,
-                             std::shared_ptr<typename Traits::EEGForwardSolver> solver)
-        : volumeConductor_(volumeConductor), search_(search), solver_(solver)
+    explicit TransferMatrixUser(std::shared_ptr<const typename Traits::Solver> solver)
+        : solver_(solver)
     {
     }
 
@@ -77,22 +71,9 @@ namespace duneuro
     void postProcessPotential(const std::vector<typename Traits::Coordinate>& projectedElectrodes,
                               std::vector<typename Traits::DomainField>& potential)
     {
-      if (projectedElectrodes.size() != potential.size()) {
-        DUNE_THROW(duneuro::IllegalArgumentException,
-                   "number of electrodes ("
-                       << projectedElectrodes.size()
-                       << ") does not match number of entries in the potential vector ("
-                       << potential.size() << ")");
-      }
       if (density_ == VectorDensity::sparse) {
-        if (!sparseSourceModel_) {
-          DUNE_THROW(Dune::Exception, "source model not set");
-        }
         sparseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       } else {
-        if (!denseSourceModel_) {
-          DUNE_THROW(Dune::Exception, "source model not set");
-        }
         denseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       }
     }
@@ -119,14 +100,11 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
-      if (!sparseSourceModel_) {
-        DUNE_THROW(Dune::Exception, "source model not set");
-      }
       sparseSourceModel_->assembleRightHandSide(rhs);
 
-      const auto blockSize =
-          Traits::EEGForwardSolver::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
+      const auto blockSize = S::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
 
+      std::vector<typename Traits::DomainField> output;
       if (blockSize == 1) {
         return matrix_sparse_vector_product(transferMatrix, rhs,
                                             [](const typename SVC::Index& c) { return c[0]; });
@@ -145,9 +123,6 @@ namespace duneuro
       } else {
         *denseRHSVector_ = 0.0;
       }
-      if (!denseSourceModel_) {
-        DUNE_THROW(Dune::Exception, "source model not set");
-      }
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
 
       return matrix_dense_vector_product(transferMatrix,
@@ -155,9 +130,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<typename Traits::VolumeConductor> volumeConductor_;
-    std::shared_ptr<typename Traits::ElementSearch> search_;
-    std::shared_ptr<typename Traits::EEGForwardSolver> solver_;
+    std::shared_ptr<const typename Traits::Solver> solver_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>
@@ -169,4 +142,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_FITTED_TRANSFER_MATRIX_USER_HH
+#endif // DUNEURO_TRANSFER_MATRIX_USER_HH

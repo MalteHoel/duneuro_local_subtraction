@@ -28,8 +28,8 @@
 #include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/electrode_projection_factory.hh>
 #include <duneuro/eeg/fitted_transfer_matrix_rhs_factory.hh>
-#include <duneuro/eeg/fitted_transfer_matrix_user.hh>
 #include <duneuro/eeg/transfer_matrix_solver.hh>
+#include <duneuro/eeg/transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
@@ -321,8 +321,7 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User =
-          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
+      using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -330,7 +329,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -346,7 +345,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -371,8 +370,7 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User =
-          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
+      using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -380,7 +378,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -389,7 +387,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
