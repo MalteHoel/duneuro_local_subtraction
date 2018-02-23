@@ -25,8 +25,12 @@ namespace duneuro
             data, config, dataTree);
       } else if (elementType == "hexahedron") {
         if (config.get("geometry_adapted", false)) {
+#if HAVE_DUNE_SUBGRID
           return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
               data, config, dataTree);
+#else
+          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
         } else {
           return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
                                                                false>>(data, config, dataTree);
@@ -52,8 +56,12 @@ namespace duneuro
             data, config, dataTree);
       } else if (elementType == "hexahedron") {
         if (config.get("geometry_adapted", false)) {
+#if HAVE_DUNE_SUBGRID
           return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
               data, config, dataTree);
+#else
+          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
+#endif
         } else {
           return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
                                                                false>>(data, config, dataTree);
