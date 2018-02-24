@@ -50,9 +50,9 @@ namespace duneuro
     using HostLFSCache = Dune::PDELab::LFSIndexCache<HostLFS>;
     using HostProblem = SubtractionDGDefaultParameter<HostGridView, typename V::field_type, VC>;
 
-    LocalizedSubtractionSourceModel(std::shared_ptr<VC> volumeConductor,
+    LocalizedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
                                     std::shared_ptr<const FS> fs,
-                                    std::shared_ptr<SearchType> search,
+                                    std::shared_ptr<const SearchType> search,
                                     const Dune::ParameterTree& config,
                                     const Dune::ParameterTree& solverConfig)
         : BaseT(search)
@@ -156,7 +156,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<const FS> functionSpace_;
     std::shared_ptr<ElementNeighborhoodMap<typename VC::GridView>> elementNeighborhoodMap_;
     std::shared_ptr<SubVolumeConductor> subVolumeConductor_;

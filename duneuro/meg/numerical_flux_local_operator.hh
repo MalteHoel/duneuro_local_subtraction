@@ -39,7 +39,7 @@ namespace duneuro
       using RangeType = Dune::FieldVector<typename Basis::Traits::RangeFieldType, VC::dim>;
     };
 
-    LocalBasisNumericalFlux(std::shared_ptr<VC> volumeConductor, const ENP& edgeNormProvider,
+    LocalBasisNumericalFlux(std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider,
                             double penalty, bool weights, const Basis& basis,
                             std::size_t localBasisIndex, const EG& eg, const T& tensor)
         : volumeConductor_(volumeConductor)
@@ -125,7 +125,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     const ENP& edgeNormProvider_;
     double penalty_;
     bool weights_;
@@ -138,10 +138,9 @@ namespace duneuro
   };
 
   template <class VC, class ENP, class Basis, class EG, class T>
-  std::unique_ptr<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>
-  make_local_basis_numerical_flux(std::shared_ptr<VC> volumeConductor, const ENP& edgeNormProvider,
-                                  double penalty, bool weights, const Basis& basis,
-                                  std::size_t localBasisIndex, const EG& eg, const T& tensor)
+  std::unique_ptr<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>> make_local_basis_numerical_flux(
+      std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider, double penalty,
+      bool weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
   {
     return Dune::Std::make_unique<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>(
         volumeConductor, edgeNormProvider, penalty, weights, basis, localBasisIndex, eg, tensor);

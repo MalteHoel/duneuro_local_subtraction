@@ -25,7 +25,7 @@ namespace duneuro
     using Assembler =
         Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
 
-    MEGSolution(std::shared_ptr<VC> volumeConductor, const FS& fs,
+    MEGSolution(std::shared_ptr<const VC> volumeConductor, const FS& fs,
                 const std::vector<Coordinate>& coils,
                 const std::vector<std::vector<Coordinate>>& projections,
                 const Dune::ParameterTree& config, DataTree dataTree = DataTree())

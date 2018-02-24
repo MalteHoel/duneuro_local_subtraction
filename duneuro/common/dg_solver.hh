@@ -10,6 +10,7 @@
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/kdtree.hh>
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/random.hh>
@@ -40,6 +41,9 @@ namespace duneuro
   struct DGSolverTraits {
     static const int dimension = VC::dim;
     using VolumeConductor = VC;
+    using GridView = typename VC::GridView;
+    using CoordinateFieldType = typename VC::ctype;
+    using ElementSearch = KDTreeElementSearch<GridView>;
     using Problem = P;
     using FunctionSpace = typename DGFunctionSpaceTraits<VC, degree, elementType>::Type;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
@@ -61,9 +65,12 @@ namespace duneuro
   public:
     using Traits = DGSolverTraits<VC, elementType, degree, P, DF, RF, JF>;
 
-    DGSolver(std::shared_ptr<VC> volumeConductor, std::shared_ptr<typename Traits::Problem> problem,
-             const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    DGSolver(std::shared_ptr<const VC> volumeConductor,
+             std::shared_ptr<const typename Traits::ElementSearch> search,
+             std::shared_ptr<typename Traits::Problem> problem, const Dune::ParameterTree& config,
+             DataTree dataTree = DataTree())
         : volumeConductor_(volumeConductor)
+        , search_(search)
         , problem_(problem)
         , functionSpace_(volumeConductor_->gridView())
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
@@ -80,10 +87,11 @@ namespace duneuro
       dataTree.set("element_type", to_string(elementType));
     }
 
-    DGSolver(std::shared_ptr<VC> volumeConductor, const Dune::ParameterTree& config,
-             DataTree dataTree = DataTree())
-        : DGSolver(volumeConductor, std::make_shared<typename Traits::Problem>(volumeConductor),
-                   config, dataTree)
+    DGSolver(std::shared_ptr<const VC> volumeConductor,
+             std::shared_ptr<const typename Traits::ElementSearch> search,
+             const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+        : DGSolver(volumeConductor, search,
+                   std::make_shared<typename Traits::Problem>(volumeConductor), config, dataTree)
     {
     }
 
@@ -113,14 +121,9 @@ namespace duneuro
       return functionSpace_;
     }
 
-    const typename Traits::VolumeConductor& volumeConductor() const
+    std::shared_ptr<const typename Traits::VolumeConductor> volumeConductor() const
     {
-      return *volumeConductor_;
-    }
-
-    typename Traits::VolumeConductor& volumeConductor()
-    {
-      return *volumeConductor_;
+      return volumeConductor_;
     }
 
     const typename Traits::Assembler& assembler() const
@@ -143,8 +146,14 @@ namespace duneuro
       return *problem_;
     }
 
+    std::shared_ptr<const typename Traits::ElementSearch> elementSearch() const
+    {
+      return search_;
+    }
+
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
+    std::shared_ptr<const typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;

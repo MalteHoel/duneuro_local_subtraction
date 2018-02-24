@@ -33,7 +33,7 @@ namespace duneuro
     {
       using UMVGF = Dune::UDG::UnfittedMultiDomainVTKGridFunction<ST>;
       auto umgf = std::make_shared<UMVGF>(name);
-      subSpaceList_.add(*umgf, v, solver.subTriangulation(), scaleToBBox_);
+      subSpaceList_.add(*umgf, v, *(solver.subTriangulation()), scaleToBBox_);
       writer_.addCellData(umgf);
     }
 
@@ -44,7 +44,7 @@ namespace duneuro
     {
       using UMVGF = Dune::UDG::UnfittedMultiDomainVTKGridFunction<ST>;
       auto umgf = std::make_shared<UMVGF>(name);
-      subSpaceList_.addGradient(*umgf, v, solver.subTriangulation(), scaleToBBox_);
+      subSpaceList_.addGradient(*umgf, v, *(solver.subTriangulation()), scaleToBBox_);
       writer_.addVertexData(umgf);
     }
 
@@ -54,7 +54,7 @@ namespace duneuro
     {
       using UMVGF = Dune::UDG::UnfittedMultiDomainVTKGridFunction<ST>;
       auto umgf = std::make_shared<UMVGF>(name);
-      subSpaceList_.add(*umgf, v, solver.subTriangulation(), scaleToBBox_);
+      subSpaceList_.add(*umgf, v, *(solver.subTriangulation()), scaleToBBox_);
       writer_.addVertexData(umgf);
     }
 

@@ -25,7 +25,8 @@ namespace duneuro
     enum { dim = GV::dimension };
     using Entity = typename GV::template Codim<0>::Entity;
 
-    FittedTensorNormFunctor(std::shared_ptr<VC> volumeConductor) : volumeConductor_(volumeConductor)
+    FittedTensorNormFunctor(std::shared_ptr<const VC> volumeConductor)
+        : volumeConductor_(volumeConductor)
     {
     }
 
@@ -43,7 +44,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
   };
 
 #if HAVE_EIGEN
@@ -64,7 +65,7 @@ namespace duneuro
     enum { dim = GV::dimension };
     using Entity = typename GV::template Codim<0>::Entity;
 
-    FittedTensorFunctor(std::shared_ptr<VC> volumeConductor, unsigned int vectorIndex)
+    FittedTensorFunctor(std::shared_ptr<const VC> volumeConductor, unsigned int vectorIndex)
         : volumeConductor_(volumeConductor), cachedValues_(VC::dim), vectorIndex_(vectorIndex)
     {
     }
@@ -105,7 +106,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<VC> volumeConductor_;
+    std::shared_ptr<const VC> volumeConductor_;
     mutable std::vector<double> cachedValues_;
     mutable Entity cachedEntity_;
     unsigned int vectorIndex_;

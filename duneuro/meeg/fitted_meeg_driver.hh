@@ -25,10 +25,11 @@
 #include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/eeg/cg_source_model_factory.hh>
 #include <duneuro/eeg/dg_source_model_factory.hh>
+#include <duneuro/eeg/eeg_forward_solver.hh>
 #include <duneuro/eeg/electrode_projection_factory.hh>
-#include <duneuro/eeg/fitted_eeg_forward_solver.hh>
-#include <duneuro/eeg/fitted_transfer_matrix_solver.hh>
-#include <duneuro/eeg/fitted_transfer_matrix_user.hh>
+#include <duneuro/eeg/fitted_transfer_matrix_rhs_factory.hh>
+#include <duneuro/eeg/transfer_matrix_solver.hh>
+#include <duneuro/eeg/transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
@@ -66,6 +67,7 @@ namespace duneuro
         typename SelectFittedSolver<solverType, VC, elementType, degree>::SolverBackendType;
     using SourceModelFactory =
         typename SelectFittedSolver<solverType, VC, elementType, degree>::SourceModelFactoryType;
+    using TransferMatrixRHSFactory = FittedTransferMatrixRHSFactory;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   };
@@ -90,7 +92,7 @@ namespace duneuro
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
               volumeConductorStorage_.get()->gridView()))
         , solver_(std::make_shared<typename Traits::Solver>(
-              volumeConductorStorage_.get(),
+              volumeConductorStorage_.get(), elementSearch_,
               config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
         , megSolver_(
               config.hasSub("meg") ?
@@ -102,9 +104,10 @@ namespace duneuro
                   nullptr)
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())
-        , eegTransferMatrixSolver_(volumeConductorStorage_.get(), solver_)
+        , eegTransferMatrixSolver_(solver_, config.hasSub("solver") ? config.sub("solver") :
+                                                                      Dune::ParameterTree())
         , megTransferMatrixSolver_(solver_, megSolver_)
-        , eegForwardSolver_(volumeConductorStorage_.get(), elementSearch_, solver_)
+        , eegForwardSolver_(solver_)
     {
     }
 
@@ -204,8 +207,7 @@ namespace duneuro
       using DGF =
           Dune::PDELab::DiscreteGridFunction<typename Traits::Solver::Traits::FunctionSpace::GFS,
                                              typename Traits::DomainDOFVector>;
-      DGF dgf(eegForwardSolver_.functionSpace().getGFS(),
-              function.cast<typename Traits::DomainDOFVector>());
+      DGF dgf(solver_->functionSpace().getGFS(), function.cast<typename Traits::DomainDOFVector>());
 
       // evalaute discrete grid function at every projection
       std::vector<double> result;
@@ -231,25 +233,23 @@ namespace duneuro
 
         if (gradient_type == "vertex") {
           writer.addVertexDataGradient(
-              eegForwardSolver_,
+              *solver_,
               Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
               "gradient_potential");
         } else {
           writer.addCellDataGradient(
-              eegForwardSolver_,
+              *solver_,
               Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
               "gradient_potential");
         }
         if (potential_type == "vertex") {
-          writer.addVertexData(
-              eegForwardSolver_,
-              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
-              "potential");
+          writer.addVertexData(*solver_, Dune::stackobject_to_shared_ptr(
+                                             function.cast<typename Traits::DomainDOFVector>()),
+                               "potential");
         } else {
-          writer.addCellData(
-              eegForwardSolver_,
-              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
-              "potential");
+          writer.addCellData(*solver_, Dune::stackobject_to_shared_ptr(
+                                           function.cast<typename Traits::DomainDOFVector>()),
+                             "potential");
         }
         writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
@@ -321,8 +321,7 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User =
-          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
+      using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -330,7 +329,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -346,7 +345,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -371,8 +370,7 @@ namespace duneuro
     {
       std::vector<std::vector<double>> result(dipoles.size());
 
-      using User =
-          FittedTransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
+      using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
@@ -380,7 +378,7 @@ namespace duneuro
                                         tbb::task_scheduler_init::automatic);
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
                         [&](const tbb::blocked_range<std::size_t>& range) {
-                          User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+                          User myUser(solver_);
                           myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
                           for (std::size_t index = range.begin(); index != range.end(); ++index) {
                             auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -389,7 +387,7 @@ namespace duneuro
                           }
                         });
 #else
-      User myUser(volumeConductorStorage_.get(), elementSearch_, solver_);
+      User myUser(solver_);
       myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       for (std::size_t index = 0; index < dipoles.size(); ++index) {
         auto dt = dataTree.sub("dipole_" + std::to_string(index));
@@ -433,9 +431,10 @@ namespace duneuro
 #else
     typename Traits::SolverBackend solverBackend_;
 #endif
-    FittedTransferMatrixSolver<typename Traits::Solver> eegTransferMatrixSolver_;
+    TransferMatrixSolver<typename Traits::Solver, typename Traits::TransferMatrixRHSFactory>
+        eegTransferMatrixSolver_;
     FittedMEGTransferMatrixSolver<typename Traits::Solver> megTransferMatrixSolver_;
-    FittedEEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
+    EEGForwardSolver<typename Traits::Solver, typename Traits::SourceModelFactory>
         eegForwardSolver_;
     std::unique_ptr<duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
         electrodeProjection_;

@@ -33,8 +33,9 @@ namespace duneuro
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UCache = Dune::PDELab::LFSIndexCache<ULFS>;
 
-    UnfittedPartialIntegrationSourceModel(const GFS& gfs, std::shared_ptr<ST> subTriangulation,
-                                          std::shared_ptr<typename BaseT::SearchType> search,
+    UnfittedPartialIntegrationSourceModel(const GFS& gfs,
+                                          std::shared_ptr<const ST> subTriangulation,
+                                          std::shared_ptr<const typename BaseT::SearchType> search,
                                           std::size_t child, bool scaleToBBox)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
@@ -118,7 +119,7 @@ namespace duneuro
     }
 
   private:
-    std::shared_ptr<ST> subTriangulation_;
+    std::shared_ptr<const ST> subTriangulation_;
     std::size_t child_;
     bool scaleToBBox_;
     mutable ULFS ulfs_;

@@ -14,6 +14,7 @@
 #include <duneuro/common/cutfem_gridoperator.hh>
 #include <duneuro/common/cutfem_multi_phase_space.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/kdtree.hh>
 #include <duneuro/common/linear_problem_solver.hh>
 #include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/random.hh>
@@ -24,11 +25,13 @@ namespace duneuro
   template <class ST, int comps, int degree, class P, class DF, class RF, class JF>
   struct CutFEMSolverTraits {
     using SubTriangulation = ST;
-    using FundamentalGridView = typename ST::BaseT::GridView;
-    static const int dimension = FundamentalGridView::dimension;
+    using GridView = typename ST::BaseT::GridView;
+    using CoordinateFieldType = typename GridView::ctype;
+    using ElementSearch = KDTreeElementSearch<GridView>;
+    static const int dimension = GridView::dimension;
     static const int compartments = comps;
     using Problem = P;
-    using FunctionSpace = CutFEMMultiPhaseSpace<FundamentalGridView, RF, degree, compartments>;
+    using FunctionSpace = CutFEMMultiPhaseSpace<GridView, RF, degree, compartments>;
     using DomainField = DF;
     using RangeField = RF;
     using DomainDOFVector = Dune::PDELab::Backend::Vector<typename FunctionSpace::GFS, DF>;
@@ -39,7 +42,7 @@ namespace duneuro
         ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::CutFEMMultiPhaseLocalOperatorWrapper<LocalOperator>;
     // using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
-    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
+    using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GridView>;
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
     using RawGridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
@@ -58,18 +61,22 @@ namespace duneuro
   public:
     using Traits = CutFEMSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
-    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+                 std::shared_ptr<const typename Traits::ElementSearch> search,
                  const Dune::ParameterTree& config)
-        : CutFEMSolver(subTriangulation, std::make_shared<typename Traits::Problem>(
-                                             config.get<std::vector<double>>("conductivities")),
+        : CutFEMSolver(subTriangulation, search,
+                       std::make_shared<typename Traits::Problem>(
+                           config.get<std::vector<double>>("conductivities")),
                        config)
     {
     }
 
-    CutFEMSolver(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+                 std::shared_ptr<const typename Traits::ElementSearch> search,
                  std::shared_ptr<typename Traits::Problem> problem,
                  const Dune::ParameterTree& config)
         : subTriangulation_(subTriangulation)
+        , search_(search)
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
         , edgeNormProvider_(config.get<std::string>("edge_norm_type"), 1.0)
@@ -116,9 +123,9 @@ namespace duneuro
       return functionSpace_;
     }
 
-    const typename Traits::SubTriangulation& subTriangulation() const
+    std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation() const
     {
-      return *subTriangulation_;
+      return subTriangulation_;
     }
 
     typename Traits::Problem& problem()
@@ -126,15 +133,19 @@ namespace duneuro
       return *problem_;
     }
 
-#if HAVE_TBB
-    tbb::mutex& functionSpaceMutex()
+    std::shared_ptr<const typename Traits::ElementSearch> elementSearch() const
     {
-      return fsMutex_;
+      return search_;
     }
-#endif
+
+    bool scaleToBBox() const
+    {
+      return false;
+    }
 
   private:
-    std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
+    std::shared_ptr<const typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Problem> problem_;
     typename Traits::FunctionSpace functionSpace_;
     typename Traits::EdgeNormProvider edgeNormProvider_;
@@ -145,10 +156,6 @@ namespace duneuro
     typename Traits::RawGridOperator rawGridOperator_;
     typename Traits::GridOperator gridOperator_;
     typename Traits::LinearSolver linearSolver_;
-
-#if HAVE_TBB
-    tbb::mutex fsMutex_;
-#endif
   };
 }
 

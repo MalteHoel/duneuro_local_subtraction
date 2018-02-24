@@ -42,6 +42,7 @@ namespace duneuro
     using Problem =
         typename TDCSSelectFittedSolver<solverType, VC, elementType, degree>::ProblemType;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+    using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   };
 
   template <int dim, ElementType elementType, FittedSolverType solverType, int degree,
@@ -63,10 +64,12 @@ namespace duneuro
         : config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))
+        , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
+              volumeConductorStorage_.get()->gridView()))
         , problem_(
               std::make_shared<typename Traits::Problem>(volumeConductorStorage_.get(), patchSet))
         , solver_(std::make_shared<typename Traits::Solver>(
-              volumeConductorStorage_.get(), problem_,
+              volumeConductorStorage_.get(), elementSearch_, problem_,
               config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
         , solverBackend_(std::make_shared<typename Traits::SolverBackend>(
               solver_, config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
@@ -163,6 +166,7 @@ namespace duneuro
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
+    std::shared_ptr<typename Traits::ElementSearch> elementSearch_;
     std::shared_ptr<typename Traits::Problem> problem_;
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::SolverBackend> solverBackend_;

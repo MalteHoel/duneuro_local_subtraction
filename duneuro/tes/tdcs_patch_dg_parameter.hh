@@ -13,7 +13,7 @@ namespace duneuro
     using BaseT = ConvectionDiffusion_DG_DefaultParameter<VC>;
     using Traits = typename BaseT::Traits;
 
-    TDCSPatchDGParameter(std::shared_ptr<VC> volumeConductor,
+    TDCSPatchDGParameter(std::shared_ptr<const VC> volumeConductor,
                          const PatchSet<typename VC::ctype, VC::dim>& patchSet)
         : BaseT(volumeConductor), patchSet_(patchSet)
     {

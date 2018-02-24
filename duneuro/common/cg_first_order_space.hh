@@ -69,8 +69,14 @@ namespace duneuro
     using Traits = AuxilliaryTraits<GV, bt, sc>;
     using GFS = typename Traits::FS::GFS;
 
-    explicit CGFirstOrderSpace(typename Traits::Grid& grid, const typename Traits::GridView& gv)
-        : gridview(gv), bctype(gridview, problem), fs(grid, bctype)
+    // note: the function space interface assumes a non-const reference, even though it does not
+    // modify the grid as it only obtains a gridview. to avoid having to pass a non-const reference
+    // to this constructor, we use the const_cast below
+    explicit CGFirstOrderSpace(const typename Traits::Grid& grid,
+                               const typename Traits::GridView& gv)
+        : gridview(gv)
+        , bctype(gridview, problem)
+        , fs(const_cast<typename Traits::Grid&>(grid), bctype)
     {
       fs.assembleConstraints(bctype);
     }

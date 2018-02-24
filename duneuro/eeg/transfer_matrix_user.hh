@@ -1,5 +1,5 @@
-#ifndef DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
-#define DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
+#ifndef DUNEURO_TRANSFER_MATRIX_USER_HH
+#define DUNEURO_TRANSFER_MATRIX_USER_HH
 
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
@@ -15,31 +15,26 @@
 namespace duneuro
 {
   template <class S, class SMF>
-  struct UnfittedTransferMatrixUserTraits {
+  struct TransferMatrixUserTraits {
     using Solver = S;
-    using SubTriangulation = typename Solver::Traits::SubTriangulation;
-    static const unsigned int dimension = SubTriangulation::dim;
+    static const unsigned int dimension = S::Traits::dimension;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
     using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
                                                   typename DenseRHSVector::ElementType>;
-    using CoordinateFieldType = typename SubTriangulation::ctype;
+    using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
     using DomainField = typename Solver::Traits::DomainDOFVector::field_type;
-    using ElementSearch = KDTreeElementSearch<typename SubTriangulation::BaseT::GridView>;
   };
 
   template <class S, class SMF>
-  class UnfittedTransferMatrixUser
+  class TransferMatrixUser
   {
   public:
-    using Traits = UnfittedTransferMatrixUserTraits<S, SMF>;
+    using Traits = TransferMatrixUserTraits<S, SMF>;
 
-    UnfittedTransferMatrixUser(std::shared_ptr<typename Traits::SubTriangulation> subTriangulation,
-                               std::shared_ptr<typename Traits::Solver> solver,
-                               std::shared_ptr<typename Traits::ElementSearch> search,
-                               const Dune::ParameterTree& config)
-        : subTriangulation_(subTriangulation), solver_(solver), search_(search)
+    explicit TransferMatrixUser(std::shared_ptr<const typename Traits::Solver> solver)
+        : solver_(solver)
     {
     }
 
@@ -51,12 +46,10 @@ namespace duneuro
       density_ = source_model_default_density(config);
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_ = SMF::template createSparse<typename Traits::SparseRHSVector>(
-            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config,
-            solverConfig);
+            *solver_, config, solverConfig);
       } else {
         denseSourceModel_ = SMF::template createDense<typename Traits::DenseRHSVector>(
-            *solver_, subTriangulation_, search_, config.get<std::size_t>("compartment"), config,
-            solverConfig);
+            *solver_, config, solverConfig);
       }
     }
 
@@ -107,16 +100,9 @@ namespace duneuro
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
-#if HAVE_TBB
-      {
-        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        sparseSourceModel_->assembleRightHandSide(rhs);
-      }
-#else
       sparseSourceModel_->assembleRightHandSide(rhs);
-#endif
 
-      const auto blockSize = Traits::Solver::Traits::FunctionSpace::blockSize;
+      const auto blockSize = S::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
 
       std::vector<typename Traits::DomainField> output;
       if (blockSize == 1) {
@@ -137,23 +123,14 @@ namespace duneuro
       } else {
         *denseRHSVector_ = 0.0;
       }
-#if HAVE_TBB
-      {
-        tbb::mutex::scoped_lock lock(solver_->functionSpaceMutex());
-        denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
-      }
-#else
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
-#endif
 
       return matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));
     }
 
   private:
-    std::shared_ptr<typename Traits::SubTriangulation> subTriangulation_;
-    std::shared_ptr<typename Traits::Solver> solver_;
-    std::shared_ptr<typename Traits::ElementSearch> search_;
+    std::shared_ptr<const typename Traits::Solver> solver_;
     VectorDensity density_;
     std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>
@@ -165,4 +142,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_UNFITTED_TRANSFER_MATRIX_USER_HH
+#endif // DUNEURO_TRANSFER_MATRIX_USER_HH

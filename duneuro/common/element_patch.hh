@@ -201,7 +201,7 @@ namespace duneuro
 
   template <class VC, class ES>
   std::function<bool(typename VC::EntityType)>
-  make_element_filter(std::shared_ptr<VC> volumeConductor, const ES& elementSearch,
+  make_element_filter(std::shared_ptr<const VC> volumeConductor, const ES& elementSearch,
                       const Dune::FieldVector<typename VC::ctype, VC::dim>& position, bool restrict)
   {
     if (restrict) {
@@ -218,7 +218,7 @@ namespace duneuro
 
   template <class VC, class ES>
   std::unique_ptr<ElementPatch<typename VC::GridView>> make_element_patch(
-      std::shared_ptr<VC> volumeConductor,
+      std::shared_ptr<const VC> volumeConductor,
       std::shared_ptr<ElementNeighborhoodMap<typename VC::GridView>> elementNeighborhoodMap,
       const ES& elementSearch, const Dune::FieldVector<typename VC::ctype, VC::dim>& position,
       const Dune::ParameterTree& config)

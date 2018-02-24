@@ -11,40 +11,36 @@
 namespace duneuro
 {
   struct CutFEMSourceModelFactory {
-    template <class Vector, class Solver, class ST>
+    template <class Vector, class Solver>
     static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
-    createDense(
-        const Solver& solver, std::shared_ptr<ST> subTriangulation,
-        std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
-        const Dune::ParameterTree& solverConfig)
+    createDense(const Solver& solver, const Dune::ParameterTree& config,
+                const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, false);
+            typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
+            Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), false);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
       }
     }
 
-    template <class Vector, class Solver, class ST>
+    template <class Vector, class Solver>
     static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
-    createSparse(
-        const Solver& solver, std::shared_ptr<ST> subTriangulation,
-        std::shared_ptr<KDTreeElementSearch<typename Solver::Traits::FundamentalGridView>> search,
-        std::size_t dipoleCompartment, const Dune::ParameterTree& config,
-        const Dune::ParameterTree& solverConfig)
+    createSparse(const Solver& solver, const Dune::ParameterTree& config,
+                 const Dune::ParameterTree& solverConfig)
     {
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
-            typename Solver::Traits::FunctionSpace::GFS, ST, Vector>>(
-            solver.functionSpace().getGFS(), subTriangulation, search, dipoleCompartment, false);
+            typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
+            Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), false);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

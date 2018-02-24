@@ -41,7 +41,7 @@ namespace duneuro
 
     /*** Constructor ***/
     SubtractionDGDefaultParameter(const typename Traits::GridViewType& gv_,
-                                  std::shared_ptr<VC> volumeConductor)
+                                  std::shared_ptr<const VC> volumeConductor)
         : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
     {
     }

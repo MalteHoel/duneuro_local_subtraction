@@ -25,7 +25,7 @@ namespace duneuro
 
     explicit DGSolverBackend(std::shared_ptr<Solver> solver, const Dune::ParameterTree& config)
         : solver_(solver)
-        , firstOrderSpace_(solver->volumeConductor().grid(), solver->volumeConductor().gridView())
+        , firstOrderSpace_(solver->volumeConductor()->grid(), solver->volumeConductor()->gridView())
         , solverBackend_(*solver->assembler(), firstOrderSpace_.getGFS(), config)
         , config_(config)
     {
