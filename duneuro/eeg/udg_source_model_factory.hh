@@ -19,17 +19,19 @@ namespace duneuro
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
     {
+      const bool scaleToBBox = true;
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), true);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox);
       } else if (type == "patch_based_venant") {
         return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), config);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
+                     config);
       } else if (type == "subtraction") {
         return Dune::Std::make_unique<UDGSubtractionSourceModel<
             typename Solver::Traits::FunctionSpace, typename Solver::Traits::SubTriangulation,
@@ -47,17 +49,19 @@ namespace duneuro
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)
     {
+      const bool scaleToBBox = true;
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), true);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox);
       } else if (type == "patch_based_venant") {
         return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), config);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
+                     config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");

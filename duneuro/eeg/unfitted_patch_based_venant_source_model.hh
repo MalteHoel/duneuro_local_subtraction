@@ -39,14 +39,17 @@ namespace duneuro
 
     UnfittedPatchBasedVenantSourceModel(const GFS& gfs, std::shared_ptr<const ST> subTriangulation,
                                         std::shared_ptr<const typename BaseT::SearchType> search,
-                                        std::size_t child, const Dune::ParameterTree& params)
+                                        std::size_t child, bool basisScaledToBBox,
+                                        const Dune::ParameterTree& params)
         : BaseT(search)
         , subTriangulation_(subTriangulation)
         , child_(child)
+        , basisScaledToBBox_(basisScaledToBBox)
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<GV>>(gfs.gridView()))
         , gfs_(gfs)
         , monopolarVenant_(params)
         , quadratureRuleOrder_(params.get<unsigned int>("quadratureRuleOrder"))
+        , scalePointsToBBox_(params.get<bool>("scalePointsToBBox"))
         , config_(params)
     {
     }
@@ -57,11 +60,20 @@ namespace duneuro
       // select monopoles within each element based on a quadrature rule
       std::vector<Dune::FieldVector<Real, dim>> positions;
       for (const auto& element : elements) {
-        const auto& bbox = subTriangulation_->BBox(child_, element);
-        const auto& rule =
-            Dune::QuadratureRules<Real, dim>::rule(bbox.type(), quadratureRuleOrder_);
-        for (const auto& qp : rule) {
-          positions.push_back(bbox.global(qp.position()));
+        if (scalePointsToBBox_) {
+          const auto& bbox = subTriangulation_->BBox(child_, element);
+          const auto& rule =
+              Dune::QuadratureRules<Real, dim>::rule(bbox.type(), quadratureRuleOrder_);
+          for (const auto& qp : rule) {
+            positions.push_back(bbox.global(qp.position()));
+          }
+        } else {
+          const auto& geo = element.geometry();
+          const auto& rule =
+              Dune::QuadratureRules<Real, dim>::rule(geo.type(), quadratureRuleOrder_);
+          for (const auto& qp : rule) {
+            positions.push_back(geo.global(qp.position()));
+          }
         }
       }
 
@@ -99,10 +111,17 @@ namespace duneuro
           FESwitch::basis(childLfs.finiteElement()).reset();
           std::vector<RangeType> phi(childLfs.size());
           const auto& geo = element.geometry();
+          const auto& bbox = subTriangulation_->BBox(child_, element);
           const auto& rule =
               Dune::QuadratureRules<Real, dim>::rule(geo.type(), quadratureRuleOrder_);
           for (const auto& qp : rule) {
-            FESwitch::basis(childLfs.finiteElement()).evaluateFunction(qp.position(), phi);
+            auto local = qp.position();
+            if (basisScaledToBBox_ && !scalePointsToBBox_) {
+              local = bbox.local(geo.global(local));
+            } else if (!basisScaledToBBox_ && scalePointsToBBox_) {
+              local = geo.local(bbox.global(local));
+            }
+            FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
             for (unsigned int j = 0; j < childLfs.size(); ++j) {
               output[cache.containerIndex(childLfs.localIndex(j))] += solution[offset] * phi[j];
             }
@@ -125,10 +144,12 @@ namespace duneuro
   private:
     std::shared_ptr<const ST> subTriangulation_;
     std::size_t child_;
+    bool basisScaledToBBox_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
     MonopolarVenant<Real, dim> monopolarVenant_;
     const unsigned int quadratureRuleOrder_;
+    bool scalePointsToBBox_;
     Dune::ParameterTree config_;
   };
 }
