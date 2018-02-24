@@ -7,6 +7,7 @@
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
+#include <duneuro/eeg/unfitted_patch_based_venant_source_model.hh>
 
 namespace duneuro
 {
@@ -17,12 +18,19 @@ namespace duneuro
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
     {
+      const bool scaleToBBox = false;
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), false);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox);
+      } else if (type == "patch_based_venant") {
+        return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
+            typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
+            Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
+                     config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
@@ -35,12 +43,19 @@ namespace duneuro
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)
     {
+      const bool scaleToBBox = false;
       const auto type = config.get<std::string>("type");
       if (type == "partial_integration") {
         return Dune::Std::make_unique<UnfittedPartialIntegrationSourceModel<
             typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
             Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
-                     solver.elementSearch(), config.get<std::size_t>("compartment"), false);
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox);
+      } else if (type == "patch_based_venant") {
+        return Dune::Std::make_unique<UnfittedPatchBasedVenantSourceModel<
+            typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::SubTriangulation,
+            Vector>>(solver.functionSpace().getGFS(), solver.subTriangulation(),
+                     solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
+                     config);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
                                                                                     << "\"");
