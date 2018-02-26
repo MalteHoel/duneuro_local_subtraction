@@ -225,12 +225,13 @@ namespace duneuro
                 fundamentalGridView_, conductivities_));
         vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
                                     typename Traits::GridView>>(fundamentalGridView_));
-        vtkWriter.addVertexData(std::make_shared<Dune::UDG::HostCellIndexUnfittedVTKGridFunction<
-                                    typename Traits::GridView>>(fundamentalGridView_));
         auto modeString = config.get<std::string>("mode", "volume");
         if ((modeString == "faces") || (modeString == "boundary")) {
           vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
                                       typename Traits::GridView>>(fundamentalGridView_, false));
+        } else {
+          vtkWriter.addVertexData(std::make_shared<Dune::UDG::HostCellIndexUnfittedVTKGridFunction<
+                                      typename Traits::GridView>>(fundamentalGridView_));
         }
         vtkWriter.write(config, dataTree);
       } else {
