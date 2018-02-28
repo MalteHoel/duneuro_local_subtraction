@@ -233,7 +233,8 @@ namespace duneuro
                          << mapper.size() << " != " << tensors.size() << ")");
         }
         std::vector<TensorType> reorderedTensors(tensors.size());
-        std::vector<std::size_t> labels(tensors.size());
+        std::vector<std::size_t> labels;
+        labels.reserve(tensors.size());
         for (const auto& element : Dune::elements(gv)) {
           labels.push_back(labels.size());
           reorderedTensors[mapper.index(element)] = tensors[factory.insertionIndex(element)];
