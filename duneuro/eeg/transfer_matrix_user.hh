@@ -102,7 +102,7 @@ namespace duneuro
       SVC rhs;
       sparseSourceModel_->assembleRightHandSide(rhs);
 
-      const auto blockSize = S::Traits::FunctionSpace::GFS::Traits::Backend::blockSize;
+      const auto blockSize = Traits::DenseRHSVector::block_type::dimension;
 
       std::vector<typename Traits::DomainField> output;
       if (blockSize == 1) {
