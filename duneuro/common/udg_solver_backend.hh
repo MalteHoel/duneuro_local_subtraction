@@ -2,12 +2,15 @@
 #define DUNEURO_UDG_SOLVER_BACKEND_HH
 
 #include <dune/pdelab/backend/istl.hh>
+#include <duneuro/common/seq_amg_udg_backend.hh>
 
 namespace duneuro
 {
   template <typename Solver>
   struct UDGSolverBackendTraits {
-    using SolverBackend = Dune::PDELab::ISTLBackend_SEQ_CG_ILU0;
+    using SolverBackend = duneuro::ISTLBackend_SEQ_AMG_4_UDG<
+        typename Solver::Traits::GridOperator, typename Solver::Traits::FunctionSpace::GFS,
+        typename Solver::Traits::SubTriangulation, Dune::SeqSSOR, Dune::CGSolver>;
   };
 
   template <typename Solver>
@@ -18,8 +21,7 @@ namespace duneuro
 
     explicit UDGSolverBackend(std::shared_ptr<Solver> solver, const Dune::ParameterTree& config)
         : solver_(solver)
-        , solverBackend_(config.get<unsigned int>("max_iterations", 5000),
-                         config.get<unsigned int>("verbose", 0))
+        , solverBackend_(solver->functionSpace().getGFS(), *solver->subTriangulation(), config)
     {
     }
 

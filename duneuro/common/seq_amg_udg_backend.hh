@@ -21,6 +21,55 @@ namespace duneuro
 {
   namespace AMG4UDGDetail
   {
+    template <class GFS, class ST, class E>
+    std::set<std::size_t> extractBlocks(const GFS& gfs, const ST& st, const E& element)
+    {
+      using LFS = Dune::PDELab::LocalFunctionSpace<GFS>;
+      LFS lfs(gfs);
+      Dune::PDELab::LFSIndexCache<LFS> cache(lfs);
+      lfs.bind(element);
+      cache.update();
+      std::set<std::size_t> result;
+      for (unsigned int i = 0; i < cache.size(); ++i) {
+        result.insert(cache.containerIndex(i).back());
+      }
+      return result;
+    }
+
+    template <class GFS, class ST>
+    std::vector<std::set<std::size_t>> extractCouplings(const GFS& gfs, const ST& st)
+    {
+      Dune::SingleCodimSingleGeomTypeMapper<typename GFS::Traits::GridView, 0> elementMapper(
+          gfs.gridView());
+      std::vector<std::set<std::size_t>> result;
+      std::vector<bool> considered(elementMapper.size());
+      for (const auto& element : Dune::elements(gfs.gridView())) {
+        auto insideIndex = elementMapper.index(element);
+        auto current = extractBlocks(gfs, st, element);
+        // if we have more than one subdomain within element
+        if (current.size() > 1) {
+          // find all intersections with neighbor containing more than one subdomain
+          // note that this is not exact
+          for (const auto& it : Dune::intersections(gfs.gridView(), element)) {
+            if (it.neighbor()) {
+              auto outsideIndex = elementMapper.index(it.outside());
+              if (insideIndex < outsideIndex) {
+                auto out = extractBlocks(gfs, st, it.outside());
+                if (out.size() > 1) {
+                  out.insert(current.begin(), current.end());
+                  result.push_back(out);
+                }
+              }
+            }
+          }
+          // if its exactly one subdomain
+        } else if (current.size() == 1) {
+          result.push_back(current);
+        }
+      }
+      return result;
+    }
+
     template <class T, int N, int M, class P>
     void assertAll(const Dune::BCRSMatrix<Dune::FieldMatrix<T, N, M>>& m, const std::string& name,
                    P predicate)
@@ -100,6 +149,7 @@ namespace duneuro
     field_type dgSmootherRelaxation;
     unsigned int solverIterations;
     bool additive;
+    std::string smoother;
 
     bool reuse;
     bool firstapply;
@@ -122,6 +172,7 @@ namespace duneuro
         , dgSmootherRelaxation(params.get<field_type>("dg_smoother_relaxation", 1.0))
         , solverIterations(params.get<unsigned int>("max_iterations", 5000))
         , additive(params.get<bool>("additive", false))
+        , smoother(params.get<std::string>("smoother"))
         , reuse(true)
         , firstapply(true)
     {
@@ -144,7 +195,9 @@ namespace duneuro
       if (config.hasKey("additive"))
         additive = config.get<bool>("additive");
       if (config.hasKey("verbose"))
-        additive = config.get<int>("verbose");
+        verbose = config.get<int>("verbose");
+      if (config.hasKey("smoother"))
+        smoother = config.get<std::string>("smoother");
     }
 
     /*! \brief compute global norm of a vector
@@ -239,19 +292,39 @@ namespace duneuro
 
       // set up hybrid DG/CG preconditioner
       Dune::MatrixAdapter<Matrix, Vector, Vector> op(native(A));
-      DGPrec<Matrix, Vector, Vector, 1> dgprec(native(A), 1, dgSmootherRelaxation);
-      typedef Dune::PDELab::SeqDGAMGPrec<Matrix, DGPrec<Matrix, Vector, Vector, 1>, AMG, P>
-          HybridPrec;
-      HybridPrec hybridprec(native(A), dgprec, *amg, *pmatrix, dgSmootherIterations,
-                            dgSmootherIterations);
-
-      // set up solver
-      Solver<Vector> solver(op, hybridprec, reduction, solverIterations, verbose);
-
-      // solve
       Dune::InverseOperatorResult stat;
-      watch.reset();
-      solver.apply(native(z), native(r), stat);
+      if (smoother == "schwarz") {
+        using DGPreconditioner =
+            Dune::SeqOverlappingSchwarz<Matrix, Vector, Dune::SymmetricMultiplicativeSchwarzMode>;
+        auto domains = AMG4UDGDetail::extractCouplings(udggfs, st);
+        DGPreconditioner dgprec(native(A), domains, dgSmootherRelaxation);
+
+        typedef Dune::PDELab::SeqDGAMGPrec<Matrix, DGPreconditioner, AMG, P> HybridPrec;
+        HybridPrec hybridprec(native(A), dgprec, *amg, *pmatrix, dgSmootherIterations,
+                              dgSmootherIterations);
+
+        // set up solver
+        Solver<Vector> solver(op, hybridprec, reduction, solverIterations, verbose);
+
+        // solve
+        watch.reset();
+        solver.apply(native(z), native(r), stat);
+      } else if (smoother == "default") {
+        DGPrec<Matrix, Vector, Vector, 1> dgprec(native(A), 1, 1);
+        typedef Dune::PDELab::SeqDGAMGPrec<Matrix, DGPrec<Matrix, Vector, Vector, 1>, AMG, P>
+            HybridPrec;
+        HybridPrec hybridprec(native(A), dgprec, *amg, *pmatrix, dgSmootherIterations,
+                              dgSmootherIterations);
+
+        // set up solver
+        Solver<Vector> solver(op, hybridprec, reduction, solverIterations, verbose);
+
+        // solve
+        watch.reset();
+        solver.apply(native(z), native(r), stat);
+      } else {
+        DUNE_THROW(Dune::Exception, "unknown smoother type \"" << smoother << "\"");
+      }
       double amg_solve_time = watch.elapsed();
       if (verbose > 0)
         std::cout << "=== Hybrid total solve time "
