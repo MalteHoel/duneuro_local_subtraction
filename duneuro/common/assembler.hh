@@ -1,6 +1,8 @@
 #ifndef DUNEURO_ASSEMBLER_HH
 #define DUNEURO_ASSEMBLER_HH
 
+#include <dune/common/version.hh>
+
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/gridoperator/gridoperator.hh>
 
@@ -16,7 +18,11 @@ namespace duneuro
   {
   public:
     // export types
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    using MBE = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
+#else
     using MBE = Dune::PDELab::istl::BCRSMatrixBackend<>;
+#endif
     using GO = Dune::PDELab::GridOperator<typename FS::GFS, typename FS::GFS, LOP, MBE, DF, RF, JF,
                                           typename FS::CC, typename FS::CC>;
     using MAT = typename GO::Jacobian;

@@ -5,6 +5,8 @@
 #include <tbb/tbb.h>
 #endif
 
+#include <dune/common/version.hh>
+
 #include <dune/udg/pdelab/multiphaseoperator.hh>
 #include <dune/udg/pdelab/operator.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
@@ -43,7 +45,11 @@ namespace duneuro
         ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GridView>;
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    using MatrixBackend = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
+#else
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
+#endif
     using GridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
                                    WrappedLocalOperator, MatrixBackend, DF, RF, JF,

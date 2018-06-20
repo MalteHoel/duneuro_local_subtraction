@@ -3,7 +3,6 @@
 
 #include <fstream>
 
-#include <dune/common/array.hh>
 #include <dune/common/exceptions.hh>
 
 #include <dune/grid/common/gridfactory.hh>
