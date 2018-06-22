@@ -9,8 +9,10 @@ Copyright holders
 | 2016       | Christian Engwer           |
 | 2013       | Jakob Ludewig              |
 | 2017       | Tuuli Miinalainen          |
+| 2017       | Sophia Müller              |
 | 2014--2017 | Andreas Nüßing             |
 | 2016--2017 | Maria Carla Piastra        |
+| 2017       | Sophie Schrader            |
 
 License
 -------
