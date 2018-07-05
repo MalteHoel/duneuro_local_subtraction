@@ -95,6 +95,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
       } else if (solverType == "dg") {
+        DUNE_THROW(Dune::Exception, "Configuration not valid.");
         if (elementType == "tetrahedron") {
           return Dune::Std::make_unique<FittedMEEGDriver<2, ElementType::tetrahedron,
                                                          FittedSolverType::dg, 1>>(
@@ -122,6 +123,7 @@ namespace duneuro
       }
 #if HAVE_DUNE_UDG
     } else if (type == "unfitted") {
+      DUNE_THROW(Dune::Exception, "Configuration not valid.");
       auto solverType = config.get<std::string>("solver_type");
       if (solverType == "udg") {
         auto compartments = config.get<unsigned int>("compartments");
@@ -211,6 +213,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
       } else if (solverType == "dg") {
+        DUNE_THROW(Dune::Exception, "Configuration not valid.");
         if (elementType == "tetrahedron") {
           return Dune::Std::make_unique<FittedMEEGDriver<3, ElementType::tetrahedron,
                                                          FittedSolverType::dg, 1>>(
@@ -238,6 +241,7 @@ namespace duneuro
       }
 #if HAVE_DUNE_UDG
     } else if (type == "unfitted") {
+      DUNE_THROW(Dune::Exception, "Configuration not valid.");
       auto solverType = config.get<std::string>("solver_type");
       if (solverType == "udg") {
         auto compartments = config.get<unsigned int>("compartments");
