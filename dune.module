@@ -8,4 +8,4 @@ Version: 2.5-dev
 Maintainer: andreas.nuessing@uni-muenster.de
 #depending on
 Depends: dune-common (>= 2.5) dune-grid (>= 2.5) dune-istl (>= 2.5) dune-pdelab (>= 2.5)
-Suggests: dune-udg dune-subgrid dune-mc dune-alugrid (>= 2.5)
+Suggests: dune-udg dune-subgrid dune-mc dune-uggrid (>= 2.5)
