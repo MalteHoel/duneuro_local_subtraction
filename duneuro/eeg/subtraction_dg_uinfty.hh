@@ -14,6 +14,7 @@
 /**** includes ****/
 #include <cmath>
 #include <dune/pdelab/common/function.hh>
+#include <dune/common/math.hh>
 
 namespace duneuro
 {
@@ -53,7 +54,7 @@ namespace duneuro
       denominator *= sqrt((x - x_0) * sigma_infty_inv_x_x_0);
       denominator *= sqrt((x - x_0) * sigma_infty_inv_x_x_0);
 
-      RF ret = 1.0 / (4.0 * M_PI * sqrt(sigma_infty.determinant()));
+      RF ret = 1.0 / (4.0 * Dune::StandardMathematicalConstants<RF>::pi() * sqrt(sigma_infty.determinant()));
       ret *= numerator;
       ret /= denominator;
 
@@ -116,7 +117,7 @@ namespace duneuro
       RangeType y_help = siginvx_x_0;
       y_help *= 3 * (M * siginvx_x_0);
       y -= y_help;
-      y /= 4 * M_PI * sqrt(sigma_infty.determinant());
+      y /= 4 * Dune::StandardMathematicalConstants<RF>::pi() * sqrt(sigma_infty.determinant());
       y /= sqrt(siginvx_x_0 * (x - x_0));
       y /= siginvx_x_0 * (x - x_0);
       y /= siginvx_x_0 * (x - x_0);
@@ -170,7 +171,7 @@ namespace duneuro
       RF numerator = M * sigma_infty_inv_x_x_0;
       RF denominator = (x - x_0) * sigma_infty_inv_x_x_0;
 
-      RF ret = 1.0 / (2.0 * M_PI * sqrt(sigma_infty.determinant()));
+      RF ret = 1.0 / (2.0 * Dune::StandardMathematicalConstants<RF>::pi() * sqrt(sigma_infty.determinant()));
       ret *= numerator;
       ret /= denominator;
       y = ret;
@@ -228,7 +229,7 @@ namespace duneuro
       y_help *= 2. * (M * siginvx_x_0);
       y_help /= siginvx_x_0 * (x - x_0);
       y -= y_help;
-      y /= 2. * M_PI * sqrt(sigma_infty.determinant());
+      y /= 2. * Dune::StandardMathematicalConstants<RF>::pi() * sqrt(sigma_infty.determinant());
       y /= siginvx_x_0 * (x - x_0);
     }
 
