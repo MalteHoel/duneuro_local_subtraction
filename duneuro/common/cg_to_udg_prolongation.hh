@@ -16,30 +16,37 @@ namespace duneuro
 {
   namespace cg2udgdetail
   {
+    template <class FE>
+    struct ShapeFunctionOnBoundingBoxTraits {
+      typedef Dune::FiniteElementInterfaceSwitch<FE> FESwitch;
+      typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
+      typedef typename BasisSwitch::DomainField DF;
+      typedef typename BasisSwitch::Range RangeType;
+      enum { dim = BasisSwitch::dimDomainLocal };
+
+    };
     // evaluate a localfunction in local coordinates of a bounding box
     template <class FE, class BB, class E>
     class ShapeFunctionOnBoundingBox
     {
+
       const FE& fe_;
       const int comp_;
       const BB& boundingBox_;
       const E& element_;
 
-      typedef Dune::FiniteElementInterfaceSwitch<FE> FESwitch;
-      typedef Dune::BasisInterfaceSwitch<typename FESwitch::Basis> BasisSwitch;
-      typedef typename BasisSwitch::DomainField DF;
-      typedef typename BasisSwitch::Range RT;
-      enum { dim = BasisSwitch::dimDomainLocal };
-
     public:
+      using Traits = ShapeFunctionOnBoundingBoxTraits<FE>;
+
       ShapeFunctionOnBoundingBox(const FE& fe, int comp, const BB& boundingBox, const E& element)
           : fe_(fe), comp_(comp), boundingBox_(boundingBox), element_(element)
       {
       }
 
-      void evaluate(const Dune::FieldVector<DF, dim>& x, Dune::FieldVector<DF, 1>& y) const
+      void evaluate(const Dune::FieldVector<typename Traits::DF, Traits::dim>& x,
+                    typename Traits::RangeType& y) const
       {
-        std::vector<RT> v;
+        std::vector<typename Traits::RangeType> v;
         fe_.localBasis().evaluateFunction(element_.geometry().local(boundingBox_.global(x)), v);
         y = v[comp_];
       }
@@ -102,7 +109,7 @@ namespace duneuro
         std::vector<DF> v;
         for (unsigned int i = 0; i < fe.localBasis().size(); ++i) {
           auto sf = make_shape_function_on_bounding_box(fe, i, bbox, element_);
-          FESwitch::interpolation(lfs.finiteElement()).interpolate(*sf, v);
+          lfs.finiteElement().localFiniteElement().localInterpolation().interpolate(*sf, v);
           auto it = vertexAndDomainToLinear_.find({vertexIndices_[i], treePath.element(0)});
           if (it == vertexAndDomainToLinear_.end()) {
             DUNE_THROW(Dune::Exception, "vertex " << vertexIndices_[i] << " domain "

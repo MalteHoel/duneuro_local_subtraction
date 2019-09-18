@@ -1,6 +1,8 @@
 #ifndef DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 #define DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 
+#include <dune/common/version.hh>
+
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/finiteelement/l2orthonormal.hh>
 #include <dune/pdelab/finiteelementmap/qkdg.hh>
@@ -29,7 +31,11 @@ namespace duneuro
         LFE;
     typedef VirtualSubTriangulation<GV> SubTriangulation;
     enum { blockSize = Dune::QkStuff::QkSize<degree, dim>::value };
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    typedef Dune::PDELab::ISTL::VectorBackend<Dune::PDELab::ISTL::Blocking::fixed, blockSize> VBE;
+#else
     typedef Dune::PDELab::istl::VectorBackend<Dune::PDELab::istl::Blocking::fixed, blockSize> VBE;
+#endif
     typedef Dune::PDELab::UnfittedFiniteElementMapTraits<LFE, typename SubTriangulation::EntityPart>
         UFEMTraits;
     typedef Dune::PDELab::UnfittedFiniteElementMap<UFEMTraits, SubTriangulation> FEM;
@@ -37,7 +43,11 @@ namespace duneuro
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE,
                                             LeafOrderingTag>
         DomainGFS;
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    typedef Dune::PDELab::ISTL::VectorBackend<> PVBE;
+#else
     typedef Dune::PDELab::istl::VectorBackend<> PVBE;
+#endif
     typedef Dune::PDELab::ordering::Chunked<Dune::PDELab::EntityBlockedOrderingTag> OrderingTag;
     typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE, OrderingTag> GFS;
     typedef typename Dune::PDELab::Backend::Vector<GFS, N> DOF;

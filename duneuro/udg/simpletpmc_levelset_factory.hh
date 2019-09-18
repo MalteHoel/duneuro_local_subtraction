@@ -7,7 +7,9 @@
 #include <dune/udg/simpletpmctriangulation/interface.hh>
 
 #include <duneuro/common/stl.hh>
+#if HAVE_NIFTI
 #include <duneuro/io/nifti_image_reader.hh>
+#endif
 #include <duneuro/udg/image_levelset.hh>
 
 namespace duneuro

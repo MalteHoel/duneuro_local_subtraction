@@ -3,8 +3,13 @@
 
 #include <Eigen/Core>
 
-#include <dune/common/array.hh>
 #include <dune/common/fvector.hh>
+#include <dune/common/version.hh>
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 6)
+#include <dune/common/filledarray.hh>
+#else
+#include <dune/common/array.hh>
+#endif
 
 #include <dune/grid/utility/multiindex.hh>
 
@@ -21,7 +26,11 @@ namespace duneuro
                                                                    bool mixedMoments)
   {
     std::vector<std::array<unsigned int, dim>> result;
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 6)
+    Dune::FactoryUtilities::MultiIndex<dim> mi(Dune::filledArray<dim>(bound));
+#else
     Dune::FactoryUtilities::MultiIndex<dim> mi(Dune::fill_array<unsigned int, dim>(bound));
+#endif
     for (unsigned int i = 0; i < mi.cycle(); ++i, ++mi) {
       if (!mixedMoments) {
         unsigned int nonzeros = 0;

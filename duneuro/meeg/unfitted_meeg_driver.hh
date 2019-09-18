@@ -6,6 +6,7 @@
 #endif
 
 #include <dune/common/std/memory.hh>
+#include <dune/common/version.hh>
 
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
@@ -109,6 +110,10 @@ namespace duneuro
         , subTriangulation_(std::make_shared<typename Traits::SubTriangulation>(
               fundamentalGridView_, levelSetGridView_, domain_.getDomainConfiguration(),
               config.get<bool>("udg.force_refinement", false),
+#if DUNE_VERSION_NEWER(DUNE_COMMON, 2, 6)
+              Dune::UDG::simpleTPMCIntersectionsFromString(
+                  config.get<std::string>("udg.intersections", "all")),
+#endif
               config.get<double>("udg.value_tolerance", 1e-8)))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(fundamentalGridView_))
         , solver_(std::make_shared<typename Traits::Solver>(subTriangulation_, elementSearch_,

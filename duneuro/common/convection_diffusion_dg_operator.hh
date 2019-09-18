@@ -368,7 +368,11 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+      const int dim = IG::coorddimension;
+#else
       const int dim = IG::dimension;
+#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -512,7 +516,11 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+      const int dim = IG::coorddimension;
+#else
       const int dim = IG::dimension;
+#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -691,7 +699,11 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+      const int dim = IG::coorddimension;
+#else
       const int dim = IG::dimension;
+#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * order_s;
 
@@ -815,7 +827,11 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+      const int dim = IG::coorddimension;
+#else
       const int dim = IG::dimension;
+#endif
       // const int intorder =
       // intorderadd+quadrature_factor*lfsu_s.finiteElement().localBasis().order();
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();

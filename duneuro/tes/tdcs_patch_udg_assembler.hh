@@ -2,6 +2,7 @@
 #define DUNEURO_TDCS_PATCH_UDG_ASSEMBLER_HH
 
 #include <dune/common/parametertree.hh>
+#include <dune/common/version.hh>
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
@@ -31,7 +32,11 @@ namespace duneuro
         ConvectionDiffusion_DG_LocalOperator<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<FundamentalGridView>;
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    using MatrixBackend = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
+#else
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
+#endif
     using GridOperator =
         Dune::UDG::UDGGridOperator<typename FS::GFS, typename FS::GFS, WrappedLocalOperator,
                                    MatrixBackend, double, double, double, UnfittedSubTriangulation>;

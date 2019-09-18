@@ -43,7 +43,11 @@ namespace duneuro
     using WrappedLocalOperator = Dune::UDG::CutFEMMultiPhaseLocalOperatorWrapper<LocalOperator>;
     // using WrappedLocalOperator = Dune::UDG::MultiPhaseLocalOperatorWrapper<LocalOperator>;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GridView>;
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
+    using MatrixBackend = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
+#else
     using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
+#endif
     using RawGridOperator =
         Dune::UDG::UDGGridOperator<typename FunctionSpace::GFS, typename FunctionSpace::GFS,
                                    WrappedLocalOperator, MatrixBackend, DF, RF, JF,

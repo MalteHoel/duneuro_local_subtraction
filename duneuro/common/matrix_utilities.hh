@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <vector>
+#include <numeric>
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fvector.hh>
