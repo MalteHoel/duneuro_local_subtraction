@@ -9,7 +9,11 @@
 
 #include <dune/udg/simpletpmctriangulation/interface.hh>
 
+#if DUNE_VERSION_NEWER(DUNE_FUNCTIONS, 2,7)
+#include <dune/functions/functionspacebases/lagrangebasis.hh>
+#else
 #include <dune/functions/functionspacebases/pqknodalbasis.hh>
+#endif
 #include <dune/functions/gridfunctions/discreteglobalbasisfunction.hh>
 
 #include <duneuro/common/image.hh>
@@ -21,7 +25,11 @@ namespace duneuro
                                     LGV>
   makeImageLevelSet(const LGV& gridView, V&& coefficients)
   {
+#if DUNE_VERSION_NEWER(DUNE_FUNCTIONS, 2,7)
+    using Basis = Dune::Functions::LagrangeBasis<LGV, 1>;
+#else
     using Basis = Dune::Functions::PQkNodalBasis<LGV, 1>;
+#endif
     if (coefficients.size() != static_cast<std::size_t>(gridView.size(LGV::dimension))) {
       DUNE_THROW(Dune::Exception, "number of coefficients has to match number of grid vertices");
     }

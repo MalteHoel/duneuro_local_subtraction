@@ -16,7 +16,8 @@ namespace duneuro
   template <typename GV, typename D, typename R>
   class Q1GradientLocalFiniteElementMap<GV, D, R,
                                         typename std::enable_if<GV::dimension == 2, void>::type>
-      : public Dune::PDELab::SimpleLocalFiniteElementMap<Q1Gradient2DLocalFiniteElement<D, R>>
+      : public Dune::PDELab::SimpleLocalFiniteElementMap<Q1Gradient2DLocalFiniteElement<D, R>,
+                                                         GV::dimension>
   {
   public:
     bool fixedSize() const
@@ -52,7 +53,8 @@ namespace duneuro
   template <typename GV, typename D, typename R>
   class Q1GradientLocalFiniteElementMap<GV, D, R,
                                         typename std::enable_if<GV::dimension == 3, void>::type>
-      : public Dune::PDELab::SimpleLocalFiniteElementMap<Q1Gradient3DLocalFiniteElement<D, R>>
+      : public Dune::PDELab::SimpleLocalFiniteElementMap<Q1Gradient3DLocalFiniteElement<D, R>,
+                                                         GV::dimension>
   {
   public:
     bool fixedSize() const

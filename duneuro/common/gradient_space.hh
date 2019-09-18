@@ -1,17 +1,27 @@
 #ifndef DUNEURO_GRADIENT_SPACE_HH
 #define DUNEURO_GRADIENT_SPACE_HH
 
+#include <dune/common/ftraits.hh>
 #include <dune/geometry/type.hh>
-
 #include <dune/istl/solvercategory.hh>
-
 #include <dune/localfunctions/monomial.hh>
-
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/gridfunctionspace/gridfunctionspace.hh>
 
 #include <duneuro/common/p1gradientfem.hh>
 #include <duneuro/common/q1gradientfem.hh>
+
+namespace {
+  template<int d, int k>
+  static constexpr unsigned int monomialsize ()
+  {
+#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 7)
+      return Dune::MonomialLocalBasis<void, void, d, k>::size();
+#else
+      return Dune::MonomImp::Size<d, k>::val;
+#endif
+  }
+} // end empty namespace
 
 namespace duneuro
 {
@@ -89,7 +99,7 @@ namespace duneuro
             Dune::SolverCategory::Category st = Dune::SolverCategory::sequential,
             typename VBET = Dune::PDELab::ISTL::
                 VectorBackend<Dune::PDELab::ISTL::Blocking::fixed,
-                              T::dimension * Dune::MonomImp::Size<T::dimension, degree>::val>>
+                              T::dimension * monomialsize<T::dimension, degree>()>>
   class DGPkGradientSpace
   {
   public:
