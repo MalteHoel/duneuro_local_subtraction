@@ -22,7 +22,7 @@
 
 namespace duneuro
 {
-  template <class VC, class FS, class V>
+  template <class VC, class FS, class V, SubtractionContinuityType continuityType>
   class LocalizedSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {
@@ -41,9 +41,10 @@ namespace duneuro
         SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename SUBFS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
+
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
     using SubLFSCache = Dune::PDELab::LFSIndexCache<SubLFS>;
     using HostLFS = Dune::PDELab::LocalFunctionSpace<typename FS::GFS>;
@@ -110,7 +111,7 @@ namespace duneuro
       problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
       lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd"),
                                    config_.get<unsigned int>("intorderadd_lb"));
-      subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
+      subFS_ = std::make_shared<SUBFS>(*functionSpace_, subVolumeConductor_);
       dataTree.set("sub_dofs", subFS_->getGFS().size());
       x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
       r_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
