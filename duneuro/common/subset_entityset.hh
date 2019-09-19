@@ -257,8 +257,8 @@ namespace duneuro
 
     void addCodim(dim_type codim)
     {
-      if (codim != 0) {
-        DUNE_THROW(Dune::Exception, "only codim 0 supported");
+      if (codim != 0 && codim != dimension) {
+        DUNE_THROW(Dune::Exception, "only codim 0 and dim supported");
       }
     }
 
@@ -301,6 +301,8 @@ namespace duneuro
     SubSetEntitySetIndexSet& operator=(const SubSetEntitySetIndexSet&) = delete;
 
   protected:
+    static const dim_type dimension = Traits::dimension;
+
     bool update(bool force)
     {
       return false;
@@ -309,23 +311,30 @@ namespace duneuro
   public:
     size_type size(Dune::GeometryType gt) const
     {
-      assert(_types.size() == 1);
-      if (gt == _types[0]) {
-        return _size;
-      } else {
-        return 0;
-      }
+      return size(dimension - gt.dim());
     }
 
     size_type size(dim_type codim) const
     {
-      return codim == 0 ? _size : 0;
+      if (codim == 0)
+        return _element_index_to_linear_index.size();
+      if (codim == dimension)
+        return _vertex_index_to_linear_index.size();
+      return 0;
     }
 
     template <typename Entity>
     bool contains(const Entity& e, std::integral_constant<int, 0>) const
     {
-      return _element_index_to_linear_index[_element_mapper.index(e)] >= 0;
+      return _element_index_to_linear_index.find(_gv.indexSet().index(e))
+        !=  _element_index_to_linear_index.end();
+    }
+
+    template <typename Entity>
+    bool contains(const Entity& e, std::integral_constant<int, dimension>) const
+    {
+      return _vertex_index_to_linear_index.find(_gv.indexSet().index(e))
+        !=  _vertex_index_to_linear_index.end();
     }
 
     template <typename Entity, int N>
@@ -342,7 +351,7 @@ namespace duneuro
 
     bool contains(dim_type codim) const
     {
-      return codim == 0;
+      return codim == 0 || codim == dimension;
     }
 
     bool contains(const Dune::GeometryType& gt) const
@@ -352,11 +361,7 @@ namespace duneuro
 
     Types types(dim_type codim) const
     {
-      if (codim == 0) {
-        return Types(_types.begin(), _types.end());
-      } else {
-        return Types(_types.end(), _types.end());
-      }
+      return Types(_types.begin()+_type_offsets[codim], _types.begin()+_type_offsets[codim+1]);
     }
 
     Types types() const
@@ -367,7 +372,10 @@ namespace duneuro
     template <typename E>
     Index index(const E& e) const
     {
-      return _element_index_to_linear_index[_element_mapper.index(e)];
+      if (E::codimension == 0)
+        return _element_index_to_linear_index.at(_gv.indexSet().index(e));
+      if (E::codimension == dimension)
+        return _vertex_index_to_linear_index.at(_gv.indexSet().index(e));
     }
 
     template <typename E>
@@ -379,11 +387,15 @@ namespace duneuro
     template <typename E>
     Index subIndex(const E& e, size_type i, dim_type codim) const
     {
-      if (codim != 0) {
-        DUNE_THROW(Dune::Exception, "only codim indices 0 supported");
+      if (codim == 0) {
+        assert(i == 0);
+        return index(e);
       }
-      assert(i == 0);
-      return index(e);
+      if (codim == dimension) {
+        #warning reimplement with subIndex
+        return index(e.template subEntity<dimension>(i));
+      }
+      DUNE_THROW(Dune::Exception, "only codim 0 and dim indices supported");
     }
 
     template <typename E>
@@ -394,20 +406,36 @@ namespace duneuro
 
     SubSetEntitySetIndexSet(const GV& gv, const std::vector<Element>& elements)
         : _gv(gv)
-        , _element_mapper(_gv)
         , _needs_update(true)
-        , _element_index_to_linear_index(gv.size(0), -1)
-        , _size(elements.size())
+        , _type_offsets(dimension+1)
     {
       std::set<Dune::GeometryType> geometryTypes;
+      std::set<unsigned int> vertexIndices;
+      // update element indices
       for (unsigned int i = 0; i < elements.size(); ++i) {
-        _element_index_to_linear_index[_element_mapper.index(elements[i])] = i;
+        _element_index_to_linear_index[_gv.indexSet().index(elements[i])] = i;
         geometryTypes.insert(elements[i].geometry().type());
+        // and collect list of vertices
+        for (unsigned int j = 0; j < elements[i].subEntities(dimension); ++j) {
+          const auto & v = elements[i].template subEntity<dimension>(j);
+          vertexIndices.insert(_gv.indexSet().index(v));
+        }
       }
       if (geometryTypes.size() != 1) {
-        DUNE_THROW(Dune::Exception, "only a single geometry type currently supported");
+        DUNE_THROW(Dune::Exception, "only a single element type currently supported");
       }
+      // update vertex indices
+      unsigned int vidx = 0;
+      for (unsigned int i : vertexIndices) {
+        _vertex_index_to_linear_index[i] = vidx++;
+      }
+      // update geometry types
+      _type_offsets[0] = 0;
       _types.push_back(*geometryTypes.begin());
+      for (unsigned int c = 1; c <= dimension; c++)
+        _type_offsets[c] = 1;
+      _types.push_back(Dune::GeometryTypes::vertex);
+      _type_offsets[dimension] = 2;
     }
 
     const GridView& gridView() const
@@ -422,11 +450,11 @@ namespace duneuro
 
   protected:
     GV _gv;
-    Dune::SingleCodimSingleGeomTypeMapper<GV, 0> _element_mapper;
     bool _needs_update;
-    std::vector<int> _element_index_to_linear_index;
+    std::map<unsigned int, unsigned int> _element_index_to_linear_index;
+    std::map<unsigned int, unsigned int> _vertex_index_to_linear_index;
     std::vector<Dune::GeometryType> _types;
-    std::size_t _size;
+    std::vector<unsigned int> _type_offsets;
   };
 }
 namespace Dune
