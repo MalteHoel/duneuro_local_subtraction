@@ -21,6 +21,10 @@ namespace duneuro
   public:
     using BaseT = SourceModelBase<typename FS::GFS::Traits::GridViewType, V>;
     enum { dim = VC::dim };
+    using ElementType = typename BaseT::ElementType;
+    using CoordinateType = typename BaseT::CoordinateType;
+    using VectorType = typename BaseT::VectorType;
+    using SearchType = typename BaseT::SearchType;
     using Problem = SubtractionDGDefaultParameter<typename FS::GFS::Traits::GridViewType,
                                                   typename V::field_type, VC>;
     using EdgeNormProvider = MultiEdgeNormProvider;
@@ -28,12 +32,9 @@ namespace duneuro
     using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename FS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
-    using ElementType = typename BaseT::ElementType;
-    using CoordinateType = typename BaseT::CoordinateType;
-    using VectorType = typename BaseT::VectorType;
-    using SearchType = typename BaseT::SearchType;
 
-    FittedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor, const FS& fs,
+    FittedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
+                                 const FS& fs,
                                  std::shared_ptr<const SearchType> search,
                                  const Dune::ParameterTree& config,
                                  const Dune::ParameterTree& solverConfig)
