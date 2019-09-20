@@ -5,6 +5,7 @@
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/fitted_subtraction_source_model.hh>
+#include <duneuro/eeg/localized_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/patch_based_venant_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
@@ -63,6 +64,12 @@ namespace duneuro
             Vector, SubtractionContinuityType::continuous>>(
             solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
             solverConfig);
+      } else if (type == "localized_subtraction") {
+        return std::make_shared<LocalizedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
+            Vector, SubtractionContinuityType::continuous>>(
+            solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(), config, solverConfig);
       } else if (type == "whitney") {
         return std::make_shared<WhitneySourceModel<typename Solver::Traits::VolumeConductor,
                                                    typename Solver::Traits::FunctionSpace::GFS,
@@ -110,6 +117,12 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
             Vector>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
                      solver.elementSearch(), config);
+      } else if (type == "localized_subtraction") {
+        return std::make_shared<LocalizedSubtractionSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
+            Vector, SubtractionContinuityType::continuous>>(
+            solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(), config, solverConfig);
       } else if (type == "whitney") {
         return std::make_shared<WhitneySourceModel<typename Solver::Traits::VolumeConductor,
                                                    typename Solver::Traits::FunctionSpace::GFS,

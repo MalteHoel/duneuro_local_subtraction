@@ -25,9 +25,9 @@ namespace duneuro
     using CC = typename GFS::template ConstraintsContainer<typename HostFS::NT>::Type;
     using NT = typename HostFS::NT;
 
-    explicit SubFunctionSpace(std::shared_ptr<SubVC> subVolumeConductor)
+    explicit SubFunctionSpace(const HostFS & hostfs, std::shared_ptr<SubVC> subVolumeConductor)
         : subVolumeConductor_(subVolumeConductor)
-        , femp(std::make_shared<FEM>())
+        , femp(std::make_shared<FEM>(hostfs.getFEM()))
         , gfsp(std::make_shared<GFS>(subVolumeConductor->entitySet(), femp))
         , ccp(std::make_shared<CC>())
     {
