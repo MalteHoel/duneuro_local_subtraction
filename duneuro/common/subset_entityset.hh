@@ -435,7 +435,7 @@ namespace duneuro
       for (unsigned int c = 1; c <= dimension; c++)
         _type_offsets[c] = 1;
       _types.push_back(Dune::GeometryTypes::vertex);
-      _type_offsets[dimension] = 2;
+      _type_offsets[dimension+1] = 2;
     }
 
     const GridView& gridView() const
