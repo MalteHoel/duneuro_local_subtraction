@@ -63,10 +63,10 @@ namespace duneuro
     }
 
     template <class BCTYPE>
-    void assembleConstraints(const BCTYPE& bctype)
+    void assembleConstraints(const BCTYPE& bctype, bool verbose = false)
     {
       ccp->clear();
-      constraints(bctype, *gfsp, *ccp);
+      constraints(bctype, *gfsp, *ccp, verbose);
     }
 
     void clearConstraints()

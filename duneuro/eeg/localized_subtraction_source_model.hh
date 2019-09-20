@@ -22,6 +22,17 @@
 
 namespace duneuro
 {
+  class LocalizedSubtractionPatchBoundaryCondition
+    : public Dune::PDELab::DirichletConstraintsParameters
+  {
+  public:
+    template<typename I, typename C>
+    bool isDirichlet(const I & ig, const C & coord) const
+    {
+      return true;
+    }
+  };
+
   template <class VC, class FS, class V, SubtractionContinuityType continuityType>
   class LocalizedSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
@@ -44,6 +55,9 @@ namespace duneuro
     using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename SUBFS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
+
+    /* type for wrapping chi_ as a differentiable functions */
+    using SUBFNKT = Dune::DiscreteGridViewFunction<typename SUBFS::GFS, DOF>;
 
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
     using SubLFSCache = Dune::PDELab::LFSIndexCache<SubLFS>;
@@ -115,6 +129,17 @@ namespace duneuro
       dataTree.set("sub_dofs", subFS_->getGFS().size());
       x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
       r_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
+
+      // assemble constraints and initialize \chi
+      chi_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
+      std::cout << subFS_->getGFS().size() << " patch DOFs\n";
+      subFS_->assembleConstraints(LocalizedSubtractionPatchBoundaryCondition(), true);
+      std::cout << "... assembling constraints\n";
+      std::cout << subFS_->getCC().size() << " constraint patch DOFs\n";
+      subFS_->setNonConstrainedDOFS(*chi_, 1.0);
+
+      // reset constraints, as the RHS has support on the whole patch
+      subFS_->clearConstraints();
       assembler_ = std::make_shared<AS>(*subFS_, *lop_, 1);
       timer.lap("sub_problem");
       timer.stop("bind_accumulated");
@@ -169,6 +194,7 @@ namespace duneuro
     std::shared_ptr<SUBFS> subFS_;
     std::shared_ptr<AS> assembler_;
     std::shared_ptr<DOF> x_;
+    std::shared_ptr<DOF> chi_;
     std::shared_ptr<DOF> r_;
     Dune::ParameterTree config_;
     std::vector<typename HostGridView::Intersection> patchBoundaryIntersections_;
