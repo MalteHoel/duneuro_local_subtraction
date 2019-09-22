@@ -77,30 +77,30 @@ namespace duneuro
     void setConstrainedDOFS(DOF& x, typename HostFS::NT nt) const
     {
       set_constrained_dofs(*ccp, nt, x);
-      conb.make_consistent(*gfsp, x);
+      // conb.make_consistent(*gfsp, x);
     }
 
     void setNonConstrainedDOFS(DOF& x, typename HostFS::NT nt) const
     {
       set_nonconstrained_dofs(*ccp, nt, x);
-      conb.make_consistent(*gfsp, x);
+      // conb.make_consistent(*gfsp, x);
     }
 
     void copyConstrainedDOFS(const DOF& xin, DOF& xout) const
     {
       copy_constrained_dofs(*ccp, xin, xout);
-      conb.make_consistent(*gfsp, xout);
+      // conb.make_consistent(*gfsp, xout);
     }
 
     void copyNonConstrainedDOFS(const DOF& xin, DOF& xout) const
     {
       copy_nonconstrained_dofs(*ccp, xin, xout);
-      conb.make_consistent(*gfsp, xout);
+      // conb.make_consistent(*gfsp, xout);
     }
 
   private:
     std::shared_ptr<SubVC> subVolumeConductor_;
-    CONB conb;
+    // CONB conb;
     std::shared_ptr<FEM> femp;
     std::shared_ptr<GFS> gfsp;
     std::shared_ptr<CC> ccp;
