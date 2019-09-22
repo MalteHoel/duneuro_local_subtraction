@@ -7,6 +7,7 @@
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
+#include <dune/pdelab/function/discretegridviewfunction.hh>
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
@@ -57,7 +58,7 @@ namespace duneuro
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
 
     /* type for wrapping chi_ as a differentiable functions */
-    using SUBFNKT = Dune::DiscreteGridViewFunction<typename SUBFS::GFS, DOF>;
+    using SUBFNKT = Dune::PDELab::DiscreteGridViewFunction<typename SUBFS::GFS, DOF>;
 
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
     using SubLFSCache = Dune::PDELab::LFSIndexCache<SubLFS>;
@@ -137,6 +138,8 @@ namespace duneuro
       std::cout << "... assembling constraints\n";
       std::cout << subFS_->getCC().size() << " constraint patch DOFs\n";
       subFS_->setNonConstrainedDOFS(*chi_, 1.0);
+      Dune::printvector(std::cout, Dune::PDELab::Backend::native(*chi_), "chi", ".");
+      chi_fnkt_ = std::make_shared<SUBFNKT>(subFS_->getGFS(), *chi_);
 
       // reset constraints, as the RHS has support on the whole patch
       subFS_->clearConstraints();
@@ -196,6 +199,7 @@ namespace duneuro
     std::shared_ptr<DOF> x_;
     std::shared_ptr<DOF> chi_;
     std::shared_ptr<DOF> r_;
+    std::shared_ptr<SUBFNKT> chi_fnkt_;
     Dune::ParameterTree config_;
     std::vector<typename HostGridView::Intersection> patchBoundaryIntersections_;
     unsigned int intorderadd_lb_;
@@ -208,6 +212,7 @@ namespace duneuro
       *r_ = 0.0;
       (*assembler_)->residual(*x_, *r_);
       *r_ *= -1.;
+      Dune::printvector(std::cout, Dune::PDELab::Backend::native(*r_), "res", ".");
 
       SubLFS sublfs(subFS_->getGFS());
       SubLFSCache subcache(sublfs);
