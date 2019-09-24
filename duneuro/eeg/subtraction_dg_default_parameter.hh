@@ -16,6 +16,8 @@
 
 /**** includes ****/
 #include <dune/pdelab/localoperator/convectiondiffusionparameter.hh>
+#include <dune/functions/gridfunctions/gridviewfunction.hh>
+#include <dune/functions/common/differentiablefunctionfromcallables.hh>
 
 /**** our includes ****/
 #include <duneuro/common/convection_diffusion_dg_default_parameter.hh>
@@ -25,7 +27,21 @@
 
 namespace duneuro
 {
-  template <typename GV, typename RF, typename VC>
+
+  template<typename RF, typename GV,
+           typename Domain = typename Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF>::DomainType>
+  Dune::Functions::GridViewFunction<RF(Domain), GV>
+  constantOneFunction(const GV & gridView)
+  {
+    using namespace Dune::Functions;
+    auto f = [](Domain){ return RF(1.0); };
+    auto df = [](Domain){ return Domain(0.0); };
+    auto gf = makeDifferentiableFunctionFromCallables(SignatureTag<RF(Domain)>(), f, df);
+    return makeAnalyticGridViewFunction(gf, gridView);
+  }
+
+  template <typename GV, typename RF, typename VC,
+            typename CHI = Dune::Functions::GridViewFunction<RF(typename Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF>::DomainType), GV>>
   class SubtractionDGDefaultParameter : public ConvectionDiffusion_DG_DefaultParameter<VC>
   {
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
@@ -38,8 +54,10 @@ namespace duneuro
 
     /*** Constructor ***/
     explicit SubtractionDGDefaultParameter(const GV& gv_,
-                                           std::shared_ptr<const VC> volumeConductor)
-        : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
+                                           std::shared_ptr<const VC> volumeConductor,
+                                           const CHI& c)
+      : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
+      , Chi(c), chi(localFunction(Chi)) , grad_chi(derivative(chi))
     {
     }
 
@@ -81,6 +99,22 @@ namespace duneuro
       typename Dune::FieldVector<double, 1> ret;
       u_infty.evaluateGlobal(x, ret);
       return ret;
+    }
+
+    void bind_chi(const typename Traits::ElementType& element)
+    {
+      chi.bind(element);
+      grad_chi.bind(element);
+    }
+    
+    typename Traits::RangeFieldType get_chi(const typename Traits::DomainType& x) const
+    {
+      return chi(x);
+    }
+    
+    typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
+    {
+      return grad_chi(x);
     }
 
     /** multiple helper functions that return private variables **/
@@ -132,6 +166,11 @@ namespace duneuro
     InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType> u_infty;
     InfinityPotentialGradient<typename Traits::GridViewType, typename Traits::RangeFieldType>
         grad_u_infty;
+
+    /*** localization function \chi and its gradient as discrete (or analytic) grid functions ***/
+    CHI Chi;
+    decltype(localFunction(Chi)) chi;
+    decltype(derivative(chi)) grad_chi;
   };
 }
 

@@ -39,7 +39,8 @@ namespace duneuro
                                  const Dune::ParameterTree& config,
                                  const Dune::ParameterTree& solverConfig)
         : BaseT(search)
-        , problem_(volumeConductor->gridView(), volumeConductor)
+        , problem_(volumeConductor->gridView(), volumeConductor,
+            constantOneFunction<typename V::field_type>(volumeConductor->gridView()))
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type", "houston"), 1.0)
         , weighting_(solverConfig.get<std::string>("weights", "tensorOnly"))
         , lop_(problem_, weighting_, config.get<unsigned int>("intorderadd"),

@@ -49,17 +49,18 @@ namespace duneuro
     using SubEntitySet = SubSetEntitySet<HostGridView>;
     using SubVolumeConductor = EntitySetVolumeConductor<SubEntitySet>;
     using SUBFS = SubFunctionSpace<FS, SubVolumeConductor>;
-    using Problem =
-        SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
-    using EdgeNormProvider = MultiEdgeNormProvider;
-    using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename SUBFS::DOF;
-    using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
 
     /* type for wrapping chi_ as a differentiable functions */
     using SUBFNKT = Dune::PDELab::DiscreteGridViewFunction<typename SUBFS::GFS, DOF>;
 
+    using Problem =
+      SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor, SUBFNKT>;
+    using EdgeNormProvider = MultiEdgeNormProvider;
+    using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
+    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
+    using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
+      
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
     using SubLFSCache = Dune::PDELab::LFSIndexCache<SubLFS>;
     using HostLFS = Dune::PDELab::LocalFunctionSpace<typename FS::GFS>;
@@ -119,13 +120,10 @@ namespace duneuro
       subVolumeConductor_ = std::make_shared<SubVolumeConductor>(subEntitySet, tensors);
       timer.lap("sub_volume_conductor");
 
-      hostProblem_ = std::make_shared<HostProblem>(volumeConductor_->gridView(), volumeConductor_);
+      hostProblem_ = std::make_shared<HostProblem>(volumeConductor_->gridView(), volumeConductor_,
+                                                   constantOneFunction<typename V::field_type>(volumeConductor_->gridView()));
       hostProblem_->bind(this->dipoleElement(), this->localDipolePosition(),
                          this->dipole().moment());
-      problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
-      problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
-      lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd"),
-                                   config_.get<unsigned int>("intorderadd_lb"));
       subFS_ = std::make_shared<SUBFS>(*functionSpace_, subVolumeConductor_);
       dataTree.set("sub_dofs", subFS_->getGFS().size());
       x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
@@ -141,6 +139,12 @@ namespace duneuro
       Dune::printvector(std::cout, Dune::PDELab::Backend::native(*chi_), "chi", ".");
       chi_fnkt_ = std::make_shared<SUBFNKT>(subFS_->getGFS(), *chi_);
 
+      // create local problem and LOP
+      problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_, *chi_fnkt_);
+      problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
+      lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd"),
+                                   config_.get<unsigned int>("intorderadd_lb"));
+      
       // reset constraints, as the RHS has support on the whole patch
       subFS_->clearConstraints();
       assembler_ = std::make_shared<AS>(*subFS_, *lop_, 1);

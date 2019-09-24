@@ -74,6 +74,9 @@ namespace duneuro
       using RF = typename BasisSwitch::RangeField;
       using RangeType = typename BasisSwitch::Range;
 
+      // this is necessary to evaluate chi afterwards
+      param.bind_chi(eg.entity());
+      
       const int dim = EG::Geometry::mydimension;
 
       const auto& geometry = eg.geometry();
