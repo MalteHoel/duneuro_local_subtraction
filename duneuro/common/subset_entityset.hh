@@ -389,11 +389,10 @@ namespace duneuro
     {
       if (codim == 0) {
         assert(i == 0);
-        return index(e);
+        return _element_index_to_linear_index.at(_gv.indexSet().index(e));
       }
       if (codim == dimension) {
-        #warning reimplement with subIndex
-        return index(e.template subEntity<dimension>(i));
+        return _vertex_index_to_linear_index.at(_gv.indexSet().subIndex(e,i,dimension));
       }
       DUNE_THROW(Dune::Exception, "only codim 0 and dim indices supported");
     }
