@@ -3,8 +3,9 @@
 
 #include <dune/pdelab/localoperator/convectiondiffusionparameter.hh>
 
-#include <duneuro/common/convection_diffusion_dg_operator.hh>
+/**** our includes ****/
 #include <duneuro/common/convection_diffusion_udg_default_parameter.hh>
+#include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/eeg/subtraction_dg_uinfty.hh>
 
@@ -16,8 +17,8 @@ namespace duneuro
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
 
   public:
-    typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
     using BaseT = ConvectionDiffusion_UDG_DefaultParameter<GV>;
+    typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
 
     explicit SubtractionUDGDefaultParameter(const GV& gv_,
                                             const std::vector<double>& conductivities,
@@ -76,6 +77,11 @@ namespace duneuro
     typename Traits::PermTensorType get_sigma_infty_inv()
     {
       return sigma_infty_inv;
+    }
+
+    typename Traits::GridViewType& get_gridview()
+    {
+      return gv;
     }
 
     /** set the the dipole position and moment **/

@@ -15,7 +15,6 @@
  */
 
 /**** includes ****/
-#include <dune/common/timer.hh>
 #include <dune/pdelab/localoperator/convectiondiffusionparameter.hh>
 
 /**** our includes ****/
@@ -26,33 +25,31 @@
 
 namespace duneuro
 {
-  /**** class definition ****/
   template <typename GV, typename RF, typename VC>
   class SubtractionDGDefaultParameter : public ConvectionDiffusion_DG_DefaultParameter<VC>
   {
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
 
   public:
-    /*** Typedefs ***/
     using BaseT = ConvectionDiffusion_DG_DefaultParameter<VC>;
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
     typedef typename Traits::GridViewType::Traits::IndexSet IndexSet;
     typedef typename Traits::GridViewType::Traits::Grid GridType;
 
     /*** Constructor ***/
-    SubtractionDGDefaultParameter(const typename Traits::GridViewType& gv_,
-                                  std::shared_ptr<const VC> volumeConductor)
+    explicit SubtractionDGDefaultParameter(const GV& gv_,
+                                           std::shared_ptr<const VC> volumeConductor)
         : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
     {
     }
 
-    typename Traits::RangeFieldType j(const typename Traits::IntersectionType& e,
-                                      const typename Traits::IntersectionDomainType& x)
+    typename Traits::RangeFieldType j(const typename Traits::IntersectionType& ig,
+                                      const typename Traits::IntersectionDomainType& local) const
     {
       /* map position on the intersection x(2D coordinates) to global position global_x in
        * the grid(3D coordinates) for evaluation of graduinfty.
        */
-      typename Traits::DomainType global_x = e.geometry().global(x);
+      typename Traits::DomainType global_x = ig.geometry().global(local);
 
       /* evaluate graduinfty*/
       Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> graduinfty;
@@ -66,11 +63,12 @@ namespace duneuro
 
       /* normal vector at the integration point */
       Dune::FieldVector<typename Traits::RangeFieldType, GV::dimension> normal =
-          e.unitOuterNormal(x);
+          ig.unitOuterNormal(local);
 
       return temp * normal;
     }
 
+    /** evaluate graduinfty and uinfty at global coordinates **/
     typename Traits::RangeType get_grad_u_infty(const typename Traits::DomainType& x) const
     {
       typename Traits::RangeType ret;
@@ -124,8 +122,7 @@ namespace duneuro
     }
 
   private:
-    /*** gridview ***/
-    typename Traits::GridViewType gv;
+    GV gv;
 
     /*** the parameters for the forward simulation(dipole moment, position, etc.) ***/
     typename Traits::PermTensorType sigma_infty;
