@@ -84,6 +84,21 @@ namespace duneuro
       return gv;
     }
 
+    // ... currently we don't use localized subtraction for cut-cells, so chi is constant 1
+    void bind_chi(const typename Traits::ElementType& element)
+    {
+    }
+    
+    typename Traits::RangeFieldType get_chi(const typename Traits::DomainType& x) const
+    {
+      return 1.0;
+    }
+    
+    typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
+    {
+      return Traits::RangeType(0.0);
+    }
+
     /** set the the dipole position and moment **/
     void bind(const typename Traits::ElementType& element,
               const typename Traits::DomainType& localDipolePosition,
