@@ -88,7 +88,6 @@ namespace duneuro
       const int intorder = intorderadd + 2 * FESwitch::basis(lfsv.finiteElement()).order();
       const auto& rule = Dune::QuadratureRules<DF, dim>::rule(gt, intorder);
       for (const auto& qp : rule) {
-        FESwitch::basis(lfsv.finiteElement()).evaluateFunction(qp.position(), phi);
         BasisSwitch::gradient(FESwitch::basis(lfsv.finiteElement()), geometry, qp.position(),
                               gradphi);
 
