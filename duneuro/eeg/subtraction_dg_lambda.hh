@@ -92,7 +92,7 @@ namespace duneuro
                               gradphi);
 
         typename PROBLEMDATA::Traits::RangeType sigma_corr_grad_u_infty;
-        sigma_corr.mv(param.get_grad_u_infty(geometry.global(qp.position())),
+        sigma_corr.mv(param.get_grad_u_infty(geometry.global(qp.position())), // see FieldMatrix, FieldVector
                       sigma_corr_grad_u_infty);
 
         RF factor = qp.weight() * geometry.integrationElement(qp.position());
