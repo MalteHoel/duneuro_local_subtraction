@@ -175,7 +175,7 @@ namespace duneuro
         hostlfs.bind(e);
         hostcache.update();
         for (unsigned int i = 0; i < hostcache.size(); ++i) {
-          vector[hostcache.containerIndex(i)] += (*x_)[subcache.containerIndex(i)];
+          vector[hostcache.containerIndex(i)] += (*chi_)[subcache.containerIndex(i)] * (*x_)[subcache.containerIndex(i)];
         }
       }
     }
