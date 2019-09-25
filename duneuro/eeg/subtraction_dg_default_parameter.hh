@@ -101,6 +101,21 @@ namespace duneuro
       return ret;
     }
 
+    /** multiple helper functions that return private variables **/
+    typename Traits::PermTensorType get_sigma_infty()
+    {
+      return sigma_infty;
+    }
+    typename Traits::PermTensorType get_sigma_infty_inv()
+    {
+      return sigma_infty_inv;
+    }
+
+    typename Traits::GridViewType& get_gridview()
+    {
+      return gv;
+    }
+
     void bind_chi(const typename Traits::ElementType& element)
     {
       chi.bind(element);
@@ -115,21 +130,6 @@ namespace duneuro
     typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
     {
       return grad_chi(x);
-    }
-
-    /** multiple helper functions that return private variables **/
-    typename Traits::PermTensorType get_sigma_infty()
-    {
-      return sigma_infty;
-    }
-    typename Traits::PermTensorType get_sigma_infty_inv()
-    {
-      return sigma_infty_inv;
-    }
-
-    typename Traits::GridViewType& get_gridview()
-    {
-      return gv;
     }
 
     /** set the the dipole position and moment **/
