@@ -82,8 +82,17 @@ namespace duneuro
       const auto& geometry = eg.geometry();
 
       const auto gt = geometry.type();
+	  
+      //Berechnung von sigma_ für den ersten Term
+	  auto sigma = param.A(eg, Dune::ReferenceElements<DF, dim>::general(gt).position(0, 0));
+
+      //Berechnung von sigma_corr
       auto sigma_corr = param.A(eg, Dune::ReferenceElements<DF, dim>::general(gt).position(0, 0));
       sigma_corr -= param.get_sigma_infty();
+	  
+      //Berechnung von sigma_infty
+	  auto sigma_infty = param.A(eg, Dune::ReferenceElements<DF, dim>::general(gt).position(0, 0));
+      sigma_infty = param.get_sigma_infty();
 
       std::vector<RangeType> phi(lfsv.size());
       std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsv.size());
@@ -94,13 +103,36 @@ namespace duneuro
         BasisSwitch::gradient(FESwitch::basis(lfsv.finiteElement()), geometry, qp.position(),
                               gradphi);
 
-        typename PROBLEMDATA::Traits::RangeType sigma_corr_grad_u_infty;
+
+// 1. Term sigma u_infty gradient_chi
+
+		typename PROBLEMDATA::Traits::RangeType sigma_u_infty_grad_chi;
+        sigma.mv(param.get_u_infty(qp.position()), // see FieldMatrix, FieldVector
+                      sigma_u_infty);
+		sigma_u_infty.mv(param.get_grad_chi(geometry.global(qp.position())),
+					  sigma_u_infty_grad_chi);
+
+
+// 2. Term  sigma_corr grad_u_infty chi
+
+        typename PROBLEMDATA::Traits::RangeType sigma_corr_grad_u_infty_chi;
         sigma_corr.mv(param.get_grad_u_infty(geometry.global(qp.position())), // see FieldMatrix, FieldVector
                       sigma_corr_grad_u_infty);
+		sigma_corr_grad_u_infty.mv(param.get_chi(qp.position()),
+					  sigma_corr_grad_u_infty_chi);
 
-        RF factor = qp.weight() * geometry.integrationElement(qp.position());
+
+// 3. Term sigma_infty grad_u_infty (1- chi)
+
+		typename PROBLEMDATA::Traits::RangeType sigma_infty_grad_u_infty_chi;
+        sigma_infty.mv(param.get_grad_u_infty(geometry.global(qp.position())), // see FieldMatrix, FieldVector
+                      sigma_infty_grad_u_infty);
+		sigma_infty_grad_u_infty -= get_chi(qp.position()) * sigma_infty_grad_u_infty;
+
+
+		RF factor = qp.weight() * geometry.integrationElement(qp.position());
         for (std::size_t i = 0; i < lfsv.size(); i++)
-          r.accumulate(lfsv, i, (sigma_corr_grad_u_infty * gradphi[i][0]) * factor);
+          r.accumulate(lfsv, i, ((sigma_u_infty_grad_chi + sigma_corr_grad_u_infty_chi - sigma_infty_grad_u_infty) * gradphi[i][0]) * factor);
       }
     }
 
