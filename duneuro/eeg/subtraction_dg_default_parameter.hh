@@ -57,7 +57,7 @@ namespace duneuro
                                            std::shared_ptr<const VC> volumeConductor,
                                            const CHI& c)
       : BaseT(volumeConductor), gv(gv_), u_infty(gv), grad_u_infty(gv)
-      , Chi(c), chi(localFunction(Chi)) , grad_chi(derivative(chi))
+      , Chi(c), chi(localFunction(Chi)) , grad_chi(localFunction(derivative(Chi)))
     {
     }
 
@@ -102,11 +102,11 @@ namespace duneuro
     }
 
     /** multiple helper functions that return private variables **/
-    typename Traits::PermTensorType get_sigma_infty()
+    typename Traits::PermTensorType get_sigma_infty() const
     {
       return sigma_infty;
     }
-    typename Traits::PermTensorType get_sigma_infty_inv()
+    typename Traits::PermTensorType get_sigma_infty_inv() const
     {
       return sigma_infty_inv;
     }
@@ -127,7 +127,7 @@ namespace duneuro
       return chi(x);
     }
     
-    typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
+    auto get_grad_chi(const typename Traits::DomainType& x) const
     {
       return grad_chi(x);
     }
@@ -169,8 +169,8 @@ namespace duneuro
 
     /*** localization function \chi and its gradient as discrete (or analytic) grid functions ***/
     CHI Chi;
-    decltype(localFunction(Chi)) chi;
-    decltype(derivative(chi)) grad_chi;
+    mutable decltype(localFunction(Chi)) chi;
+    mutable decltype(localFunction(derivative(Chi))) grad_chi;
   };
 }
 
