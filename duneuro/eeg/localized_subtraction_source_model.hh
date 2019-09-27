@@ -130,13 +130,16 @@ namespace duneuro
       r_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
 
       // assemble constraints and initialize \chi
+      bool print_patch_info = config_.get("print_patch_info", false);
       chi_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
-      std::cout << subFS_->getGFS().size() << " patch DOFs\n";
+      if (print_patch_info)
+        std::cout << subFS_->getGFS().size() << " patch DOFs\n";
       subFS_->assembleConstraints(LocalizedSubtractionPatchBoundaryCondition(), true);
-      std::cout << "... assembling constraints\n";
-      std::cout << subFS_->getCC().size() << " constraint patch DOFs\n";
+      if (print_patch_info)
+        std::cout << subFS_->getCC().size() << " constraint patch DOFs\n";
       subFS_->setNonConstrainedDOFS(*chi_, 1.0);
-      Dune::printvector(std::cout, Dune::PDELab::Backend::native(*chi_), "chi", ".");
+      if (print_patch_info)
+        Dune::printvector(std::cout, Dune::PDELab::Backend::native(*chi_), "chi", ".");
       chi_fnkt_ = std::make_shared<SUBFNKT>(subFS_->getGFS(), *chi_);
 
       // create local problem and LOP
@@ -216,7 +219,6 @@ namespace duneuro
       *r_ = 0.0;
       (*assembler_)->residual(*x_, *r_);
       *r_ *= -1.;
-      Dune::printvector(std::cout, Dune::PDELab::Backend::native(*r_), "res", ".");
 
       SubLFS sublfs(subFS_->getGFS());
       SubLFSCache subcache(sublfs);
