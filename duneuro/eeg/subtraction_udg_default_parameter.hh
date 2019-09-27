@@ -94,10 +94,9 @@ namespace duneuro
       return 1.0;
     }
     
-    auto get_grad_chi(const typename Traits::DomainType& x) const
+    typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
     {
-      using R = typename Traits::RangeFieldType;
-      return Dune::FieldMatrix<R,1,GV::dimension>(0.0);
+      return typename Traits::RangeType(0.0);
     }
 
     /** set the the dipole position and moment **/

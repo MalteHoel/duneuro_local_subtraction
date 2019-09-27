@@ -108,7 +108,7 @@ namespace duneuro
         auto sigma_u_infty = sigma;
         sigma_u_infty *= param.get_u_infty(qp.position());
         typename PROBLEMDATA::Traits::RangeType sigma_u_infty_grad_chi;
-        sigma_u_infty.mv(param.get_grad_chi(geometry.global(qp.position()))[0],
+        sigma_u_infty.mv(param.get_grad_chi(geometry.global(qp.position())),
           sigma_u_infty_grad_chi);
         
         // 2. part:  sigma_corr grad_u_infty chi

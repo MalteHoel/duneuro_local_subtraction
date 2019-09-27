@@ -30,18 +30,20 @@ namespace duneuro
 
   template<typename RF, typename GV,
            typename Domain = typename Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF>::DomainType>
-  Dune::Functions::GridViewFunction<RF(Domain), GV>
+  auto
   constantOneFunction(const GV & gridView)
   {
     using namespace Dune::Functions;
-    auto f = [](Domain){ return RF(1.0); };
-    auto df = [](Domain){ return Domain(0.0); };
-    auto gf = makeDifferentiableFunctionFromCallables(SignatureTag<RF(Domain)>(), f, df);
+    using Range = Dune::FieldVector<RF,1>;
+    using Jac = Dune::FieldMatrix<RF,1,GV::dimension>;
+    auto f = [](Domain){ return Range(1.0); };
+    auto df = [](Domain){ return Jac(0.0); };
+    auto gf = makeDifferentiableFunctionFromCallables(SignatureTag<Range(Domain)>(), f, df);
     return makeAnalyticGridViewFunction(gf, gridView);
   }
 
   template <typename GV, typename RF, typename VC,
-            typename CHI = Dune::Functions::GridViewFunction<RF(typename Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF>::DomainType), GV>>
+            typename CHI = Dune::Functions::GridViewFunction<Dune::FieldVector<RF,1>(typename Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF>::DomainType), GV>>
   class SubtractionDGDefaultParameter : public ConvectionDiffusion_DG_DefaultParameter<VC>
   {
     typedef Dune::PDELab::ConvectionDiffusionBoundaryConditions::Type BCType;
@@ -51,7 +53,7 @@ namespace duneuro
     typedef Dune::PDELab::ConvectionDiffusionParameterTraits<GV, RF> Traits;
     typedef typename Traits::GridViewType::Traits::IndexSet IndexSet;
     typedef typename Traits::GridViewType::Traits::Grid GridType;
-
+    
     /*** Constructor ***/
     explicit SubtractionDGDefaultParameter(const GV& gv_,
                                            std::shared_ptr<const VC> volumeConductor,
@@ -127,9 +129,9 @@ namespace duneuro
       return chi(x);
     }
     
-    auto get_grad_chi(const typename Traits::DomainType& x) const
+    typename Traits::RangeType get_grad_chi(const typename Traits::DomainType& x) const
     {
-      return grad_chi(x);
+      return grad_chi(x)[0];
     }
 
     /** set the the dipole position and moment **/
