@@ -165,20 +165,36 @@ namespace duneuro
     virtual void postProcessSolution(VectorType& vector) const override
     {
       *x_ = 0.0;
-      Dune::PDELab::interpolate(problem_->get_u_infty(), (*assembler_)->trialGridFunctionSpace(),
-                                *x_);
+      Dune::PDELab::interpolate(problem_->get_u_infty(),
+        (*assembler_)->trialGridFunctionSpace(), *x_);
 
       SubLFS sublfs(subFS_->getGFS());
       SubLFSCache subcache(sublfs);
       HostLFS hostlfs(functionSpace_->getGFS());
       HostLFSCache hostcache(hostlfs);
+
+      // copy global vector to patch
+      *r_ = 0.0;
       for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
         sublfs.bind(e);
         subcache.update();
         hostlfs.bind(e);
         hostcache.update();
+        assert(subcache.size() == hostcache.size());
+        for (unsigned int i = 0; i < hostcache.size(); ++i)
+          (*r_)[subcache.containerIndex(i)] = vector[hostcache.containerIndex(i)];
+      }
+
+      // postprocess global solution
+      for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
+        sublfs.bind(e);
+        subcache.update();
+        hostlfs.bind(e);
+        hostcache.update();
+        assert(subcache.size() == hostcache.size());
         for (unsigned int i = 0; i < hostcache.size(); ++i) {
-          vector[hostcache.containerIndex(i)] += (*chi_)[subcache.containerIndex(i)] * (*x_)[subcache.containerIndex(i)];
+          const auto & idx = subcache.containerIndex(i);
+          vector[hostcache.containerIndex(i)] = (*r_)[idx] + (*chi_)[idx] * (*x_)[idx];
         }
       }
     }
