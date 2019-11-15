@@ -1,7 +1,7 @@
 #ifndef DUNEURO_NUMERICAL_FLUX_LOCAL_OPERATOR_HH
 #define DUNEURO_NUMERICAL_FLUX_LOCAL_OPERATOR_HH
 
-#include <dune/common/std/memory.hh>
+#include <memory>
 
 #include <dune/grid/common/rangegenerators.hh>
 
@@ -142,7 +142,7 @@ namespace duneuro
       std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider, double penalty,
       bool weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
   {
-    return Dune::Std::make_unique<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>(
+    return std::make_unique<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>(
         volumeConductor, edgeNormProvider, penalty, weights, basis, localBasisIndex, eg, tensor);
   }
 

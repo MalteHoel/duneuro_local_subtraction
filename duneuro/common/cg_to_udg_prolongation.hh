@@ -57,7 +57,7 @@ namespace duneuro
     make_shape_function_on_bounding_box(const FE& fe, int comp, const BB& boundingBox,
                                         const E& element)
     {
-      return Dune::Std::make_unique<ShapeFunctionOnBoundingBox<FE, BB, E>>(fe, comp, boundingBox,
+      return std::make_unique<ShapeFunctionOnBoundingBox<FE, BB, E>>(fe, comp, boundingBox,
                                                                            element);
     }
 
@@ -133,7 +133,7 @@ namespace duneuro
         const GV& gridView,
         const std::map<std::pair<std::size_t, std::size_t>, std::size_t>& vertexAndDomainToLinear)
     {
-      return Dune::Std::make_unique<ComputeCG2UDGVisitor<E, IC, CI, M>>(
+      return std::make_unique<ComputeCG2UDGVisitor<E, IC, CI, M>>(
           mat, element, indexCache, cutCellInformation, gridView, vertexAndDomainToLinear);
     }
   }
@@ -182,7 +182,7 @@ namespace duneuro
         Dune::BCRSMatrix<Dune::FieldMatrix<double, Dune::QkStuff::QkSize<1, GFS::Traits::GridView::
                                                                                 dimension>::value,
                                            1>>;
-    auto matrix = Dune::Std::make_unique<PMatrix>(cutcellIndexToLinearVertices.size(),
+    auto matrix = std::make_unique<PMatrix>(cutcellIndexToLinearVertices.size(),
                                                   vertexDomainToLinear.size(), PMatrix::row_wise);
     unsigned int cutCellIndex = 0;
     for (auto it = matrix->createbegin(); it != matrix->createend(); ++it, ++cutCellIndex) {

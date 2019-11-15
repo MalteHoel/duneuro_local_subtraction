@@ -2,7 +2,6 @@
 #define DUNEURO_VOLUME_CONDUCTOR_READER_HH
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 #include <dune/common/timer.hh>
 
 #include <dune/grid/io/file/dgfparser.hh>

@@ -5,7 +5,6 @@
 #include <vector>
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 
 #include <dune/grid/common/scsgmapper.hh>
 #include <dune/grid/io/file/vtk/vtkwriter.hh>
@@ -223,7 +222,7 @@ namespace duneuro
       const ES& elementSearch, const Dune::FieldVector<typename VC::ctype, VC::dim>& position,
       const Dune::ParameterTree& config)
   {
-    auto patch = Dune::Std::make_unique<ElementPatch<typename VC::GridView>>(
+    auto patch = std::make_unique<ElementPatch<typename VC::GridView>>(
         elementNeighborhoodMap, elementSearch, position,
         elementPatchInitializationFromString(config.get<std::string>("initialization")),
         make_element_filter(volumeConductor, elementSearch, position,
@@ -253,7 +252,7 @@ namespace duneuro
       const Dune::FieldVector<typename ST::GridView::ctype, ST::GridView::dimension>& position,
       unsigned int positionDomain, const Dune::ParameterTree& config)
   {
-    auto patch = Dune::Std::make_unique<ElementPatch<typename ST::GridView>>(
+    auto patch = std::make_unique<ElementPatch<typename ST::GridView>>(
         elementNeighborhoodMap, elementSearch, position,
         elementPatchInitializationFromString(config.get<std::string>("initialization")),
         make_element_filter(subTriangulation, elementSearch, position, positionDomain));
@@ -300,7 +299,7 @@ namespace duneuro
   std::unique_ptr<ElementPatchVTKFunction<EP>>
   make_element_patch_vtk_function(const EP& patch, const std::string& name = "patch")
   {
-    return Dune::Std::make_unique<ElementPatchVTKFunction<EP>>(patch, name);
+    return std::make_unique<ElementPatchVTKFunction<EP>>(patch, name);
   }
 }
 

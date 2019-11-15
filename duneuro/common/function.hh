@@ -3,8 +3,6 @@
 
 #include <memory>
 
-#include <dune/common/std/memory.hh>
-
 namespace duneuro
 {
   class Function
@@ -26,7 +24,7 @@ namespace duneuro
   public:
     template <class T>
     explicit Function(std::unique_ptr<T> data)
-        : data_(Dune::Std::make_unique<Data<T>>(std::move(data)))
+        : data_(std::make_unique<Data<T>>(std::move(data)))
     {
     }
 

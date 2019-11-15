@@ -1,6 +1,8 @@
 #ifndef DUNEURO_MULTILAYERSPHERE_HH
 #define DUNEURO_MULTILAYERSPHERE_HH
 
+#include <memory>
+
 #include <dune/udg/mc33triangulation/domaindefinition.hh>
 #include <dune/udg/simpletpmctriangulation/domainconfiguration.hh>
 
@@ -126,7 +128,7 @@ namespace duneuro
         }
       }
       for (unsigned int i = 0; i < localRadii.size(); ++i) {
-        levelSets_.push_back(Dune::Std::make_unique<LevelSetType>(localCenter, localRadii[i]));
+        levelSets_.push_back(std::make_unique<LevelSetType>(localCenter, localRadii[i]));
         domainDef_.addInterface(i, *(levelSets_.back()), 0, DD::nonunique);
       }
     }

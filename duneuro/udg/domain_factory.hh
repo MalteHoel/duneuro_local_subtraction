@@ -1,8 +1,9 @@
 #ifndef DUNEURO_DOMAIN_FACTORY_HH
 #define DUNEURO_DOMAIN_FACTORY_HH
 
+#include <memory>
+
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 
 #include <duneuro/udg/domain.hh>
 #include <duneuro/udg/image_domain.hh>
@@ -17,9 +18,9 @@ namespace duneuro
     {
       auto type = config.get<std::string>("type");
       if (type == "sphere") {
-        return Dune::Std::make_unique<SimpleTPMCMultiLayerSphereDomain<GV, LGV>>(gv, config);
+        return std::make_unique<SimpleTPMCMultiLayerSphereDomain<GV, LGV>>(gv, config);
       } else if (type == "image") {
-        return Dune::Std::make_unique<SimpleTPMCImageDomain<GV, LGV>>(gv, config);
+        return std::make_unique<SimpleTPMCImageDomain<GV, LGV>>(gv, config);
       } else {
         DUNE_THROW(Dune::Exception, "unknown domain type \"" << type << "\"");
       }
