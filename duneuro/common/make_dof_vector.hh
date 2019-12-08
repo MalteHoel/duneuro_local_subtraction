@@ -7,6 +7,8 @@
 
 #include <duneuro/common/flags.hh>
 
+#include<memory>
+
 namespace duneuro
 {
   template <class V>
