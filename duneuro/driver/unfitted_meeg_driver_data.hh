@@ -3,12 +3,10 @@
 
 #include <duneuro/udg/simpletpmc_levelset_factory.hh>
 
-namespace duneuro
-{
-  template <int dim>
-  struct UnfittedMEEGDriverData {
-    SimpleTPMCLevelSetData<double, dim> levelSetData;
-  };
-}
+namespace duneuro {
+template <int dim> struct UnfittedMEEGDriverData {
+  SimpleTPMCLevelSetData<double, dim> levelSetData;
+};
+} // namespace duneuro
 
 #endif // DUNEURO_UNFITTED_MEEG_DRIVER_DATA_HH
