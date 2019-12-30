@@ -1,6 +1,10 @@
 #ifndef VOLUME_CONDUCTOR_INTERFACE_HH
 #define VOLUME_CONDUCTOR_INTERFACE_HH
 
+#if HAVE_TBB
+#include <tbb/tbb.h>
+#endif
+
 #include <duneuro/common/dense_matrix.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -196,6 +200,62 @@ protected:
     if (config.get<bool>("post_process")) {
       eegForwardSolver.postProcessSolution(solution.cast<DomainDOFVector>());
     }
+  }
+
+  template <class Traits, class ProjectedGlobalElectrodesType>
+  std::vector<std::vector<double>> applyEEGTransfer_impl(
+      const DenseMatrix<double> &transferMatrix,
+      const std::vector<DipoleType> &dipoles, const Dune::ParameterTree &config,
+      DataTree dataTree, const Dune::ParameterTree &config_complete,
+      std::shared_ptr<typename Traits::Solver> solver,
+      ProjectedGlobalElectrodesType &projectedGlobalElectrodes) {
+    std::vector<std::vector<double>> result(dipoles.size());
+
+    using User = typename Traits::TransferMatrixUser;
+#if HAVE_TBB
+    auto grainSize = config.get<int>("grainSize", 16);
+    tbb::task_scheduler_init init(
+        config.hasKey("numberOfThreads")
+            ? config.get<std::size_t>("numberOfThreads")
+            : tbb::task_scheduler_init::automatic);
+    tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
+        [&](const tbb::blocked_range<std::size_t> &range) {
+          User myUser(solver);
+          myUser.setSourceModel(config.sub("source_model"),
+                                config_complete.sub("solver"));
+          for (std::size_t index = range.begin(); index != range.end();
+               ++index) {
+            auto dt = dataTree.sub("dipole_" + std::to_string(index));
+            myUser.bind(dipoles[index], dt);
+            auto current = myUser.solve(transferMatrix, dt);
+            if (config.get<bool>("post_process")) {
+              myUser.postProcessPotential(projectedGlobalElectrodes, current);
+            }
+            if (config.get<bool>("subtract_mean")) {
+              subtract_mean(current);
+            }
+            result[index] = current;
+          }
+        });
+#else
+    User myUser(solver);
+    myUser.setSourceModel(config.sub("source_model"),
+                          config_complete.sub("solver"));
+    for (std::size_t index = 0; index < dipoles.size(); ++index) {
+      auto dt = dataTree.sub("dipole_" + std::to_string(index));
+      myUser.bind(dipoles[index], dt);
+      auto current = myUser.solve(transferMatrix, dt);
+      if (config.get<bool>("post_process")) {
+        myUser.postProcessPotential(projectedGlobalElectrodes, current);
+      }
+      if (config.get<bool>("subtract_mean")) {
+        subtract_mean(current);
+      }
+      result[index] = current;
+    }
+#endif
+    return result;
   }
 
 private:

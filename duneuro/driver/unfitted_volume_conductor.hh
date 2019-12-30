@@ -271,53 +271,10 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
-    std::vector<std::vector<double>> result(dipoles.size());
 
-    using User = typename Traits::TransferMatrixUser;
-
-#if HAVE_TBB
-    auto grainSize = config.get<int>("grainSize", 16);
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
-    tbb::parallel_for(
-        tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
-        [&](const tbb::blocked_range<std::size_t> &range) {
-          User myUser(solver_);
-          myUser.setSourceModel(config.sub("source_model"),
-                                config_.sub("solver"));
-          for (std::size_t index = range.begin(); index != range.end();
-               ++index) {
-            auto dt = dataTree.sub("dipole_" + std::to_string(index));
-            myUser.bind(dipoles[index], dt);
-            auto current = myUser.solve(transferMatrix, dt);
-            if (config.get<bool>("post_process")) {
-              myUser.postProcessPotential(projectedGlobalElectrodes_, current);
-            }
-            if (config.get<bool>("subtract_mean")) {
-              subtract_mean(current);
-            }
-            result[index] = current;
-          }
-        });
-#else
-    User myUser(solver_);
-    myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
-    for (std::size_t index = 0; index < dipoles.size(); ++index) {
-      auto dt = dataTree.sub("dipole_" + std::to_string(index));
-      myUser.bind(dipoles[index], dt);
-      auto current = myUser.solve(transferMatrix, dt);
-      if (config.get<bool>("post_process")) {
-        myUser.postProcessPotential(projectedGlobalElectrodes_, current);
-      }
-      if (config.get<bool>("subtract_mean")) {
-        subtract_mean(current);
-      }
-      result[index] = current;
-    }
-#endif
-    return result;
+    return this->template applyEEGTransfer_impl<Traits>(
+        transferMatrix, dipoles, config, dataTree, config_, solver_,
+        projectedGlobalElectrodes_);
   }
 
   virtual std::vector<std::vector<double>> applyMEGTransfer(
