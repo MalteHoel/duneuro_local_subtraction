@@ -115,27 +115,9 @@ public:
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
       Function &solution, const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
-    eegForwardSolver_.setSourceModel(config.sub("source_model"),
-                                     config_.sub("solver"), dataTree);
-    eegForwardSolver_.bind(dipole, dataTree);
-
-    if (config.get<bool>("only_post_process", false)) {
-      solution.cast<typename Traits::DomainDOFVector>() = 0.0;
-    } else {
-#if HAVE_TBB
-      eegForwardSolver_.solve(solverBackend_.local().get(),
-                              solution.cast<typename Traits::DomainDOFVector>(),
-                              config, dataTree);
-#else
-      eegForwardSolver_.solve(solverBackend_.get(),
-                              solution.cast<typename Traits::DomainDOFVector>(),
-                              config, dataTree);
-#endif
-    }
-    if (config.get<bool>("post_process")) {
-      eegForwardSolver_.postProcessSolution(
-          solution.cast<typename Traits::DomainDOFVector>());
-    }
+    this->solveEEGForward_impl(dipole, solution, config, config_,
+                               eegForwardSolver_, *solver_, solverBackend_,
+                               dataTree);
     if (config.get<bool>("subtract_mean")) {
       subtract_mean(*solver_,
                     solution.cast<typename Traits::DomainDOFVector>());

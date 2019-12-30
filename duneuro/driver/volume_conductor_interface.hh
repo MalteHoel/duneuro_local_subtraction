@@ -167,6 +167,37 @@ public:
 
   virtual ~VolumeConductorInterface() {}
 
+protected:
+  template <class EEGForwardSolver, class Solver, class SolverBackend>
+  void solveEEGForward_impl(const DipoleType &dipole, Function &solution,
+                            const Dune::ParameterTree &config,
+                            const Dune::ParameterTree &config_complete,
+                            EEGForwardSolver &eegForwardSolver, Solver &solver,
+                            SolverBackend solverBackend,
+                            DataTree dataTree = DataTree()) {
+    using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+    eegForwardSolver.setSourceModel(config.sub("source_model"),
+                                    config_complete.sub("solver"), dataTree);
+    eegForwardSolver.bind(dipole, dataTree);
+
+    if (config.get<bool>("only_post_process", false)) {
+      solution.cast<DomainDOFVector>() = 0.0;
+    } else {
+#if HAVE_TBB
+      eegForwardSolver.solve(solverBackend.local().get(),
+                             solution.cast<DomainDOFVector>(), config,
+                             dataTree);
+#else
+      eegForwardSolver.solve(solverBackend.get(),
+                             solution.cast<DomainDOFVector>(), config,
+                             dataTree);
+#endif
+    }
+    if (config.get<bool>("post_process")) {
+      eegForwardSolver.postProcessSolution(solution.cast<DomainDOFVector>());
+    }
+  }
+
 private:
 };
 
