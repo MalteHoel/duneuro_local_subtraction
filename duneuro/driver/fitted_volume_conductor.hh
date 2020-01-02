@@ -334,39 +334,8 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
-    std::vector<std::vector<double>> result(dipoles.size());
-
-    using User = TransferMatrixUser<typename Traits::Solver,
-                                    typename Traits::SourceModelFactory>;
-
-#if HAVE_TBB
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
-    tbb::parallel_for(tbb::blocked_range<std::size_t>(0, dipoles.size()),
-                      [&](const tbb::blocked_range<std::size_t> &range) {
-                        User myUser(solver_);
-                        myUser.setSourceModel(config.sub("source_model"),
-                                              config_.sub("solver"));
-                        for (std::size_t index = range.begin();
-                             index != range.end(); ++index) {
-                          auto dt =
-                              dataTree.sub("dipole_" + std::to_string(index));
-                          myUser.bind(dipoles[index], dt);
-                          result[index] = myUser.solve(transferMatrix, dt);
-                        }
-                      });
-#else
-    User myUser(solver_);
-    myUser.setSourceModel(config.sub("source_model"), config_.sub("solver"));
-    for (std::size_t index = 0; index < dipoles.size(); ++index) {
-      auto dt = dataTree.sub("dipole_" + std::to_string(index));
-      myUser.bind(dipoles[index], dt);
-      result[index] = myUser.solve(transferMatrix, dt);
-    }
-#endif
-    return result;
+    return this->template applyMEGTransfer_impl<Traits>(
+        transferMatrix, dipoles, config, dataTree, config_, solver_);
   }
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
