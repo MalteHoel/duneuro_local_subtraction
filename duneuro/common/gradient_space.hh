@@ -15,7 +15,7 @@ namespace {
   template<int d, int k>
   static constexpr unsigned int monomialsize ()
   {
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 7)
+#if DUNE_VERSION_NEWER(DUNE_LOCALFUNCTIONS, 2, 7)
       return Dune::MonomialLocalBasis<void, void, d, k>::size();
 #else
       return Dune::MonomImp::Size<d, k>::val;
