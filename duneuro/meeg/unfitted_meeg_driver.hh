@@ -29,6 +29,7 @@
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
 #include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/meeg/feature_manager.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
 
 namespace duneuro
@@ -123,6 +124,7 @@ namespace duneuro
         , eegTransferMatrixSolver_(solver_, config.sub("solver"))
         , eegForwardSolver_(solver_)
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
+        , featureManager_(config.get<bool>("enable_experimental", false), config)
     {
     }
 
@@ -130,6 +132,7 @@ namespace duneuro
                                  Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       eegForwardSolver_.setSourceModel(config.sub("source_model"), config_.sub("solver"));
       eegForwardSolver_.bind(dipole, dataTree);
 #if HAVE_TBB
@@ -264,6 +267,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = typename Traits::TransferMatrixUser;
@@ -314,6 +318,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = typename Traits::TransferMatrixUser;
@@ -365,6 +370,11 @@ namespace duneuro
       }
     }
 
+    virtual void print_citations() const override
+    {
+      featureManager_.print_citations();
+    }
+
   private:
     void checkElectrodes() const
     {
@@ -394,6 +404,7 @@ namespace duneuro
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>>
         projectedGlobalElectrodes_;
     std::vector<double> conductivities_;
+    FeatureManager featureManager_;
   };
 }
 

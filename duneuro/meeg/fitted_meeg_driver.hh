@@ -34,6 +34,7 @@
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
+#include <duneuro/meeg/feature_manager.hh>
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
@@ -108,6 +109,7 @@ namespace duneuro
                                                                       Dune::ParameterTree())
         , megTransferMatrixSolver_(solver_, megSolver_)
         , eegForwardSolver_(solver_)
+        , featureManager_(config.get<bool>("enable_experimental", false), config)
     {
     }
 
@@ -115,6 +117,7 @@ namespace duneuro
                                  Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       eegForwardSolver_.setSourceModel(config.sub("source_model"), config_.sub("solver"), dataTree);
       eegForwardSolver_.bind(dipole, dataTree);
 
@@ -143,6 +146,7 @@ namespace duneuro
                                                 const Dune::ParameterTree& config,
                                                 DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
@@ -319,6 +323,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -368,6 +373,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -419,6 +425,11 @@ namespace duneuro
       }
     }
 
+    virtual void print_citations() const override
+    {
+      featureManager_.print_citations();
+    }
+
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
@@ -441,6 +452,7 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
+    FeatureManager featureManager_;
   };
 }
 
