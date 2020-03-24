@@ -32,7 +32,7 @@ public:
     std::string key;
     if (config.hasKey("solver_type")) {
       key = config.get<std::string>("solver_type");
-    } else if (config.hasKey("source_model")) {
+    } else if (config.hasSub("source_model")) {
       key = config.get<std::string>("source_model.type");
     }
     if (!key.empty()) {
