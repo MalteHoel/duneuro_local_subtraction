@@ -20,7 +20,7 @@ public:
                   {"cutfem", {true, " "}},
                   {"partial_integration", {false, ""}},
                   {"venant", {false, ""}},
-                  {"pathc_based_venant", {true, ""}},
+                  {"patch_based_venant", {true, ""}},
                   {"truncated_spatial_venant", {true, ""}},
                   {"subtraction", {false, ""}},
                   {"localized_subtraction", {true, ""}},
