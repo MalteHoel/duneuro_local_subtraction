@@ -304,6 +304,7 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature("transfer_matrix");
       return eegTransferMatrixSolver_.solve(solverBackend_, *electrodeProjection_, config,
                                             dataTree);
     }
@@ -312,6 +313,7 @@ namespace duneuro
     computeMEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature("transfer_matrix");
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }

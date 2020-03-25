@@ -251,6 +251,7 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
+      featureManager_.check_feature("transfer_matrix");
       return eegTransferMatrixSolver_.solve(solverBackend_, *projectedElectrodes_, config,
                                             dataTree);
     }

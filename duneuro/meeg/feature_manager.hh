@@ -24,7 +24,8 @@ public:
                   {"truncated_spatial_venant", {true, ""}},
                   {"subtraction", {false, ""}},
                   {"localized_subtraction", {true, ""}},
-                  {"whitney", {false, "X"}}} {
+                  {"whitney", {false, "X"}},
+                  {"transfer_matrix", {false, "X"}}} {
     check_feature(config);
   }
 
@@ -35,6 +36,10 @@ public:
     } else if (config.hasSub("source_model")) {
       key = config.get<std::string>("source_model.type");
     }
+    check_feature(key);
+  }
+
+  void check_feature(const std::string &key) {
     if (!key.empty()) {
       check_access(key);
       add_citation(key);
@@ -75,8 +80,8 @@ public:
   }
 
 private:
-  const std::map<std::string, FeatureCharacteristics> features_;
   const bool enable_experimental_;
+  const std::map<std::string, FeatureCharacteristics> features_;
   std::list<std::string> features_used;
 };
 } // namespace duneuro
