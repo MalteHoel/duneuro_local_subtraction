@@ -150,7 +150,7 @@ namespace duneuro
      */
     virtual void statistics(DataTree dataTree) const = 0;
 
-    virtual void print_citations() const = 0;
+    virtual void print_citations() = 0;
 
     virtual ~MEEGDriverInterface()
     {

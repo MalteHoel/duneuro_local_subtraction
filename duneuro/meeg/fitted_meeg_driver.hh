@@ -427,7 +427,7 @@ namespace duneuro
       }
     }
 
-    virtual void print_citations() const override
+    virtual void print_citations() override
     {
       featureManager_.print_citations();
     }
