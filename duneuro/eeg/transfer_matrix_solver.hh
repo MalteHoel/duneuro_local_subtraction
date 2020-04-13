@@ -1,6 +1,8 @@
 #ifndef DUNEURO_TRANSFER_MATRIX_SOLVER_HH
 #define DUNEURO_TRANSFER_MATRIX_SOLVER_HH
 
+#include <memory>
+
 #include <dune/common/parametertree.hh>
 
 #include <duneuro/common/make_dof_vector.hh>
@@ -42,7 +44,7 @@ namespace duneuro
               projectedElectrodes,
           const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto transferMatrix = std::make_unique<DenseMatrix<double>>(
           projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
       auto solver_config = config.sub("solver");
       typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
@@ -63,7 +65,7 @@ namespace duneuro
               projectedElectrodes,
           const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto transferMatrix = std::make_unique<DenseMatrix<double>>(
           projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
       auto solver_config = config.sub("solver");
       tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?

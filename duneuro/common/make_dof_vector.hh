@@ -1,6 +1,8 @@
 #ifndef DUNEURO_MAKE_DOF_VECTOR_HH
 #define DUNEURO_MAKE_DOF_VECTOR_HH
 
+#include <memory>
+
 #include <dune/common/std/utility.hh>
 
 #include <duneuro/common/flags.hh>
@@ -12,7 +14,7 @@ namespace duneuro
     template <class Solver>
     static std::unique_ptr<V> make(const Solver& solver, typename V::field_type v)
     {
-      return Dune::Std::make_unique<V>(solver.functionSpace().getGFS(), v);
+      return std::make_unique<V>(solver.functionSpace().getGFS(), v);
     }
   };
 

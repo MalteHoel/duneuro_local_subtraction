@@ -5,7 +5,6 @@
 #include <memory>
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 
 #include <dune/grid/common/mcmgmapper.hh>
 #include <dune/grid/geometrygrid.hh>
@@ -272,7 +271,7 @@ namespace duneuro
     auto deformedPosition = compute_deformed_positions(hostGridView, elementLabels, config);
 
     using GridType = Dune::GeometryGrid<HostGrid, CoordFunction>;
-    return Dune::Std::make_unique<GridType>(hostGrid.release(),
+    return std::make_unique<GridType>(hostGrid.release(),
                                             new CoordFunction(hostGridView, deformedPosition));
   }
 
@@ -304,7 +303,7 @@ namespace duneuro
   GeometryAdaptedGrid<dim> make_geometry_adapted_grid(const FittedDriverData<dim>& data,
                                                       const Dune::ParameterTree& config)
   {
-    auto ygrid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
+    auto ygrid = std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
         config.get<Dune::FieldVector<double, dim>>("lower_left"),
         config.get<Dune::FieldVector<double, dim>>("upper_right"),
         config.get<std::array<int, dim>>("cells"));
@@ -316,7 +315,7 @@ namespace duneuro
                                                        << ggGv.size(0) << ")");
     }
     // subgrid creation
-    auto grid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);
+    auto grid = std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);
     grid->createBegin();
     for (const auto& hostElement : Dune::elements(ggGv)) {
       if (data.labels[ggGv.indexSet().index(hostElement)] != 0) {
@@ -325,7 +324,7 @@ namespace duneuro
     }
     grid->createEnd();
     auto sgGv = grid->leafGridView();
-    auto subLabels = Dune::Std::make_unique<std::vector<std::size_t>>(grid->size(0));
+    auto subLabels = std::make_unique<std::vector<std::size_t>>(grid->size(0));
     for (const auto& subElement : Dune::elements(sgGv)) {
       (*subLabels)[sgGv.indexSet().index(subElement)] =
           data.labels[ggGv.indexSet().index(grid->template getHostEntity<0>(subElement))] - 1;
@@ -367,7 +366,7 @@ namespace duneuro
                                   cells);
       std::array<int, dim> s;
       std::copy(cells.begin(), cells.end(), s.begin());
-      auto ygrid = Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
+      auto ygrid = std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
           config.get<Dune::FieldVector<double, dim>>("lower_left"),
           config.get<Dune::FieldVector<double, dim>>("upper_right"), s);
       // geometry adaption
@@ -376,7 +375,7 @@ namespace duneuro
       assert(labels.size() == static_cast<std::size_t>(ggGv.size(0)));
       // subgrid creation
       auto grid =
-          Dune::Std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);
+          std::make_unique<typename GeometryAdaptedGrid<dim>::GridType>(*geometryGrid);
       grid->createBegin();
       for (const auto& hostElement : Dune::elements(ggGv)) {
         if (labels[ggGv.indexSet().index(hostElement)] != 0) {
@@ -385,7 +384,7 @@ namespace duneuro
       }
       grid->createEnd();
       auto sgGv = grid->leafGridView();
-      auto subLabels = Dune::Std::make_unique<std::vector<std::size_t>>(grid->size(0));
+      auto subLabels = std::make_unique<std::vector<std::size_t>>(grid->size(0));
       for (const auto& subElement : Dune::elements(sgGv)) {
         (*subLabels)[sgGv.indexSet().index(subElement)] =
             labels[ggGv.indexSet().index(grid->template getHostEntity<0>(subElement))] - 1;

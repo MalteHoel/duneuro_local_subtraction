@@ -1,6 +1,8 @@
 #ifndef DUNEURO_MEG_SOLVER_FACTORY_HH
 #define DUNEURO_MEG_SOLVER_FACTORY_HH
 
+#include <memory>
+
 #include <duneuro/common/flags.hh>
 #include <duneuro/meg/flux_wrapper.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
@@ -21,13 +23,13 @@ namespace duneuro
       auto type = megConfig.get<std::string>("type");
       if (type == "numerical") {
         using Flux = NumericalFlux<VC, FS, ElementType::hexahedron, degree>;
-        return Dune::Std::make_unique<MEGSolver<VC, Flux>>(
+        return std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),
             megConfig);
       } else if (type == "physical") {
         using Flux = PhysicalFlux<VC, FS, ElementType::hexahedron, degree>;
-        return Dune::Std::make_unique<MEGSolver<VC, Flux>>(
+        return std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),
             megConfig);
@@ -49,7 +51,7 @@ namespace duneuro
       auto type = megConfig.get<std::string>("type");
       if (type == "physical") {
         using Flux = PhysicalFluxPk<VC, FS, ElementType::tetrahedron, degree>;
-        return Dune::Std::make_unique<MEGSolver<VC, Flux>>(
+        return std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),
             megConfig);

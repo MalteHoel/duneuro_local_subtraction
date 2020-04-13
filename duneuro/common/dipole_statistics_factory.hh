@@ -1,6 +1,8 @@
 #ifndef DUNEURO_DIPOLE_STATISTICS_FACTORY_HH
 #define DUNEURO_DIPOLE_STATISTICS_FACTORY_HH
 
+#include <memory>
+
 #include <duneuro/common/dipole_statistics.hh>
 
 namespace duneuro
@@ -21,18 +23,18 @@ namespace duneuro
     if (type == "fitted") {
       auto elementType = config.get<std::string>("element_type");
       if (elementType == "tetrahedron") {
-        return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::tetrahedron>>(
+        return std::make_unique<FittedDipoleStatistics<dim, ElementType::tetrahedron>>(
             data, config, dataTree);
       } else if (elementType == "hexahedron") {
         if (config.get("geometry_adapted", false)) {
 #if HAVE_DUNE_SUBGRID
-          return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
+          return std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
               data, config, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
-          return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
+          return std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
                                                                false>>(data, config, dataTree);
         }
       } else {
@@ -52,18 +54,18 @@ namespace duneuro
     if (type == "fitted") {
       auto elementType = config.get<std::string>("element_type");
       if (elementType == "tetrahedron") {
-        return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::tetrahedron>>(
+        return std::make_unique<FittedDipoleStatistics<dim, ElementType::tetrahedron>>(
             data, config, dataTree);
       } else if (elementType == "hexahedron") {
         if (config.get("geometry_adapted", false)) {
 #if HAVE_DUNE_SUBGRID
-          return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
+          return std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron, true>>(
               data, config, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
-          return Dune::Std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
+          return std::make_unique<FittedDipoleStatistics<dim, ElementType::hexahedron,
                                                                false>>(data, config, dataTree);
         }
       } else {

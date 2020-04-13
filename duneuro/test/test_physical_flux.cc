@@ -1,5 +1,7 @@
 #include <config.h>
 
+#include <memory>
+
 #include <dune/common/array.hh>
 
 #include <dune/grid/io/file/vtk.hh>
@@ -34,7 +36,7 @@ int run(bool useJacobian)
   auto gv = grid->leafGridView();
   VC volumeConductor(
       std::move(grid),
-      Dune::Std::make_unique<typename VC::MappingType>(
+      std::make_unique<typename VC::MappingType>(
           duneuro::IndirectEntityMapping<typename VC::GridView, Tensor>(gv, tensors, labels)));
 
   // create potential space

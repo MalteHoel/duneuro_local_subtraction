@@ -1,6 +1,8 @@
 #ifndef DUNEURO_FITTED_MEG_TRANSFER_MATRIX_SOLVER_HH
 #define DUNEURO_FITTED_MEG_TRANSFER_MATRIX_SOLVER_HH
 
+#include <memory>
+
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
 
@@ -48,7 +50,7 @@ namespace duneuro
       auto offsets = computeOffsets();
       std::size_t numberOfProjections = offsets.back();
 
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto transferMatrix = std::make_unique<DenseMatrix<double>>(
           numberOfProjections, solver_->functionSpace().getGFS().ordering().size());
 
       auto solver_config = config.sub("solver");
@@ -74,7 +76,7 @@ namespace duneuro
       auto offsets = computeOffsets();
       std::size_t numberOfProjections = offsets.back();
 
-      auto transferMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto transferMatrix = std::make_unique<DenseMatrix<double>>(
           numberOfProjections, solver_->functionSpace().getGFS().ordering().size());
 
       auto solver_config = config.sub("solver");

@@ -1,9 +1,9 @@
 #ifndef DUNEURO_STRUCTURED_GRID_UTILITIES_HH
 #define DUNEURO_STRUCTURED_GRID_UTILITIES_HH
 
-#include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
+#include <memory>
 
+#include <dune/common/parametertree.hh>
 #include <dune/grid/yaspgrid.hh>
 
 namespace duneuro
@@ -15,7 +15,7 @@ namespace duneuro
                        const std::array<int, dim>& cells, unsigned int refinements)
   {
     auto grid =
-        Dune::Std::make_unique<Dune::YaspGrid<dim,
+        std::make_unique<Dune::YaspGrid<dim,
                                               Dune::EquidistantOffsetCoordinates<double, dim>>>(
             lower_left, upper_right, cells);
     grid->globalRefine(refinements);

@@ -1,6 +1,8 @@
 #ifndef DUNEURO_MEG_SOLVER_HH
 #define DUNEURO_MEG_SOLVER_HH
 
+#include <memory>
+
 #include <duneuro/meg/meg_integral_assembler.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
 
@@ -29,7 +31,7 @@ namespace duneuro
     virtual void bind(const std::vector<DomainType>& coils,
                       const std::vector<std::vector<DomainType>>& projections) override
     {
-      integralAssembler_ = Dune::Std::make_unique<IntegralAssembler>(
+      integralAssembler_ = std::make_unique<IntegralAssembler>(
           volumeConductor_, Dune::stackobject_to_shared_ptr(flux_->functionSpace()), coils,
           projections, config_);
       numberOfCoils_ = coils.size();

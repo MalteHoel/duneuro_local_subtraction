@@ -5,7 +5,7 @@
 #include <tbb/tbb.h>
 #endif
 
-#include <dune/common/std/memory.hh>
+#include <memory>
 #include <dune/common/version.hh>
 
 #include <dune/udg/simpletpmctriangulation.hh>
@@ -153,14 +153,14 @@ namespace duneuro
 
     virtual std::unique_ptr<Function> makeDomainFunction() const override
     {
-      return Dune::Std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+      return std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     }
 
     virtual void
     setElectrodes(const std::vector<typename MEEGDriverInterface<dim>::CoordinateType>& electrodes,
                   const Dune::ParameterTree& config) override
     {
-      projectedElectrodes_ = Dune::Std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
+      projectedElectrodes_ = std::make_unique<ProjectedElectrodes<typename Traits::GridView>>(
           electrodes, solver_->functionSpace().getGFS(), *subTriangulation_);
       projectedGlobalElectrodes_.clear();
       for (unsigned int i = 0; i < projectedElectrodes_->size(); ++i) {

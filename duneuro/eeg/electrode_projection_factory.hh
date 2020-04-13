@@ -4,7 +4,6 @@
 #include <memory>
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 
 #include <duneuro/eeg/closest_subentity_center_electrode_projection.hh>
 #include <duneuro/eeg/electrode_projection_interface.hh>
@@ -21,10 +20,10 @@ namespace duneuro
     {
       auto type = config.get<std::string>("type");
       if (type == "closest_subentity_center") {
-        return Dune::Std::make_unique<ClosestSubEntityCenterElectrodeProjection<GV>>(
+        return std::make_unique<ClosestSubEntityCenterElectrodeProjection<GV>>(
             gridView, config.get<std::vector<unsigned int>>("codims"));
       } else if (type == "normal") {
-        return Dune::Std::make_unique<NormalElectrodeProjection<GV>>(gridView);
+        return std::make_unique<NormalElectrodeProjection<GV>>(gridView);
       } else {
         DUNE_THROW(Dune::Exception, "unknown projection type \"" << type << "\"");
       }

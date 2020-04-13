@@ -1,6 +1,8 @@
 #ifndef DUNEURO_FLUX_WRAPPER_HH
 #define DUNEURO_FLUX_WRAPPER_HH
 
+#include <memory>
+
 #include <dune/pdelab/boilerplate/pdelab.hh>
 
 #include <duneuro/common/flags.hh>
@@ -41,7 +43,7 @@ namespace duneuro
                          2 * VolumeConductor::dim + 1)
     {
       if (useJacobian) {
-        jacobian_ = Dune::Std::make_unique<Jacobian>(*fluxAssembler_, 0.0);
+        jacobian_ = std::make_unique<Jacobian>(*fluxAssembler_, 0.0);
         typename FunctionSpace::DOF x(functionSpace_->getGFS(), 0.0);
         fluxAssembler_->jacobian(x, *jacobian_);
       }

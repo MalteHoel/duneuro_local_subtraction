@@ -1,6 +1,8 @@
 #ifndef DUNEURO_UDG_TDCS_DRIVER_HH
 #define DUNEURO_UDG_TDCS_DRIVER_HH
 
+#include <memory>
+
 #include <dune/common/parametertree.hh>
 
 #include <dune/udg/simpletpmctriangulation.hh>
@@ -67,7 +69,7 @@ namespace duneuro
 
     virtual std::unique_ptr<Function> makeDomainFunction() const override
     {
-      return Dune::Std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+      return std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     }
 
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,

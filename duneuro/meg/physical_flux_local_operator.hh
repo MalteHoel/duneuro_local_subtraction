@@ -1,7 +1,7 @@
 #ifndef DUNEURO_PHYSICAL_FLUX_LOCAL_OPERATOR_HH
 #define DUNEURO_PHYSICAL_FLUX_LOCAL_OPERATOR_HH
 
-#include <dune/common/std/memory.hh>
+#include <memory>
 
 #include <dune/localfunctions/common/interfaceswitch.hh>
 
@@ -45,7 +45,7 @@ namespace duneuro
   make_local_basis_gradient(const Basis& basis, std::size_t localBasisIndex, const G& geometry,
                             const T& tensor)
   {
-    return Dune::Std::make_unique<LocalBasisGradient<Basis, G, T>>(basis, localBasisIndex, geometry,
+    return std::make_unique<LocalBasisGradient<Basis, G, T>>(basis, localBasisIndex, geometry,
                                                                    tensor);
   }
 

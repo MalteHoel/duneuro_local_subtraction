@@ -2,7 +2,6 @@
 #define DUNEURO_SIMPLETPMC_LEVELSET_FACTORY_HH
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/std/memory.hh>
 
 #include <dune/udg/simpletpmctriangulation/interface.hh>
 
