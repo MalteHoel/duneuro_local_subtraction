@@ -161,8 +161,8 @@ public:
     std::cout << "Please cite the following work related to duneuro: "
               << std::endl;
     print_paper_information("Nüßing2018");
-    std::cout << "Duneuro is a module of dune, here is a list of relevant "
-                 "publications: "
+    std::cout << "Duneuro is based on and uses the numerical methods provided by DUNE."
+                 "Here is a list of relevant publications"
               << std::endl;
     for (const std::string &paper_id :
          {"Bastian2008", "Bastian2008b", "Bastian2010", "Blatt2007"}) {
