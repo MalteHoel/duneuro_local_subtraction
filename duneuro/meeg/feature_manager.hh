@@ -5,6 +5,7 @@
 
 namespace duneuro {
 struct FeatureCharacteristics {
+  std::string description;
   std::list<std::string> feature_papers;
 };
 
@@ -13,18 +14,44 @@ public:
   FeatureManager(const bool enable_experimental,
                  const Dune::ParameterTree &config)
       : enable_experimental_(enable_experimental),
-        features_{{"cg", {{"Vorwerk2014"}}},
-                  {"dg", {{"Engwer2017", "Piastra2018"}}},
-                  {"udg", {{"Nüßing2014"}}},
-                  {"cutfem", {{""}}},
-                  {"partial_integration", {{"Bauer2014"}}},
-                  {"venant", {{"Bauer2014"}}},
-                  {"patch_based_venant", {{""}}},
-                  {"truncated_spatial_venant", {{""}}},
-                  {"subtraction", {{"Wolters2007", "Drechsler2009"}}},
-                  {"localized_subtraction", {{""}}},
-                  {"whitney", {{"Miinalainen2018"}}},
-                  {"transfer_matrix", {{"Wolters2004"}}}},
+        features_{
+            {"duneuro",
+             {"Please cite the following work related to duneuro:\n",
+              {"Nüßing2018"}}},
+            {"DUNE",
+             {"Duneuro is based on and uses the numerical methods provided "
+              "by DUNE. Here is a list of relevant publications:\n",
+              {"Bastian2008", "Bastian2008b", "Bastian2010", "Blatt2007"}}},
+            {"cg",
+             {"Related to the Continuous Galerkin Finite Element Method "
+              "(CG-FEM) to solve the EEG/MEG forward problems:\n",
+              {"Vorwerk2014"}}},
+            {"dg",
+             {"Related to the Disontinuous Galerkin Finite Element Method "
+              "(DG-FEM) to solve the EEG/MEG forward problems:\n",
+              {"Engwer2017", "Piastra2018"}}},
+            {"udg",
+             {"Related to the Unfitted Disontinuous Galerkin Finite Element "
+              "Method (UDG-FEM) to solve the EEG forward problems:\n",
+              {"Nüßing2014"}}},
+            {"cutfem", {"", {""}}},
+            {"partial_integration",
+             {"Related to the partial integration source model:\n",
+              {"Bauer2014"}}},
+            {"venant",
+             {"Related to the St. Venant source model:\n", {"Bauer2014"}}},
+            {"patch_based_venant", {"", {""}}},
+            {"truncated_spatial_venant", {{""}}},
+            {"subtraction",
+             {"Related to the subtraction source model:\n",
+              {"Wolters2007", "Drechsler2009"}}},
+            {"localized_subtraction", {"", {""}}},
+            {"whitney",
+             {"Related to the Whitney source model:\n", {"Miinalainen2018"}}},
+            {"transfer_matrix",
+             {"Related to the transfer matrix approach to solve the EEG/MEG "
+              "forward more efficiently:\n",
+              {"Wolters2004"}}}},
         papers_{
             {"Bastian2008",
              "Bastian, P., Blatt, M., Dedner, A., Engwer, C., Klöfkorn, R., "
