@@ -5,7 +5,6 @@
 
 namespace duneuro {
 struct FeatureCharacteristics {
-  bool experimental;
   std::list<std::string> feature_papers;
 };
 
@@ -14,18 +13,18 @@ public:
   FeatureManager(const bool enable_experimental,
                  const Dune::ParameterTree &config)
       : enable_experimental_(enable_experimental),
-        features_{{"cg", {false, {"Vorwerk2014"}}},
-                  {"dg", {false, {"Engwer2017", "Piastra2018"}}},
-                  {"udg", {false, {"Nüßing2014"}}},
-                  {"cutfem", {true, {""}}},
-                  {"partial_integration", {false, {"Bauer2014"}}},
-                  {"venant", {false, {"Bauer2014"}}},
-                  {"patch_based_venant", {true, {""}}},
-                  {"truncated_spatial_venant", {true, {""}}},
-                  {"subtraction", {false, {"Wolters2007", "Drechsler2009"}}},
-                  {"localized_subtraction", {true, {""}}},
-                  {"whitney", {false, {"Miinalainen2018"}}},
-                  {"transfer_matrix", {false, {"Wolters2004"}}}},
+        features_{{"cg", {{"Vorwerk2014"}}},
+                  {"dg", {{"Engwer2017", "Piastra2018"}}},
+                  {"udg", {{"Nüßing2014"}}},
+                  {"cutfem", {{""}}},
+                  {"partial_integration", {{"Bauer2014"}}},
+                  {"venant", {{"Bauer2014"}}},
+                  {"patch_based_venant", {{""}}},
+                  {"truncated_spatial_venant", {{""}}},
+                  {"subtraction", {{"Wolters2007", "Drechsler2009"}}},
+                  {"localized_subtraction", {{""}}},
+                  {"whitney", {{"Miinalainen2018"}}},
+                  {"transfer_matrix", {{"Wolters2004"}}}},
         papers_{
             {"Bastian2008",
              "Bastian, P., Blatt, M., Dedner, A., Engwer, C., Klöfkorn, R., "
@@ -101,7 +100,10 @@ public:
              "Grasedyck, L., Hackbusch, W.(2007).\nNumerical mathematics of "
              "the subtraction approach for the modeling of a current dipole "
              "in EEG source reconstruction using finite element head "
-             "models.\nSIAM J. on Scientific Computing, 30(1):24-45."}} {
+             "models.\nSIAM J. on Scientific Computing, 30(1):24-45."}},
+        experimental_features_{"cutfem", "patch_based_venant",
+                               "truncated_spatial_venant",
+                               "localized_subtraction"} {
     check_feature(config);
   }
 
@@ -168,7 +170,8 @@ public:
   }
 
   bool get_experimental(const std::string &feature_name) const {
-    return features_.at(feature_name).experimental;
+    return (experimental_features_.find(feature_name) !=
+            experimental_features_.end());
   }
 
   std::list<std::string>
@@ -185,6 +188,7 @@ private:
   const std::map<std::string, FeatureCharacteristics> features_;
   const std::map<std::string, std::string> papers_;
   std::list<std::string> relevant_feature_papers_;
+  std::set<std::string> experimental_features_;
 };
 } // namespace duneuro
 
