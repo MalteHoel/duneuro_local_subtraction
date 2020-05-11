@@ -7,6 +7,7 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/function.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/meeg/feature_manager.hh>
 
 namespace duneuro
 {
@@ -16,6 +17,10 @@ namespace duneuro
     using FieldType = double;
     using DipoleType = Dipole<FieldType, dimension>;
     using CoordinateType = Dune::FieldVector<FieldType, dimension>;
+
+    MEEGDriverInterface(const Dune::ParameterTree& config)
+        : featureManager_(config.get<bool>("enable_experimental", false), config)
+    {}
 
     /**
      * \brief create a domain function for the given interface
@@ -150,11 +155,16 @@ namespace duneuro
      */
     virtual void statistics(DataTree dataTree) const = 0;
 
-    virtual void print_citations() = 0;
+    void print_citations()
+    {
+      featureManager_.print_citations();
+    }
 
     virtual ~MEEGDriverInterface()
     {
     }
+  protected:
+    FeatureManager featureManager_;
   };
 }
 

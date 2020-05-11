@@ -34,7 +34,6 @@
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meeg/meeg_driver_interface.hh>
-#include <duneuro/meeg/feature_manager.hh>
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
@@ -87,7 +86,8 @@ namespace duneuro
 
     explicit FittedMEEGDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
                               DataTree dataTree = DataTree())
-        : config_(config)
+        : MEEGDriverInterface<dim>(config)
+        , config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
@@ -109,7 +109,6 @@ namespace duneuro
                                                                       Dune::ParameterTree())
         , megTransferMatrixSolver_(solver_, megSolver_)
         , eegForwardSolver_(solver_)
-        , featureManager_(config.get<bool>("enable_experimental", false), config)
     {
     }
 
@@ -117,7 +116,7 @@ namespace duneuro
                                  Function& solution, const Dune::ParameterTree& config,
                                  DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature(config);
+      this->featureManager_.check_feature(config);
       eegForwardSolver_.setSourceModel(config.sub("source_model"), config_.sub("solver"), dataTree);
       eegForwardSolver_.bind(dipole, dataTree);
 
@@ -146,7 +145,7 @@ namespace duneuro
                                                 const Dune::ParameterTree& config,
                                                 DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature(config);
+      this->featureManager_.check_feature(config);
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
@@ -304,7 +303,7 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature("transfer_matrix");
+      this->featureManager_.check_feature("transfer_matrix");
       return eegTransferMatrixSolver_.solve(solverBackend_, *electrodeProjection_, config,
                                             dataTree);
     }
@@ -313,7 +312,7 @@ namespace duneuro
     computeMEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature("transfer_matrix");
+      this->featureManager_.check_feature("transfer_matrix");
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
@@ -325,7 +324,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature(config);
+      this->featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -375,7 +374,7 @@ namespace duneuro
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
                      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
-      featureManager_.check_feature(config);
+      this->featureManager_.check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -427,11 +426,6 @@ namespace duneuro
       }
     }
 
-    virtual void print_citations() override
-    {
-      featureManager_.print_citations();
-    }
-
   private:
     Dune::ParameterTree config_;
     typename Traits::VCStorage volumeConductorStorage_;
@@ -454,7 +448,6 @@ namespace duneuro
     std::vector<typename duneuro::ElectrodeProjectionInterface<
         typename Traits::VC::GridView>::GlobalCoordinate>
         projectedGlobalElectrodes_;
-    FeatureManager featureManager_;
   };
 }
 
