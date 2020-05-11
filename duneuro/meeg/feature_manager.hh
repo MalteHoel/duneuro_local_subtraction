@@ -2,6 +2,9 @@
 #define DUNEURO_FEATURE_MANAGER_HH
 
 #include <sstream>
+#include <iostream>
+#include <set>
+#include <list>
 
 namespace duneuro {
 struct FeatureCharacteristics {
