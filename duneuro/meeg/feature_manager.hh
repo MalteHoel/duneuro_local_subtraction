@@ -16,41 +16,41 @@ public:
       : enable_experimental_(enable_experimental),
         features_{
             {"duneuro",
-             {"Please cite the following work related to duneuro:\n",
+             {"Please cite the following work related to duneuro:",
               {"Nüßing2018"}}},
             {"DUNE",
              {"Duneuro is based on and uses the numerical methods provided "
-              "by DUNE. Here is a list of relevant publications:\n",
+              "by DUNE. Here is a list of relevant publications:",
               {"Bastian2008", "Bastian2008b", "Bastian2010", "Blatt2007"}}},
             {"cg",
              {"Related to the Continuous Galerkin Finite Element Method "
-              "(CG-FEM) to solve the EEG/MEG forward problems:\n",
+              "(CG-FEM) to solve the EEG/MEG forward problems:",
               {"Vorwerk2014"}}},
             {"dg",
              {"Related to the Disontinuous Galerkin Finite Element Method "
-              "(DG-FEM) to solve the EEG/MEG forward problems:\n",
+              "(DG-FEM) to solve the EEG/MEG forward problems:",
               {"Engwer2017", "Piastra2018"}}},
             {"udg",
              {"Related to the Unfitted Disontinuous Galerkin Finite Element "
-              "Method (UDG-FEM) to solve the EEG forward problems:\n",
+              "Method (UDG-FEM) to solve the EEG forward problems:",
               {"Nüßing2014"}}},
             {"cutfem", {"", {""}}},
             {"partial_integration",
-             {"Related to the partial integration source model:\n",
+             {"Related to the partial integration source model:",
               {"Bauer2014"}}},
             {"venant",
-             {"Related to the St. Venant source model:\n", {"Bauer2014"}}},
+             {"Related to the St. Venant source model:", {"Bauer2014"}}},
             {"patch_based_venant", {"", {""}}},
             {"truncated_spatial_venant", {{""}}},
             {"subtraction",
-             {"Related to the subtraction source model:\n",
+             {"Related to the subtraction source model:",
               {"Wolters2007", "Drechsler2009"}}},
             {"localized_subtraction", {"", {""}}},
             {"whitney",
-             {"Related to the Whitney source model:\n", {"Miinalainen2018"}}},
+             {"Related to the Whitney source model:", {"Miinalainen2018"}}},
             {"transfer_matrix",
              {"Related to the transfer matrix approach to solve the EEG/MEG "
-              "forward more efficiently:\n",
+              "forward more efficiently:",
               {"Wolters2004"}}}},
         papers_{
             {"Bastian2008",
@@ -76,7 +76,7 @@ public:
              "Wasniewski, Applied Parallel Computing. State of the Art in "
              "Scientific Computing.\nVolume 4699 of Lecture Notes in "
              "Scientific Computing, pp. 666-675. Springer, (related to module: "
-             "dune-istl"},
+             "dune-istl)"},
             {"Bauer2014",
              "Bauer, M., Pursiainen, S., Vorwerk, J., Köstler, H., Wolters, "
              "C.H. (2015).\nComparison Study for Whitney (Raviart-Thomas) "
@@ -147,7 +147,7 @@ public:
   void check_feature(const std::string &feature_name) {
     if (!feature_name.empty()) {
       check_access(feature_name);
-      add_citation(feature_name);
+      relevant_features_.push_back(feature_name);
     }
   }
 
@@ -163,37 +163,17 @@ public:
     }
   }
 
-  void add_citation(const std::string feature_name) {
-    for (const std::string &feature_paper : get_feature_papers(feature_name)) {
-      relevant_feature_papers_.push_back(feature_paper);
-    }
-  }
-
   void print_citations() {
-    std::cout << "Please cite the following work related to duneuro: "
-              << std::endl;
-    print_paper_information("Nüßing2018");
-    std::cout << "Duneuro is based on and uses the numerical methods provided "
-                 "by DUNE.\n"
-                 "Here is a list of relevant publications:"
-              << std::endl;
-    for (const std::string &paper_id :
-         {"Bastian2008", "Bastian2008b", "Bastian2010", "Blatt2007"}) {
-      print_paper_information(paper_id);
+    relevant_features_.sort();
+    relevant_features_.unique();
+    relevant_features_.insert(relevant_features_.begin(), {"duneuro", "DUNE"});
+    for (const std::string &feature_id : relevant_features_) {
+      std::cout << get_description(feature_id) << std::endl;
+      std::list<std::string> feature_papers = get_feature_papers(feature_id);
+      for (const std::string &paper_id : feature_papers) {
+        std::cout << get_citation(paper_id) << std::endl;
+      }
     }
-    std::cout
-        << "Here is a list of publications related to the features (finite "
-           "element discretizations, source models,...) that you used: "
-        << std::endl;
-    relevant_feature_papers_.sort();
-    relevant_feature_papers_.unique();
-    for (const std::string &paper_id : relevant_feature_papers_) {
-      print_paper_information(paper_id);
-    }
-  }
-
-  void print_paper_information(const std::string &paper_id) const {
-    std::cout << get_citation(paper_id) << std::endl;
   }
 
   bool get_experimental(const std::string &feature_name) const {
@@ -206,6 +186,10 @@ public:
     return features_.at(feature_name).feature_papers;
   }
 
+  std::string get_description(const std::string &feature_name) const {
+    return features_.at(feature_name).description;
+  }
+
   std::string get_citation(const std::string &paper_id) const {
     return papers_.at(paper_id);
   }
@@ -214,7 +198,7 @@ private:
   const bool enable_experimental_;
   const std::map<std::string, FeatureCharacteristics> features_;
   const std::map<std::string, std::string> papers_;
-  std::list<std::string> relevant_feature_papers_;
+  std::list<std::string> relevant_features_;
   std::set<std::string> experimental_features_;
 };
 } // namespace duneuro
