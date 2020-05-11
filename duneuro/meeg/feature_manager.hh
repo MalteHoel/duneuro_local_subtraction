@@ -6,7 +6,7 @@
 namespace duneuro {
 struct FeatureCharacteristics {
   std::string description;
-  std::list<std::string> feature_papers;
+  std::vector<std::string> feature_papers;
 };
 
 class FeatureManager {
@@ -168,10 +168,12 @@ public:
     relevant_features_.unique();
     relevant_features_.insert(relevant_features_.begin(), {"duneuro", "DUNE"});
     for (const std::string &feature_id : relevant_features_) {
-      std::cout << get_description(feature_id) << std::endl;
-      std::list<std::string> feature_papers = get_feature_papers(feature_id);
+      std::cout << get_description(feature_id);
+      std::cout << "\n\n";
+      std::vector<std::string> feature_papers = get_feature_papers(feature_id);
       for (const std::string &paper_id : feature_papers) {
-        std::cout << get_citation(paper_id) << std::endl;
+        std::cout << get_citation(paper_id);
+        std::cout << "\n\n";
       }
     }
   }
@@ -181,7 +183,7 @@ public:
             experimental_features_.end());
   }
 
-  std::list<std::string>
+  std::vector<std::string>
   get_feature_papers(const std::string &feature_name) const {
     return features_.at(feature_name).feature_papers;
   }
