@@ -64,7 +64,7 @@ namespace duneuro
 {
   template <>
   std::unique_ptr<MEEGDriverInterface<2>>
-  MEEGDriverFactory<2>::make_meeg_driver(const Dune::ParameterTree& config,
+  MEEGDriverFactory<2>::make_meeg_driver(Dune::ParameterTree config,
                                          const MEEGDriverData<2>& data, DataTree dataTree)
   {
     auto type = config.get<std::string>("type");
@@ -180,7 +180,7 @@ namespace duneuro
 
   template <>
   std::unique_ptr<MEEGDriverInterface<3>>
-  MEEGDriverFactory<3>::make_meeg_driver(const Dune::ParameterTree& config,
+  MEEGDriverFactory<3>::make_meeg_driver(Dune::ParameterTree config,
                                          const MEEGDriverData<3>& data, DataTree dataTree)
   {
     auto type = config.get<std::string>("type");

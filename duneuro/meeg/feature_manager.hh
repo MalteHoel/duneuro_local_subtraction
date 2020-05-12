@@ -1,10 +1,11 @@
 #ifndef DUNEURO_FEATURE_MANAGER_HH
 #define DUNEURO_FEATURE_MANAGER_HH
 
-#include <sstream>
 #include <iostream>
-#include <set>
 #include <list>
+#include <set>
+#include <sstream>
+#include <string>
 
 namespace duneuro {
 struct FeatureCharacteristics {
@@ -14,8 +15,7 @@ struct FeatureCharacteristics {
 
 class FeatureManager {
 public:
-  FeatureManager(const bool enable_experimental,
-                 const Dune::ParameterTree &config)
+  FeatureManager(const bool enable_experimental, Dune::ParameterTree &config)
       : enable_experimental_(enable_experimental),
         features_{
             {"duneuro",
@@ -137,33 +137,23 @@ public:
     check_feature(config);
   }
 
-  void check_feature(const Dune::ParameterTree &config) {
+  void check_feature(Dune::ParameterTree &config) {
     std::string feature_name;
+    std::string key;
     if (config.hasKey("solver_type")) {
-      feature_name = config.get<std::string>("solver_type");
+      key = "solver_type";
     } else if (config.hasSub("source_model")) {
-      feature_name = config.get<std::string>("source_model.type");
+      key = "source_model.type";
     }
-    check_feature(feature_name);
+    feature_name = config.get<std::string>(key);
+    if (get_experimental(feature_name) && (!enable_experimental_)) {
+      config[key] = "experimental::" + config[key];
+    }
+    update_features(feature_name);
   }
 
-  void check_feature(const std::string &feature_name) {
-    if (!feature_name.empty()) {
-      check_access(feature_name);
-      relevant_features_.push_back(feature_name);
-    }
-  }
-
-  void check_access(const std::string feature_name) const {
-    if (get_experimental(feature_name)) {
-      if (!enable_experimental_) {
-        DUNE_THROW(Dune::Exception, "The requested feature "
-                                        << feature_name << "is experimental.");
-      } else {
-        std::cout << "WARNING: The requested feature " << feature_name
-                  << "is experimental." << std::endl;
-      }
-    }
+  void update_features(const std::string feature_name) {
+    relevant_features_.push_back(feature_name);
   }
 
   void print_citations() {
