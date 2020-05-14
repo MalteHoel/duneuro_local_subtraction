@@ -45,8 +45,7 @@ namespace duneuro
             V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
                 config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
-                                                                                    << "\"");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
       }
     }
 
@@ -77,8 +76,7 @@ namespace duneuro
             V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
                 config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
-                                                                                    << "\"");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
       }
     }
   };

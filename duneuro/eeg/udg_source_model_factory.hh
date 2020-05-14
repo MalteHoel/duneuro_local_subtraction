@@ -39,8 +39,7 @@ namespace duneuro
             Vector>>(solver.functionSpace(), solver.subTriangulation(), solver.elementSearch(),
                      config.get<std::size_t>("compartment"), config, solverConfig);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
-                                                                                    << "\"");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
       }
     }
 
@@ -64,8 +63,7 @@ namespace duneuro
                      solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
                      config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model of type \"" << type
-                                                                                    << "\"");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
       }
     }
   };
