@@ -133,7 +133,13 @@ public:
              "models.\nSIAM J. on Scientific Computing, 30(1):24-45."}},
         experimental_features_{"cutfem", "patch_based_venant",
                                "truncated_spatial_venant",
-                               "localized_subtraction"} {}
+                               "localized_subtraction"} {
+    if (enable_experimental) {
+      std::cout << "WARNING: You have enabled to use untested features which "
+                   "may lead to unreliable results."
+                << std::endl;
+    }
+  }
 
   void check_feature(Dune::ParameterTree &config) {
     std::string feature_name;
