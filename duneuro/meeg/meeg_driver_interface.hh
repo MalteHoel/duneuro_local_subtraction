@@ -18,8 +18,8 @@ namespace duneuro
     using DipoleType = Dipole<FieldType, dimension>;
     using CoordinateType = Dune::FieldVector<FieldType, dimension>;
 
-    MEEGDriverInterface(Dune::ParameterTree& config)
-        : featureManager_(config.get<bool>("enable_experimental", false), config)
+    MEEGDriverInterface(std::shared_ptr<FeatureManager> featureManager)
+        : featureManager_(featureManager)
     {}
 
     /**
@@ -157,14 +157,14 @@ namespace duneuro
 
     void print_citations()
     {
-      featureManager_.print_citations();
+      featureManager_->print_citations();
     }
 
     virtual ~MEEGDriverInterface()
     {
     }
   protected:
-    FeatureManager featureManager_;
+    std::shared_ptr<FeatureManager> featureManager_;
   };
 }
 

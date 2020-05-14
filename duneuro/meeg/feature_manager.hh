@@ -15,7 +15,7 @@ struct FeatureCharacteristics {
 
 class FeatureManager {
 public:
-  FeatureManager(const bool enable_experimental, Dune::ParameterTree &config)
+  FeatureManager(const bool enable_experimental)
       : enable_experimental_(enable_experimental),
         features_{
             {"duneuro",
@@ -37,18 +37,18 @@ public:
              {"Related to the Unfitted Disontinuous Galerkin Finite Element "
               "Method (UDG-FEM) to solve the EEG forward problems:",
               {"Nüßing2014"}}},
-            {"cutfem", {"", {""}}},
+            {"cutfem", {"", {}}},
             {"partial_integration",
              {"Related to the partial integration source model:",
               {"Bauer2014"}}},
             {"venant",
              {"Related to the St. Venant source model:", {"Bauer2014"}}},
-            {"patch_based_venant", {"", {""}}},
-            {"truncated_spatial_venant", {{""}}},
+            {"patch_based_venant", {"", {}}},
+            {"truncated_spatial_venant", {"", {}}},
             {"subtraction",
              {"Related to the subtraction source model:",
               {"Wolters2007", "Drechsler2009"}}},
-            {"localized_subtraction", {"", {""}}},
+            {"localized_subtraction", {"", {}}},
             {"whitney",
              {"Related to the Whitney source model:", {"Miinalainen2018"}}},
             {"transfer_matrix",
@@ -133,9 +133,7 @@ public:
              "models.\nSIAM J. on Scientific Computing, 30(1):24-45."}},
         experimental_features_{"cutfem", "patch_based_venant",
                                "truncated_spatial_venant",
-                               "localized_subtraction"} {
-    check_feature(config);
-  }
+                               "localized_subtraction"} {}
 
   void check_feature(Dune::ParameterTree &config) {
     std::string feature_name;
