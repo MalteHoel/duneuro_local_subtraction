@@ -68,8 +68,8 @@ public:
              "II: Implementation and Tests in DUNE.\nComputing, 82(2-3), pp. "
              "121-138."},
             {"Bastian2008c",
-             "P. Bastian, M. Blatt (2008). On the Generic Parallelisation of "
-             "Iterative Solvers for the Finite Element Method In Int. J. "
+             "P. Bastian, M. Blatt (2008).\nOn the Generic Parallelisation of "
+             "Iterative Solvers for the Finite Element Method.\nInt. J. "
              "Computational Science and Engineering,4(1), pp. 56-69."},
             {"Blatt2007",
              "M. Blatt, P. Bastian (2007).\nThe Iterative Solver Template "
