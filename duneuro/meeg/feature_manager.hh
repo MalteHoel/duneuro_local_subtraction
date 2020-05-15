@@ -20,11 +20,11 @@ public:
         features_{
             {"duneuro",
              {"Please cite the following work related to duneuro:",
-              {"Nüßing2018"}}},
+              {"Nüßing2019"}}},
             {"DUNE",
              {"Duneuro is based on and uses the numerical methods provided "
               "by DUNE. Here is a list of relevant publications:",
-              {"Bastian2008", "Bastian2008b", "Bastian2010", "Blatt2007"}}},
+              {"Bastian2008", "Bastian2008b", "Bastian2008c", "Blatt2007"}}},
             {"cg",
              {"Related to the Continuous Galerkin Finite Element Method "
               "(CG-FEM) to solve the EEG/MEG forward problems:",
@@ -40,9 +40,9 @@ public:
             {"cutfem", {"", {}}},
             {"partial_integration",
              {"Related to the partial integration source model:",
-              {"Bauer2014"}}},
+              {"Bauer2015"}}},
             {"venant",
-             {"Related to the St. Venant source model:", {"Bauer2014"}}},
+             {"Related to the St. Venant source model:", {"Bauer2015"}}},
             {"patch_based_venant", {"", {}}},
             {"truncated_spatial_venant", {"", {}}},
             {"subtraction",
@@ -57,65 +57,66 @@ public:
               {"Wolters2004"}}}},
         papers_{
             {"Bastian2008",
-             "Bastian, P., Blatt, M., Dedner, A., Engwer, C., Klöfkorn, R., "
-             "Ohlberger, M., Sander, O. (2008).\nA Generic Grid Interface for "
+             "P. Bastian, M. Blatt, A. Dedner, C. Engwer, R. Klöfkorn, M. "
+             "Ohlberger, and O. Sander (2008).\nA Generic Grid Interface for "
              "Parallel and Adaptive Scientific Computing. Part I: Abstract "
-             "Framework.\nComputing, 82(2-3), pp. 103-119. (related to module: "
-             "dune-grid)"},
+             "Framework.\nComputing, 82(2-3), pp. 103-119."},
             {"Bastian2008b",
-             "Bastian, P., Blatt, M., Dedner, A., Engwer, C., Klöfkorn, R., "
-             "Kornhuber, R., Ohlberger, M., Sander, O. (2008).\nA Generic "
-             "Grid Interface for Parallel and Adaptive Scientific Computing. "
-             "Part II: Implementation and Tests in DUNE.\nComputing, 82(2-3), "
-             "pp. 121-138. (related to module: dune-grid)"},
-            {"Bastian2010",
-             "Bastian, P., Heimann, F., and Marnach, S. (2010).\nGeneric "
-             "implementation of finite element methods in the Distributed and "
-             "Unified Numerics Environment (DUNE).\nKybernetika, 46(2):294 "
-             "315, (related to module: dune-pdelab)"},
+             "P. Bastian, M. Blatt, A. Dedner, C. Engwer, R. Klöfkorn, R. "
+             "Kornhuber, M. Ohlberger, and O. Sander (2008).\nA Generic Grid "
+             "Interface for Parallel and Adaptive Scientific Computing. Part "
+             "II: Implementation and Tests in DUNE.\nComputing, 82(2-3), pp. "
+             "121-138."},
+            {"Bastian2008c",
+             "P. Bastian, M. Blatt (2008). On the Generic Parallelisation of "
+             "Iterative Solvers for the Finite Element Method In Int. J. "
+             "Computational Science and Engineering,4(1), pp. 56-69."},
             {"Blatt2007",
-             "Blatt, M., Bastian, P. (2008).\nThe Iterative Solver Template "
+             "M. Blatt, P. Bastian (2007).\nThe Iterative Solver Template "
              "Library.\nIn B. Kåström, E. Elmroth, J. Dongarra and J. "
              "Wasniewski, Applied Parallel Computing. State of the Art in "
              "Scientific Computing.\nVolume 4699 of Lecture Notes in "
-             "Scientific Computing, pp. 666-675. Springer, (related to module: "
-             "dune-istl)"},
-            {"Bauer2014",
-             "Bauer, M., Pursiainen, S., Vorwerk, J., Köstler, H., Wolters, "
-             "C.H. (2015).\nComparison Study for Whitney (Raviart-Thomas) "
-             "Type Source Models in Finite Element Method Based EEG Forward "
-             "Modeling.\nIEEE Trans. Biomed. Eng.,62(11):2648–56"},
+             "Scientific Computing, pp. 666-675. Springer."},
+            {"Bauer2015",
+            "M. Bauer, S. Pursiainen, J. Vorwerk, H. Köstler, "
+            "and C. H. Wolters (2015).\nComparison Study for "
+            "Whitney (Raviart–Thomas)-Type Source Models in "
+            "Finite-Element-Method-Based EEG Forward "
+            "Modeling.\nIEEE Trans. Biomed. Eng., 62(11), pp. "
+            "2648-2656, 2015, doi: 10.1109/TBME.2015.2439282."},
             {"Drechsler2009",
-             "Drechsler, F., Wolters, C. H., Dierkes, T., Si, H., and "
-             "Grasedyck, L. (2009).\nA full subtraction approach for finite "
-             "element method based source analysis using constrained Delaunay "
-             "tetrahedralisation.\nNeuroImage 46, 1055–1065."},
+             "F. Drechsler, C.H. Wolters, T. Dierkes, H. Si, and L. Grasedyck "
+             "(2009).\nA full subtraction approach for finite element method "
+             "based source analysis using constrained Delaunay "
+             "tetrahedralisation.\nNeuroImage 46(4), pp. 1055–1065, "
+             "doi:10.1016/j.neuroimage.2009.02.024."},
             {"Engwer2017",
-             "Engwer, C., Vorwerk, J., Ludewig, J., and Wolters, C. H. "
-             "(2017).\nA discontinuous galerkin method to solve the EEG "
-             "forward problem using the subtraction approach.\nSIAM J. Sci. "
-             "Comput. 39, B138–B164. (EEG)"},
+             "C. Engwer, J. Vorwerk, J. Ludewig, and C. H. Wolters (2017).\nA "
+             "discontinuous Galerkin method to solve the EEG forward problem "
+             "using the subtraction approach.\nSIAM J. Sci. Comput. 39(1), "
+             "B138–B164, doi: 10.1137/15M1048392."},
             {"Miinalainen2018",
-             "Miinalainen, T., Rezaei, A., Defne, U., Nüssing, A. & Engwer, "
-             "C. & Wolters, C. H., Pursiainen, S. (2019).\nA realistic, "
-             "accurate and fast source modeling approach for the EEG forward "
-             "problem.\nNeuroimage 184:56-67."},
+             "T. Miinalainen, A. Rezaei, D. Us, A. Nüßing, C. Engwer, C. H. "
+             "Wolters, and S. Pursiainen (2019).\nA realistic, accurate and "
+             "fast source modeling approach for the EEG forward "
+             "problem.\nNeuroimage 184, pp. 56-67, doi: "
+             "10.1016/j.neuroimage.2018.08.054."},
             {"Nüßing2016",
-             "Nüßing, A., Wolters, C. H., Brinck, H., and Engwer, C. "
-             "(2016).\nThe unfitted discontinuous Galerkin method for solving "
-             "the EEG forward problem.\nIEEE Trans. Biomed. Eng. 63, "
-             "2564–2575."},
-            {"Nüßing2018",
-             "Nüßing, A., Piastra, M.C., Schrader, S., Miinalainen, T., "
-             "Pursiainen, S., Brinck, H., Wolters, C.H., Engwer, C. "
+             "A. Nüßing, C. H. Wolters, H. Brinck, and C. Engwer (2016).\nThe "
+             "unfitted discontinuous Galerkin method for solving the EEG "
+             "forward problem.\nIEEE Trans. Biomed. Eng. 63(12), pp. "
+             "2564–2575, doi:  10.1109/TBME.2016.2590740."},
+            {"Nüßing2019",
+             "A. Nüßing, M.C. Piastra, S. Schrader, T. Miinalainen, S. "
+             "Pursiainen, H. Brinck, C. H. Wolters, and C. Engwer "
              "(2019).\nduneuro - A software toolbox for forward modeling in "
              "neuroscience.\narXiv, eprint={1901.02874}"},
             {"Piastra2018",
-             "Piastra, M. C., Nüßing, A., Vorwerk, J., Bornfleth, H., "
-             "Oostenveld, R., Engwer, C., Wolters, C. H. (2018).\nThe "
-             "Discontinuous Galerkin Finite Element Method for Solving the "
-             "MEG and the Combined MEG/EEG Forward Problem.\nFrontiers in "
-             "Neuroscience 12, 30"},
+             "M. C. Piastra, A. Nüßing, J. Vorwerk, H. Bornfleth, R. "
+             "Oostenveld, C. Engwer, and C. H. Wolters (2018).\nThe "
+             "Discontinuous Galerkin Finite Element Method for Solving the MEG "
+             "and the Combined MEG/EEG Forward Problem.\nFrontiers in "
+             "Neuroscience 12, 30, doi: 10.3389/fnins.2018.00030."},
             {"Vorwerk2014",
              "Vorwerk, J., Cho, J.-H., Rampp, S., Hamer, H., Knösche,T.R., "
              "Wolters,C.H. (2014).\nA Guideline for Head Volume Conductor "
