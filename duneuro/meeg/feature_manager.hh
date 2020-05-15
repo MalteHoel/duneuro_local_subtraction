@@ -143,22 +143,21 @@ public:
   }
 
   void check_feature(Dune::ParameterTree &config) {
-    std::string feature_name;
     std::string key;
     if (config.hasKey("solver_type")) {
       key = "solver_type";
     } else if (config.hasSub("source_model")) {
       key = "source_model.type";
     }
-    feature_name = config.get<std::string>(key);
-    if (get_experimental(feature_name) && (!enable_experimental_)) {
+    std::string feature_id = config.get<std::string>(key);
+    if (get_experimental(feature_id) && (!enable_experimental_)) {
       config[key] = "experimental::" + config[key];
     }
-    update_features(feature_name);
+    update_features(feature_id);
   }
 
-  void update_features(const std::string feature_name) {
-    relevant_features_.push_back(feature_name);
+  void update_features(const std::string feature_id) {
+    relevant_features_.push_back(feature_id);
   }
 
   void print_citations() {
@@ -166,28 +165,26 @@ public:
     relevant_features_.unique();
     relevant_features_.insert(relevant_features_.begin(), {"duneuro", "DUNE"});
     for (const std::string &feature_id : relevant_features_) {
-      std::cout << get_description(feature_id);
-      std::cout << "\n\n";
+      std::cout << get_description(feature_id) << "\n\n";
       std::vector<std::string> feature_papers = get_feature_papers(feature_id);
       for (const std::string &paper_id : feature_papers) {
-        std::cout << get_citation(paper_id);
-        std::cout << "\n\n";
+        std::cout << get_citation(paper_id) << "\n\n";
       }
     }
   }
 
-  bool get_experimental(const std::string &feature_name) const {
-    return (experimental_features_.find(feature_name) !=
+  bool get_experimental(const std::string &feature_id) const {
+    return (experimental_features_.find(feature_id) !=
             experimental_features_.end());
   }
 
   std::vector<std::string>
-  get_feature_papers(const std::string &feature_name) const {
-    return features_.at(feature_name).feature_papers;
+  get_feature_papers(const std::string &feature_id) const {
+    return features_.at(feature_id).feature_papers;
   }
 
-  std::string get_description(const std::string &feature_name) const {
-    return features_.at(feature_name).description;
+  std::string get_description(const std::string &feature_id) const {
+    return features_.at(feature_id).description;
   }
 
   std::string get_citation(const std::string &paper_id) const {
