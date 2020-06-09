@@ -171,7 +171,11 @@ namespace duneuro
       checkElectrodes();
       using OuterGFS =
           Dune::PDELab::GridFunctionSubSpace<typename Traits::Solver::Traits::FunctionSpace::GFS,
+#if DUNE_VERSION_NEWER(DUNE_PDELAB,2,7)
+                                             Dune::TypeTree::StaticTreePath<0>>;
+#else
                                              Dune::TypeTree::TreePath<0>>;
+#endif
       OuterGFS outerGfs(solver_->functionSpace().getGFS());
       return projectedElectrodes_->evaluate(outerGfs,
                                             solution.cast<typename Traits::DomainDOFVector>());
