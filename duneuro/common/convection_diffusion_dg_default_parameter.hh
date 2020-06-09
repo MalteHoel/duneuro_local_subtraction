@@ -21,6 +21,8 @@ namespace duneuro
       assert(volumeConductor_);
     }
 
+    static constexpr bool permeabilityIsConstantPerCell() { return true; }
+
     template <class EG>
     typename Traits::PermTensorType A(const EG& e, const typename Traits::DomainType& x) const
     {

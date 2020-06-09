@@ -151,7 +151,6 @@ namespace duneuro
  *       type is selected and the boundary condition is evaluated right or not.
  *       Thus, observe assertions at the spots marked by (***).
  */
-#warning Assuming piecewise constant diffusion tensor at the spots marked by (*).
 #warning Assuming continuity of the velocity field at the spots marked by (**) such that we may choose any side for its evaluation.
 #warning UDG assembler: Skeleton/boundary integrals: We evaluate data functions on the inside/outside "host entities" not on the "fundamental mesh home entities".
   template <typename T, typename EdgeNormProvider, typename PenaltyFluxWeighting>
@@ -186,6 +185,8 @@ namespace duneuro
     enum { doAlphaSkeleton = true };
     enum { doAlphaBoundary = true };
     enum { doLambdaVolume = true };
+
+    static_assert(T::permeabilityIsConstantPerCell() == true, "We require a piecewise constant diffusion tensor. (see all the spots marked by (*))");
 
     //! constructor: pass model parameters object and DG scheme related parameters
     //! UDG assembler: the model parameter data functions are supposed to live on the fundamental
