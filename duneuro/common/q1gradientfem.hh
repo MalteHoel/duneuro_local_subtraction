@@ -32,7 +32,7 @@ namespace duneuro
 
     std::size_t size(Dune::GeometryType gt) const
     {
-      if (gt == Dune::GeometryType(Dune::GeometryType::cube, 2))
+      if (gt == Dune::GeometryTypes::cube(2))
         return 3;
       else
         return 0;

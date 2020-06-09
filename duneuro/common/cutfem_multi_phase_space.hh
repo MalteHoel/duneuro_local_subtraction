@@ -45,7 +45,7 @@ namespace duneuro
         : gridView_(gv)
         , entitySet_(gridView_)
         , subTriangulation_(subTriangulation)
-        , lfe_(Dune::GeometryType(Dune::GeometryType::BasicType::cube, dim), degree)
+        , lfe_(Dune::GeometryTypes::cube(dim), degree)
     {
       for (unsigned int i = 0; i < phases; ++i) {
         fems_[i] = std::make_shared<FEM>(lfe_, *subTriangulation_, i, false);

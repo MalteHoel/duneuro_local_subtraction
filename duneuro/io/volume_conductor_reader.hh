@@ -51,8 +51,7 @@ namespace duneuro
         factory.insertVertex(node);
       }
       for (const auto& element : data.elements) {
-        Dune::GeometryType gt;
-        gt.makeFromVertices(dim, element.size());
+        Dune::GeometryType gt = Dune::geometryTypeFromVertexCount(dim, element.size());
         factory.insertElement(gt, element);
       }
       std::unique_ptr<G> grid(factory.createGrid());
