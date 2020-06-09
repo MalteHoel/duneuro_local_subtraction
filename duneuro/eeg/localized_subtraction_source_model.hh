@@ -91,8 +91,8 @@ namespace duneuro
       timer.lap("create_sub_entity_set");
 
       // extract conductivity tensors to create a local volume conductor
-      Dune::MultipleCodimMultipleGeomTypeMapper<SubEntitySet, Dune::MCMGElementLayout> mapper(
-          subEntitySet);
+      Dune::MultipleCodimMultipleGeomTypeMapper<SubEntitySet>
+          mapper(subEntitySet, Dune::mcmgElementLayout());
       std::vector<typename VC::TensorType> tensors(mapper.size());
       for (const auto& subElement : elementPatch->elements()) {
         tensors[mapper.index(subElement)] = volumeConductor_->tensor(subElement);
