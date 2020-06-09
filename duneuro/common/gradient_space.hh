@@ -25,7 +25,7 @@ namespace {
 
 namespace duneuro
 {
-  template <typename T, typename N, unsigned int degree, Dune::GeometryType::BasicType gt,
+  template <typename T, typename N, unsigned int degree,
             Dune::SolverCategory::Category st = Dune::SolverCategory::sequential,
             typename VBET = Dune::PDELab::ISTL::
                 VectorBackend<Dune::PDELab::ISTL::Blocking::fixed,
@@ -95,7 +95,7 @@ namespace duneuro
     CC cc;
   };
 
-  template <typename T, typename N, unsigned int degree, Dune::GeometryType::BasicType gt,
+  template <typename T, typename N, unsigned int degree,
             Dune::SolverCategory::Category st = Dune::SolverCategory::sequential,
             typename VBET = Dune::PDELab::ISTL::
                 VectorBackend<Dune::PDELab::ISTL::Blocking::fixed,

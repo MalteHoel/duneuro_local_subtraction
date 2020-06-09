@@ -280,7 +280,7 @@ namespace duneuro
     /** \todo Please doc me !
      */
     Q1Gradient3DLocalFiniteElement()
-        : gt(Dune::GeometryType::cube, 3), basis(), coefficients(), interpolation(gt, basis)
+        : gt(Dune::GeometryTypes::cube(3)), basis(), coefficients(), interpolation(gt, basis)
     {
     }
 

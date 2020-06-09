@@ -49,8 +49,7 @@ int run(bool useJacobian)
                             fs.getGFS(), dof);
 
   // create gradient function space
-  using GradientFS =
-      duneuro::DGQkGradientSpace<Grid, double, 1, Dune::GeometryType::BasicType::cube>;
+  using GradientFS = duneuro::DGQkGradientSpace<Grid, double, 1>;
   GradientFS gradientfs(volumeConductor.gridView());
 
   // interpolate physical flux

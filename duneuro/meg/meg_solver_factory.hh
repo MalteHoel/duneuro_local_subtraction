@@ -28,7 +28,7 @@ namespace duneuro
                                                     eegSolverConfig),
             megConfig);
       } else if (type == "physical") {
-        using Flux = PhysicalFlux<VC, FS, ElementType::hexahedron, degree>;
+        using Flux = PhysicalFlux<VC, FS, degree>;
         return std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),
@@ -50,7 +50,7 @@ namespace duneuro
     {
       auto type = megConfig.get<std::string>("type");
       if (type == "physical") {
-        using Flux = PhysicalFluxPk<VC, FS, ElementType::tetrahedron, degree>;
+        using Flux = PhysicalFluxPk<VC, FS, degree>;
         return std::make_unique<MEGSolver<VC, Flux>>(
             volumeConductor, std::make_shared<Flux>(volumeConductor, functionSpace, true, megConfig,
                                                     eegSolverConfig),

@@ -89,16 +89,14 @@ namespace duneuro
                                                      BasicTypeFromElementType<elementType>::value>,
                                     NumericalFluxLocalOperator<VC, double>>;
 
-  template <class VC, class FS, ElementType elementType, int degree>
+  template <class VC, class FS, int degree>
   using PhysicalFlux =
-      FluxWrapper<VC, FS, DGQkGradientSpace<typename VC::GridType, double, degree,
-                                            BasicTypeFromElementType<elementType>::value>,
+      FluxWrapper<VC, FS, DGQkGradientSpace<typename VC::GridType, double, degree>,
                   PhysicalFluxLocalOperator<VC, double>>;
 
-  template <class VC, class FS, ElementType elementType, int degree>
+  template <class VC, class FS, int degree>
   using PhysicalFluxPk =
-      FluxWrapper<VC, FS, DGPkGradientSpace<typename VC::GridType, double, degree,
-                                            BasicTypeFromElementType<elementType>::value>,
+      FluxWrapper<VC, FS, DGPkGradientSpace<typename VC::GridType, double, degree>,
                   PhysicalFluxLocalOperator<VC, double>>;
 }
 
