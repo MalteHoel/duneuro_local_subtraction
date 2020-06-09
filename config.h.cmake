@@ -41,11 +41,11 @@
 #define DUNEURO_VERSION_REVISION @DUNEURO_VERSION_REVISION@
 
 #ifndef HAVE_TBB
-#define HAVE_TBB ENABLE_TBB
+#cmakedefine HAVE_TBB ENABLE_TBB
 #endif
-#define HAVE_HDF5WRAP ENABLE_HDF5WRAP
-#define HAVE_HDF5 ENABLE_HDF5
-#define HAVE_NIFTI ENABLE_NIFTI
+#cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
+#cmakedefine HAVE_HDF5 ENABLE_HDF5
+#cmakedefine HAVE_NIFTI ENABLE_NIFTI
 
 /* end duneuro
    Everything below here will be overwritten
