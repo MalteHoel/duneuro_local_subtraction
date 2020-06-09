@@ -10,7 +10,6 @@
 #include <dune/common/exceptions.hh> // provides Dune::Exception
 #include <dune/common/fmatrix.hh> // provides FieldMatrix
 #include <dune/common/fvector.hh> // provides FieldVector
-#include <dune/common/version.hh>
 
 #include <dune/geometry/quadraturerules.hh> // provides QuadratureRule(s)
 #include <dune/geometry/referenceelements.hh> // provides GenericReferenceElements
@@ -368,11 +367,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -516,11 +511,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -699,11 +690,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * order_s;
 
@@ -827,11 +814,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       // const int intorder =
       // intorderadd+quadrature_factor*lfsu_s.finiteElement().localBasis().order();
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();

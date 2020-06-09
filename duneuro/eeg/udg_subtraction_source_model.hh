@@ -2,7 +2,6 @@
 #define DUNEURO_UDG_SUBTRACTION_SOURCE_MODEL_HH
 
 #include <dune/common/parametertree.hh>
-#include <dune/common/version.hh>
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
@@ -34,11 +33,7 @@ namespace duneuro
     using WLOP = Dune::UDG::MultiPhaseLocalOperatorWrapper<LOP>;
     using DOF = typename FS::DOF;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GV>;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
     using MatrixBackend = Dune::PDELab::ISTL::BCRSMatrixBackend<>;
-#else
-    using MatrixBackend = Dune::PDELab::istl::BCRSMatrixBackend<>;
-#endif
     using GridOperator =
         Dune::UDG::UDGGridOperator<typename FS::GFS, typename FS::GFS, WLOP, MatrixBackend, DF, RF,
                                    JF, UnfittedSubTriangulation>;

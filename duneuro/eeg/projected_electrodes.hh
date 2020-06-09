@@ -3,7 +3,6 @@
 
 #include <dune/common/fvector.hh>
 #include <dune/common/timer.hh>
-#include <dune/common/version.hh>
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/backend/istl/descriptors.hh>

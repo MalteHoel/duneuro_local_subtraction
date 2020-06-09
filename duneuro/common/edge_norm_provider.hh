@@ -9,7 +9,6 @@
 #include <dune/common/exceptions.hh> // provides DUNE_THROW and Dune::Exception types
 #include <dune/common/parametertree.hh> // provides Dune::ParameterTree
 #include <dune/common/typetraits.hh> // provides Dune::enable_if
-#include <dune/common/version.hh>
 
 #include <dune/pdelab/common/geometrywrapper.hh>
 
@@ -91,11 +90,7 @@ namespace duneuro
     {
       typedef IntersectionGeometry IG;
       typedef typename IG::Geometry::ctype ctype;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
       assert(dim > 1);
       h = std::pow(ig.geometry().volume(), 1.0 / ctype(dim - 1));
@@ -114,11 +109,7 @@ namespace duneuro
       // h = ig.intersection().area();
       typedef Dune::PDELab::UnfittedIntersectionWrapper<Impl> IG;
       typedef typename IG::Geometry::ctype ctype;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       static_assert(dim > 1, "FaceBasedEdgeNormProvider requires dim > 1.");
       h = std::pow(ig.intersection().area(), 1.0 / ctype(dim - 1));
     }
@@ -152,11 +143,7 @@ namespace duneuro
       const ctype iv = ig.intersection().insideVolume();
       const ctype ov = boundary ? iv : ig.intersection().outsideVolume();
       const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       h = std::pow(harmonic_av, 1.0 / ctype(dim));
     }
 #endif
@@ -172,11 +159,7 @@ namespace duneuro
       const ctype iv = ig.inside().geometry().volume();
       const ctype ov = boundary ? iv : ig.outside().geometry().volume();
       const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       h = std::pow(harmonic_av, 1.0 / ctype(dim));
     }
   };
@@ -198,11 +181,7 @@ namespace duneuro
       const ctype iv = ig.inside().geometry().volume();
       const ctype ov = boundary ? iv : ig.outside().geometry().volume();
       const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       h = std::pow(harmonic_av, 1.0 / ctype(dim));
     }
 #endif
@@ -218,11 +197,7 @@ namespace duneuro
       const ctype iv = ig.inside().geometry().volume();
       const ctype ov = boundary ? iv : ig.outside().geometry().volume();
       const ctype harmonic_av = 2.0 * iv * ov / (iv + ov + 1e-20);
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       h = std::pow(harmonic_av, 1.0 / ctype(dim));
     }
   };
