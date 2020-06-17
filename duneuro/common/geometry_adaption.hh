@@ -22,7 +22,6 @@
 #include <duneuro/io/nifti_image_reader.hh>
 #endif
 #include <duneuro/io/gmsh_tensor_reader.hh>
-
 namespace duneuro
 {
   template <class GridView>

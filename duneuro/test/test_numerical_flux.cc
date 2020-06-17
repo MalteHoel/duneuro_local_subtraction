@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include <dune/common/array.hh>
+#include <dune/common/filledarray.hh>
 
 #include <dune/grid/yaspgrid.hh>
 
@@ -22,7 +22,7 @@ int run(bool useJacobian)
   using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
   auto grid = duneuro::make_structured_grid<dim>(Dune::FieldVector<double, dim>(0),
                                                  Dune::FieldVector<double, dim>(1),
-                                                 Dune::fill_array<int, dim>(10), 0);
+                                                 Dune::filledArray<dim>(10), 0);
   using Tensor = Dune::FieldMatrix<double, dim, dim>;
   Tensor t;
   for (unsigned int i = 0; i < dim; ++i)
@@ -31,11 +31,7 @@ int run(bool useJacobian)
   std::vector<std::size_t> labels(grid->size(0), 0);
   std::vector<Tensor> tensors = {t};
   using VC = duneuro::VolumeConductor<Grid>;
-  auto gv = grid->leafGridView();
-  VC volumeConductor(
-      std::move(grid),
-      std::make_unique<typename VC::MappingType>(
-          duneuro::IndirectEntityMapping<typename VC::GridView, Tensor>(gv, tensors, labels)));
+  VC volumeConductor(std::move(grid), labels, tensors);
 
   // create potential space
   using FS = Dune::PDELab::DGQkSpace<Grid, double, 1, Dune::GeometryType::BasicType::cube>;
@@ -59,8 +55,9 @@ int run(bool useJacobian)
   config["edge_norm_type"] = "houston";
   config["penalty"] = "1";
   config["weights"] = "1";
-  Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor), Dune::stackobject_to_shared_ptr(fs),
-            useJacobian, config);
+  Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor),
+            Dune::stackobject_to_shared_ptr(fs),
+            useJacobian, config, config);
   typename FluxFS::DOF fluxdof(fluxfs.getGFS(), 0.0);
   flux.interpolate(dof, fluxdof);
 
