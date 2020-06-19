@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include <dune/common/parallel/mpihelper.hh>
 #include <dune/grid/yaspgrid.hh>
 
 #include <duneuro/eeg/electrode_projection_factory.hh>
@@ -89,6 +90,8 @@ bool test_is_projection()
 
 int main(int argc, char** argv)
 {
+  Dune::MPIHelper::instance(argc, argv);
+
   bool passed = true;
   passed &= test_is_projection();
   return !passed;

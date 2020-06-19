@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include <dune/common/parallel/mpihelper.hh>
 #include <dune/common/filledarray.hh>
 
 #include <dune/grid/yaspgrid.hh>
@@ -72,8 +73,10 @@ int run(bool useJacobian)
   return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
 }
 
-int main()
+int main(int argc, char** argv)
 {
+  Dune::MPIHelper::instance(argc, argv);
+
   if (run<2>(false) != 0)
     return -1;
   if (run<3>(false) != 0)
