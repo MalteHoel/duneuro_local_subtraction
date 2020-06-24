@@ -70,6 +70,8 @@ int run(bool useJacobian)
   DGFG dgfg(fs.getGFS(), dof);
 
   // test succesfull, if the l2difference between the numerical flux and the gradient is small
+  std::cerr << dim << "D, useJacobian = " << useJacobian << "\n";
+  std::cout << " -> difference : " << l2difference(dgfg, fgf) << std::endl;
   return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
 }
 
@@ -77,12 +79,27 @@ int main(int argc, char** argv)
 {
   Dune::MPIHelper::instance(argc, argv);
 
+  bool sucess = true;
+
   if (run<2>(false) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<3>(false) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<2>(true) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<3>(true) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
+  if (!sucess) return -1;
 }
