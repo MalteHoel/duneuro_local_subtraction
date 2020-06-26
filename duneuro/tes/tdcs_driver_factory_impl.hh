@@ -1,6 +1,8 @@
 #include <duneuro/tes/fitted_tdcs_driver.hh>
 #if HAVE_DUNE_UDG
+#include <duneuro/tes/cutfem_tdcs_driver.hh>
 #include <duneuro/tes/udg_tdcs_driver.hh>
+
 #endif
 
 #include <memory>
@@ -32,7 +34,22 @@ extern template class duneuro::UDGTDCSDriver<3, 1, 3>;
 extern template class duneuro::UDGTDCSDriver<3, 1, 4>;
 extern template class duneuro::UDGTDCSDriver<3, 1, 5>;
 extern template class duneuro::UDGTDCSDriver<3, 1, 6>;
+
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 1>;
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 2>;
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 3>;
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 4>;
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 5>;
+extern template class duneuro::CutFEMTDCSDriver< 2, 1, 6>;
+
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 1>;
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 2>;
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 3>;
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 4>;
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 5>;
+extern template class duneuro::CutFEMTDCSDriver< 3, 1, 6>;
 #endif
+
 
 namespace duneuro
 {
@@ -90,6 +107,24 @@ namespace duneuro
       } else {
         DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
       }
+    }
+      else if (type == "cutfem") {
+        auto compartments = config.get<unsigned int>("compartments");
+        if (compartments == 1) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 1>>(data.udgData, patchSet, config);
+        } else if (compartments == 2) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 2>>(data.udgData, patchSet, config);
+        } else if (compartments == 3) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 3>>(data.udgData, patchSet, config);
+        } else if (compartments == 4) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 4>>(data.udgData, patchSet, config);
+        } else if (compartments == 5) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 5>>(data.udgData, patchSet, config);
+        } else if (compartments == 6) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 6>>(data.udgData, patchSet, config);
+        } else {
+          DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
+        }
 #endif
     } else {
       DUNE_THROW(Dune::Exception, "unknown type \"" << type << "\"");
@@ -139,6 +174,24 @@ namespace duneuro
       } else {
         DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
       }
+      }
+      else if (type == "cutfem") {
+        auto compartments = config.get<unsigned int>("compartments");
+        if (compartments == 1) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 1>>(data.udgData, patchSet, config, dataTree);
+        } else if (compartments == 2) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 2>>(data.udgData, patchSet, config, dataTree);
+        } else if (compartments == 3) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 3>>(data.udgData, patchSet, config, dataTree);
+        } else if (compartments == 4) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 4>>(data.udgData, patchSet, config, dataTree);
+        } else if (compartments == 5) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 5>>(data.udgData, patchSet, config, dataTree);
+        } else if (compartments == 6) {
+          return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 6>>(data.udgData, patchSet, config, dataTree);
+        } else {
+          DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
+        }
 #endif
     } else {
       DUNE_THROW(Dune::Exception, "unknown type \"" << type << "\"");
