@@ -8,6 +8,7 @@
 #include <duneuro/eeg/localized_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
+#include <duneuro/meeg/feature_manager.hh>
 
 namespace duneuro
 {
@@ -45,7 +46,7 @@ namespace duneuro
             V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
                 config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" <<FeatureManager::strip_prefix(type) << "\"");
       }
     }
 
@@ -76,7 +77,7 @@ namespace duneuro
             V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
                 config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
   };

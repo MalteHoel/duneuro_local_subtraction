@@ -12,6 +12,8 @@
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
+#include <duneuro/meeg/feature_manager.hh>
+
 
 namespace duneuro
 {
@@ -61,7 +63,7 @@ namespace duneuro
                                                             solver.functionSpace().getGFS(),
                                                             solver.elementSearch(), config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
 
@@ -103,9 +105,10 @@ namespace duneuro
                                                             solver.functionSpace().getGFS(),
                                                             solver.elementSearch(), config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
+
   };
 }
 

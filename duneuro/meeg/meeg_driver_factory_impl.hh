@@ -121,7 +121,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
       } else {
-        DUNE_THROW(Dune::Exception, "unknown solver type");
+        DUNE_THROW(Dune::Exception, "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
       }
 #if HAVE_DUNE_UDG
     } else if (type == "unfitted") {
@@ -173,7 +173,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
       } else {
-        DUNE_THROW(Dune::Exception, "unknown solver type");
+        DUNE_THROW(Dune::Exception, "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
       }
 #endif
     } else {
@@ -239,7 +239,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "unknown element type \"" << elementType << "\"");
         }
       } else {
-        DUNE_THROW(Dune::Exception, "unknown solver type");
+        DUNE_THROW(Dune::Exception, "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
       }
 #if HAVE_DUNE_UDG
     } else if (type == "unfitted") {
@@ -291,7 +291,7 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
       } else {
-        DUNE_THROW(Dune::Exception, "unknown solver type");
+        DUNE_THROW(Dune::Exception, "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
       }
 #endif
     } else {

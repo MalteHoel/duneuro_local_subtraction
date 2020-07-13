@@ -142,6 +142,12 @@ public:
     }
   }
 
+  static std::string strip_prefix(std::string type)
+  {
+    std::string prefix = "experimental::";
+    return (type.find(prefix) != std::string::npos) ? type.erase(type.find(prefix), prefix.length()) : type;
+  }
+
   void check_feature(Dune::ParameterTree &config) {
     std::string key;
     if (config.hasKey("solver_type")) {

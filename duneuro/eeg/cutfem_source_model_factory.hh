@@ -9,6 +9,7 @@
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
 #include <duneuro/eeg/unfitted_patch_based_venant_source_model.hh>
+#include <duneuro/meeg/feature_manager.hh>
 
 namespace duneuro
 {
@@ -33,7 +34,7 @@ namespace duneuro
                      solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
                      config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
 
@@ -57,7 +58,7 @@ namespace duneuro
                      solver.elementSearch(), config.get<std::size_t>("compartment"), scaleToBBox,
                      config);
       } else {
-        DUNE_THROW(duneuro::SourceModelException, "unknown source model");
+        DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
   };
