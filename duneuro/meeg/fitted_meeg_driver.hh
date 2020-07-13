@@ -79,13 +79,13 @@ namespace duneuro
   public:
     using Traits = FittedMEEGDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
-    explicit FittedMEEGDriver(Dune::ParameterTree& config, std::shared_ptr<FeatureManager> featureManager,
+    explicit FittedMEEGDriver(const Dune::ParameterTree& config, std::shared_ptr<FeatureManager> featureManager,
                               DataTree dataTree = DataTree())
         : FittedMEEGDriver(FittedDriverData<dim>{}, config, featureManager, dataTree)
     {
     }
 
-    explicit FittedMEEGDriver(const FittedDriverData<dim>& data, Dune::ParameterTree& config,
+    explicit FittedMEEGDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
                               std::shared_ptr<FeatureManager> featureManager,
                               DataTree dataTree = DataTree())
         : MEEGDriverInterface<dim>(featureManager)
@@ -115,7 +115,7 @@ namespace duneuro
     }
 
     virtual void solveEEGForward(const typename MEEGDriverInterface<dim>::DipoleType& dipole,
-                                 Function& solution, Dune::ParameterTree& config,
+                                 Function& solution, Dune::ParameterTree config,
                                  DataTree dataTree = DataTree()) override
     {
       this->featureManager_->check_feature(config);
@@ -144,7 +144,7 @@ namespace duneuro
     }
 
     virtual std::vector<double> solveMEGForward(const Function& eegSolution,
-                                                Dune::ParameterTree& config,
+                                                Dune::ParameterTree config,
                                                 DataTree dataTree = DataTree()) override
     {
       this->featureManager_->check_feature(config);
@@ -324,7 +324,7 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
     {
       this->featureManager_->check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
@@ -374,7 +374,7 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
     {
       this->featureManager_->check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());

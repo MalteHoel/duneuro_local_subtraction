@@ -52,7 +52,7 @@ namespace duneuro
      *     solution here can mainly be used for visualization purposes.
      */
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
-                                 Dune::ParameterTree& config,
+                                 Dune::ParameterTree config,
                                  DataTree dataTree = DataTree()) = 0;
     /**
      * \brief solve the meg forward problem
@@ -68,7 +68,7 @@ namespace duneuro
      * probably fail, but certainly produce undefined behaviour.
      */
     virtual std::vector<FieldType> solveMEGForward(const Function& eegSolution,
-                                                   Dune::ParameterTree& config,
+                                                   Dune::ParameterTree config,
                                                    DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -133,7 +133,7 @@ namespace duneuro
      */
     virtual std::vector<std::vector<FieldType>>
     applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                     const std::vector<DipoleType>& dipole, Dune::ParameterTree& config,
+                     const std::vector<DipoleType>& dipole, Dune::ParameterTree config,
                      DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -141,7 +141,7 @@ namespace duneuro
      */
     virtual std::vector<std::vector<FieldType>>
     applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                     const std::vector<DipoleType>& dipole, Dune::ParameterTree& config,
+                     const std::vector<DipoleType>& dipole, Dune::ParameterTree config,
                      DataTree dataTree = DataTree()) = 0;
 
     virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
