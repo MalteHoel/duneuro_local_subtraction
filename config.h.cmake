@@ -40,6 +40,9 @@
 /* Define to the revision of duneuro */
 #define DUNEURO_VERSION_REVISION @DUNEURO_VERSION_REVISION@
 
+#ifdef HAVE_TBB
+#undef HAVE_TBB
+#endif
 #cmakedefine HAVE_TBB ENABLE_TBB
 #cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
 #cmakedefine HAVE_HDF5 ENABLE_HDF5
