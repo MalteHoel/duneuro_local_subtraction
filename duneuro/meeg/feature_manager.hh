@@ -24,7 +24,7 @@ public:
             {"DUNE",
              {"DUNEuro is based on and uses the numerical methods provided "
               "by DUNE. Here is a list of relevant publications:",
-              {"Bastian2008", "Bastian2008b", "Bastian2008c", "Blatt2007"}}},
+              {"Bastian2020", "Bastian2008", "Bastian2008b", "Bastian2008c", "Blatt2007"}}},
             {"cg",
              {"Related to the Continuous Galerkin Finite Element Method "
               "(CG-FEM) to solve the EEG/MEG forward problems:",
@@ -56,6 +56,12 @@ public:
               "forward more efficiently:",
               {"Wolters2004"}}}},
         papers_{
+            {"Bastian2020",
+             "P. Bastian, M. Blatt, A. Dedner, N.-A. Dreier, C. Engwer, R. Fritze"
+             ", C. Gräser, C. Grüninger, D. Kempf, R. Klöfkorn, M. Ohlberger, "
+             "and O. Sander (2020).\nThe Dune framework: Basic concepts and "
+             "recent developments \nComputers & Mathematics with Applications, "
+             "doi: 10.1016/j.camwa.2020.06.007."},
             {"Bastian2008",
              "P. Bastian, M. Blatt, A. Dedner, C. Engwer, R. Klöfkorn, M. "
              "Ohlberger, and O. Sander (2008).\nA Generic Grid Interface for "
