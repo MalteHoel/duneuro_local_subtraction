@@ -18,11 +18,11 @@ public:
   FeatureManager(const bool enable_experimental)
       : enable_experimental_(enable_experimental),
         features_{
-            {"duneuro",
-             {"Please cite the following work related to duneuro:",
+            {"DUNEuro",
+             {"Please cite the following work related to DUNEuro:",
               {"Nüßing2019"}}},
             {"DUNE",
-             {"Duneuro is based on and uses the numerical methods provided "
+             {"DUNEuro is based on and uses the numerical methods provided "
               "by DUNE. Here is a list of relevant publications:",
               {"Bastian2008", "Bastian2008b", "Bastian2008c", "Blatt2007"}}},
             {"cg",
@@ -30,13 +30,13 @@ public:
               "(CG-FEM) to solve the EEG/MEG forward problems:",
               {"Vorwerk2014"}}},
             {"dg",
-             {"Related to the Disontinuous Galerkin Finite Element Method "
+             {"Related to the Discontinuous Galerkin Finite Element Method "
               "(DG-FEM) to solve the EEG/MEG forward problems:",
               {"Engwer2017", "Piastra2018"}}},
             {"udg",
-             {"Related to the Unfitted Disontinuous Galerkin Finite Element "
+             {"Related to the Unfitted Discontinuous Galerkin Finite Element "
               "Method (UDG-FEM) to solve the EEG forward problems:",
-              {"Nüßing2014"}}},
+              {"Nüßing2016"}}},
             {"cutfem", {"", {}}},
             {"partial_integration",
              {"Related to the partial integration source model:",
@@ -60,17 +60,19 @@ public:
              "P. Bastian, M. Blatt, A. Dedner, C. Engwer, R. Klöfkorn, M. "
              "Ohlberger, and O. Sander (2008).\nA Generic Grid Interface for "
              "Parallel and Adaptive Scientific Computing. Part I: Abstract "
-             "Framework.\nComputing, 82(2-3), pp. 103-119."},
+             "Framework.\nComputing, 82(2-3), pp. 103-119, urn: "
+             "urn:nbn:de:0296-matheon-4162."},
             {"Bastian2008b",
              "P. Bastian, M. Blatt, A. Dedner, C. Engwer, R. Klöfkorn, R. "
              "Kornhuber, M. Ohlberger, and O. Sander (2008).\nA Generic Grid "
              "Interface for Parallel and Adaptive Scientific Computing. Part "
              "II: Implementation and Tests in DUNE.\nComputing, 82(2-3), pp. "
-             "121-138."},
+             "121-138, urn: urn:nbn:de:0296-matheon-4176."},
             {"Bastian2008c",
              "P. Bastian, M. Blatt (2008).\nOn the Generic Parallelisation of "
              "Iterative Solvers for the Finite Element Method.\nInt. J. "
-             "Computational Science and Engineering,4(1), pp. 56-69."},
+             "Computational Science and Engineering,4(1), pp. 56-69, doi: "
+             "10.1504/IJCSE.2008.021112."},
             {"Blatt2007",
              "M. Blatt, P. Bastian (2007).\nThe Iterative Solver Template "
              "Library.\nIn B. Kåström, E. Elmroth, J. Dongarra and J. "
@@ -105,7 +107,7 @@ public:
              "A. Nüßing, C. H. Wolters, H. Brinck, and C. Engwer (2016).\nThe "
              "unfitted discontinuous Galerkin method for solving the EEG "
              "forward problem.\nIEEE Trans. Biomed. Eng. 63(12), pp. "
-             "2564–2575, doi:  10.1109/TBME.2016.2590740."},
+             "2564–2575, doi: 10.1109/TBME.2016.2590740."},
             {"Nüßing2019",
              "A. Nüßing, M.C. Piastra, S. Schrader, T. Miinalainen, S. "
              "Pursiainen, H. Brinck, C. H. Wolters, and C. Engwer "
@@ -118,20 +120,23 @@ public:
              "and the Combined MEG/EEG Forward Problem.\nFrontiers in "
              "Neuroscience 12, 30, doi: 10.3389/fnins.2018.00030."},
             {"Vorwerk2014",
-             "Vorwerk, J., Cho, J.-H., Rampp, S., Hamer, H., Knösche,T.R., "
-             "Wolters,C.H. (2014).\nA Guideline for Head Volume Conductor "
-             "Modeling in EEG and MEG.\nNeuroImage, 100, pp.590-607. (MEG)"},
+             "J. Vorwerk, J.-H. Cho, S. Rampp, H. Hamer, T. R. Knösche, and "
+             "C. H. Wolters (2014).\nA Guideline for Head Volume Conductor "
+             "Modeling in EEG and MEG.\nNeuroImage, 100, pp.590-607, "
+             "doi: 10.1016/j.neuroimage.2014.06.040."},
             {"Wolters2004",
-             "Wolters, C. H., Grasedyck, L., and Hackbusch, W. "
+             "C. H. Wolters, L. Grasedyck, and W. Hackbusch "
              "(2004).\nEfficient computation of lead field bases and "
              "influence matrix for the FEM-based EEG and MEG inverse "
-             "problem.\nInverse Prob. 20:1099"},
+             "problem.\nInverse Prob. 20(4):1099, doi: "
+             "10.1088/0266-5611/20/4/007."},
             {"Wolters2007",
-             "Wolters, C.H., Köstler, H., Möller, C., Härdtlein, J., "
-             "Grasedyck, L., Hackbusch, W.(2007).\nNumerical mathematics of "
+             "C. H. Wolters, H. Köstler, C. Möller, J. Härdtlein, "
+             "L. Grasedyck, and W. Hackbusch (2007).\nNumerical mathematics of "
              "the subtraction approach for the modeling of a current dipole "
              "in EEG source reconstruction using finite element head "
-             "models.\nSIAM J. on Scientific Computing, 30(1):24-45."}},
+             "models.\nSIAM J. on Scientific Computing, 30(1):24-45, "
+             "doi: 10.1137/060659053."}},
         experimental_features_{"cutfem", "patch_based_venant",
                                "truncated_spatial_venant",
                                "localized_subtraction"} {
@@ -169,7 +174,7 @@ public:
   void print_citations() {
     relevant_features_.sort();
     relevant_features_.unique();
-    relevant_features_.insert(relevant_features_.begin(), {"duneuro", "DUNE"});
+    relevant_features_.insert(relevant_features_.begin(), {"DUNEuro", "DUNE"});
     for (const std::string &feature_id : relevant_features_) {
       std::cout << get_description(feature_id) << "\n\n";
       std::vector<std::string> feature_papers = get_feature_papers(feature_id);
