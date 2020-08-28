@@ -79,14 +79,17 @@ namespace duneuro
   public:
     using Traits = FittedMEEGDriverTraits<dim, elementType, solverType, degree, geometryAdaption>;
 
-    explicit FittedMEEGDriver(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
-        : FittedMEEGDriver(FittedDriverData<dim>{}, config, dataTree)
+    explicit FittedMEEGDriver(const Dune::ParameterTree& config, std::shared_ptr<FeatureManager> featureManager,
+                              DataTree dataTree = DataTree())
+        : FittedMEEGDriver(FittedDriverData<dim>{}, config, featureManager, dataTree)
     {
     }
 
     explicit FittedMEEGDriver(const FittedDriverData<dim>& data, const Dune::ParameterTree& config,
+                              std::shared_ptr<FeatureManager> featureManager,
                               DataTree dataTree = DataTree())
-        : config_(config)
+        : MEEGDriverInterface<dim>(featureManager)
+        , config_(config)
         , volumeConductorStorage_(data, config.sub("volume_conductor"),
                                   dataTree.sub("volume_conductor"))
         , elementSearch_(std::make_shared<typename Traits::ElementSearch>(
@@ -112,9 +115,10 @@ namespace duneuro
     }
 
     virtual void solveEEGForward(const typename MEEGDriverInterface<dim>::DipoleType& dipole,
-                                 Function& solution, const Dune::ParameterTree& config,
+                                 Function& solution, Dune::ParameterTree config,
                                  DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->check_feature(config);
       eegForwardSolver_.setSourceModel(config.sub("source_model"), config_.sub("solver"), dataTree);
       eegForwardSolver_.bind(dipole, dataTree);
 
@@ -140,9 +144,10 @@ namespace duneuro
     }
 
     virtual std::vector<double> solveMEGForward(const Function& eegSolution,
-                                                const Dune::ParameterTree& config,
+                                                Dune::ParameterTree config,
                                                 DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->check_feature(config);
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
@@ -300,6 +305,7 @@ namespace duneuro
     computeEEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->update_features("transfer_matrix");
       return eegTransferMatrixSolver_.solve(solverBackend_, *electrodeProjection_, config,
                                             dataTree);
     }
@@ -308,6 +314,7 @@ namespace duneuro
     computeMEGTransferMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->update_features("transfer_matrix");
       if (!megSolver_) {
         DUNE_THROW(Dune::Exception, "no meg solver created");
       }
@@ -317,8 +324,9 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -366,8 +374,9 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
     {
+      this->featureManager_->check_feature(config);
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;

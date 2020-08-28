@@ -48,7 +48,7 @@ namespace duneuro
      * The configuration is passed on to the selected driver.
      */
     static std::unique_ptr<MEEGDriverInterface<dim>>
-    make_meeg_driver(const Dune::ParameterTree& config,
+    make_meeg_driver(Dune::ParameterTree config,
                      const MEEGDriverData<dim>& data = MEEGDriverData<dim>(),
                      DataTree dataTree = DataTree());
   };
