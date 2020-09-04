@@ -2,6 +2,7 @@
 #define DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 
 #include <dune/common/version.hh>
+#include <dune/common/gmpfield.hh>
 
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/finiteelement/l2orthonormal.hh>
@@ -26,9 +27,15 @@ namespace duneuro
     enum { dim = GV::dimension };
     typedef typename GV::ctype ctype;
     typedef N NT;
+#if HAVE_GMP
     typedef Dune::OPBLocalFiniteElement<ctype, NT, degree, dim, Dune::GeometryType::cube,
                                         Dune::GMPField<512>, Dune::PB::BasisType::Qk>
         LFE;
+#else
+    typedef Dune::OPBLocalFiniteElement<ctype, NT, degree, dim, Dune::GeometryType::cube,
+                                        double, Dune::PB::BasisType::Qk>
+        LFE;
+#endif
     typedef VirtualSubTriangulation<GV> SubTriangulation;
     enum { blockSize = Dune::QkStuff::QkSize<degree, dim>::value };
 #if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
