@@ -324,9 +324,10 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyEEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree cfg, DataTree dataTree = DataTree()) override
     {
-      this->featureManager_->check_feature(config);
+      this->featureManager_->check_feature(cfg);
+      const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
@@ -374,9 +375,10 @@ namespace duneuro
     virtual std::vector<std::vector<double>>
     applyMEGTransfer(const DenseMatrix<double>& transferMatrix,
                      const std::vector<typename MEEGDriverInterface<dim>::DipoleType>& dipoles,
-                     Dune::ParameterTree config, DataTree dataTree = DataTree()) override
+                     Dune::ParameterTree cfg, DataTree dataTree = DataTree()) override
     {
-      this->featureManager_->check_feature(config);
+      this->featureManager_->check_feature(cfg);
+      const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
       std::vector<std::vector<double>> result(dipoles.size());
 
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
