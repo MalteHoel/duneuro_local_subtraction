@@ -7,6 +7,7 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/function.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/meeg/feature_manager.hh>
 
 namespace duneuro
 {
@@ -16,6 +17,10 @@ namespace duneuro
     using FieldType = double;
     using DipoleType = Dipole<FieldType, dimension>;
     using CoordinateType = Dune::FieldVector<FieldType, dimension>;
+
+    MEEGDriverInterface(std::shared_ptr<FeatureManager> featureManager)
+        : featureManager_(featureManager)
+    {}
 
     /**
      * \brief create a domain function for the given interface
@@ -47,7 +52,7 @@ namespace duneuro
      *     solution here can mainly be used for visualization purposes.
      */
     virtual void solveEEGForward(const DipoleType& dipole, Function& solution,
-                                 const Dune::ParameterTree& config,
+                                 Dune::ParameterTree config,
                                  DataTree dataTree = DataTree()) = 0;
     /**
      * \brief solve the meg forward problem
@@ -63,7 +68,7 @@ namespace duneuro
      * probably fail, but certainly produce undefined behaviour.
      */
     virtual std::vector<FieldType> solveMEGForward(const Function& eegSolution,
-                                                   const Dune::ParameterTree& config,
+                                                   Dune::ParameterTree config,
                                                    DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -128,7 +133,7 @@ namespace duneuro
      */
     virtual std::vector<std::vector<FieldType>>
     applyEEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                     const std::vector<DipoleType>& dipole, const Dune::ParameterTree& config,
+                     const std::vector<DipoleType>& dipole, Dune::ParameterTree config,
                      DataTree dataTree = DataTree()) = 0;
 
     /**
@@ -136,7 +141,7 @@ namespace duneuro
      */
     virtual std::vector<std::vector<FieldType>>
     applyMEGTransfer(const DenseMatrix<FieldType>& transferMatrix,
-                     const std::vector<DipoleType>& dipole, const Dune::ParameterTree& config,
+                     const std::vector<DipoleType>& dipole, Dune::ParameterTree config,
                      DataTree dataTree = DataTree()) = 0;
 
     virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
@@ -150,9 +155,16 @@ namespace duneuro
      */
     virtual void statistics(DataTree dataTree) const = 0;
 
+    void print_citations()
+    {
+      featureManager_->print_citations();
+    }
+
     virtual ~MEEGDriverInterface()
     {
     }
+  protected:
+    std::shared_ptr<FeatureManager> featureManager_;
   };
 }
 
