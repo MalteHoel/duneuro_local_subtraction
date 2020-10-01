@@ -2,7 +2,8 @@
 
 #include <memory>
 
-#include <dune/common/array.hh>
+#include <dune/common/parallel/mpihelper.hh>
+#include <dune/common/filledarray.hh>
 
 #include <dune/grid/io/file/vtk.hh>
 #include <dune/grid/yaspgrid.hh>
@@ -24,7 +25,7 @@ int run(bool useJacobian)
   using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
   auto grid = duneuro::make_structured_grid<dim>(Dune::FieldVector<double, dim>(0),
                                                  Dune::FieldVector<double, dim>(1),
-                                                 Dune::fill_array<int, dim>(10), 0);
+                                                 Dune::filledArray<dim>(10), 0);
   using Tensor = Dune::FieldMatrix<double, dim, dim>;
   Tensor t;
   for (unsigned int i = 0; i < dim; ++i)
@@ -33,11 +34,7 @@ int run(bool useJacobian)
   std::vector<std::size_t> labels(grid->size(0), 0);
   std::vector<Tensor> tensors = {t};
   using VC = duneuro::VolumeConductor<Grid>;
-  auto gv = grid->leafGridView();
-  VC volumeConductor(
-      std::move(grid),
-      std::make_unique<typename VC::MappingType>(
-          duneuro::IndirectEntityMapping<typename VC::GridView, Tensor>(gv, tensors, labels)));
+  VC volumeConductor(std::move(grid), labels, tensors);
 
   // create potential space
   using FS = Dune::PDELab::DGQkSpace<Grid, double, 1, Dune::GeometryType::BasicType::cube>;
@@ -49,12 +46,11 @@ int run(bool useJacobian)
                             fs.getGFS(), dof);
 
   // create gradient function space
-  using GradientFS =
-      duneuro::DGQkGradientSpace<Grid, double, 1, Dune::GeometryType::BasicType::cube>;
+  using GradientFS = duneuro::DGQkGradientSpace<Grid, double, 1>;
   GradientFS gradientfs(volumeConductor.gridView());
 
   // interpolate physical flux
-  using Flux = duneuro::PhysicalFlux<VC, FS, duneuro::ElementType::hexahedron, 1>;
+  using Flux = duneuro::PhysicalFlux<VC, FS, 1>;
   Dune::ParameterTree config;
   Dune::ParameterTree megconfig;
   Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor), Dune::stackobject_to_shared_ptr(fs),
@@ -73,8 +69,10 @@ int run(bool useJacobian)
   return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
 }
 
-int main()
+int main(int argc, char** argv)
 {
+  Dune::MPIHelper::instance(argc, argv);
+
   if (run<2>(false) != 0)
     return -1;
   if (run<3>(false) != 0)

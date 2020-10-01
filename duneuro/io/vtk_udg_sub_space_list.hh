@@ -15,7 +15,11 @@ namespace duneuro
   template <class PGFS, int n, int i = 0>
   struct SubSpaceList : public SubSpaceList<PGFS, n, i + 1> {
     typedef SubSpaceList<PGFS, n, i + 1> BaseT;
+#if DUNE_VERSION_NEWER(DUNE_PDELAB,2,7)
+    typedef Dune::PDELab::GridFunctionSubSpace<PGFS, Dune::TypeTree::StaticTreePath<i>> SUB;
+#else
     typedef Dune::PDELab::GridFunctionSubSpace<PGFS, Dune::TypeTree::TreePath<i>> SUB;
+#endif
     explicit SubSpaceList(const PGFS& gfs) : BaseT(gfs), sub(gfs)
     {
     }

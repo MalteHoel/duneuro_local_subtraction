@@ -16,7 +16,7 @@ namespace duneuro
   template <typename GV, typename D, typename R>
   class P1GradientLocalFiniteElementMap<GV, D, R,
                                         typename std::enable_if<GV::dimension == 2, void>::type>
-      : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient2DLocalFiniteElement<D, R>, 2>
+      : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient2DLocalFiniteElement<D, R>, GV::dimension>
   {
   public:
     bool fixedSize() const
@@ -31,7 +31,7 @@ namespace duneuro
 
     std::size_t size(Dune::GeometryType gt) const
     {
-      if (gt == Dune::GeometryType(Dune::GeometryType::simplex, 2))
+      if (gt == Dune::GeometryTypes::simplex(2))
         return 2;
       else
         return 0;
@@ -52,7 +52,7 @@ namespace duneuro
   template <typename GV, typename D, typename R>
   class P1GradientLocalFiniteElementMap<GV, D, R,
                                         typename std::enable_if<GV::dimension == 3, void>::type>
-      : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient3DLocalFiniteElement<D, R>, 3>
+      : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient3DLocalFiniteElement<D, R>, GV::dimension>
   {
   public:
     bool fixedSize() const
@@ -67,7 +67,7 @@ namespace duneuro
 
     std::size_t size(Dune::GeometryType gt) const
     {
-      if (gt == Dune::GeometryType(Dune::GeometryType::simplex, 3))
+      if (gt == Dune::GeometryTypes::simplex(3))
         return 3;
       else
         return 0;

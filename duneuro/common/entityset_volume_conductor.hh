@@ -19,9 +19,9 @@ namespace duneuro
     typedef ES GridView;
 
     EntitySetVolumeConductor(const ES& entitySet, const std::vector<TensorType>& tensors)
-        : entitySet_(entitySet), tensors_(tensors), elementMapper_(entitySet_)
-    {
-    }
+        : entitySet_(entitySet), tensors_(tensors),
+          elementMapper_(entitySet_, Dune::mcmgElementLayout())
+    {}
 
     const EntitySet& entitySet() const
     {
@@ -36,7 +36,7 @@ namespace duneuro
   private:
     ES entitySet_;
     std::vector<TensorType> tensors_;
-    Dune::MultipleCodimMultipleGeomTypeMapper<ES, Dune::MCMGElementLayout> elementMapper_;
+    Dune::MultipleCodimMultipleGeomTypeMapper<ES> elementMapper_;
   };
 }
 

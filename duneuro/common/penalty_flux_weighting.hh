@@ -3,7 +3,6 @@
 
 #include <dune/common/fmatrix.hh>
 #include <dune/common/parametertree.hh>
-#include <dune/common/version.hh>
 
 #include <dune/geometry/referenceelements.hh>
 
@@ -30,11 +29,7 @@ namespace duneuro
                                                       const T& outsideTensor) const
     {
       using DF = typename IG::ctype;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       static const int dim = IG::Entity::dimension;
-#else
-      static const int dim = IG::dimension;
-#endif
       using GlobalCoordinate = Dune::FieldVector<DF, dim>;
       using LocalCoordinate = Dune::FieldVector<DF, dim - 1>;
       // compute normal
@@ -89,11 +84,7 @@ namespace duneuro
                                                       const T& outsideTensor) const
     {
       using DF = typename IG::ctype;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       static const int dim = IG::Entity::dimension;
-#else
-      static const int dim = IG::dimension;
-#endif
       using GlobalCoordinate = Dune::FieldVector<DF, dim>;
       using LocalCoordinate = Dune::FieldVector<DF, dim - 1>;
       // compute normal
@@ -134,11 +125,7 @@ namespace duneuro
                                                       const T& outsideTensor) const
     {
       using DF = typename IG::ctype;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       static const int dim = IG::Entity::dimension;
-#else
-      static const int dim = IG::dimension;
-#endif
       using GlobalCoordinate = Dune::FieldVector<DF, dim>;
       using LocalCoordinate = Dune::FieldVector<DF, dim - 1>;
       // compute normal

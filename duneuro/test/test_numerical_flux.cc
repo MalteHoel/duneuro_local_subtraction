@@ -2,7 +2,8 @@
 
 #include <memory>
 
-#include <dune/common/array.hh>
+#include <dune/common/parallel/mpihelper.hh>
+#include <dune/common/filledarray.hh>
 
 #include <dune/grid/yaspgrid.hh>
 
@@ -22,7 +23,7 @@ int run(bool useJacobian)
   using Grid = Dune::YaspGrid<dim, Dune::EquidistantOffsetCoordinates<double, dim>>;
   auto grid = duneuro::make_structured_grid<dim>(Dune::FieldVector<double, dim>(0),
                                                  Dune::FieldVector<double, dim>(1),
-                                                 Dune::fill_array<int, dim>(10), 0);
+                                                 Dune::filledArray<dim>(10), 0);
   using Tensor = Dune::FieldMatrix<double, dim, dim>;
   Tensor t;
   for (unsigned int i = 0; i < dim; ++i)
@@ -31,11 +32,7 @@ int run(bool useJacobian)
   std::vector<std::size_t> labels(grid->size(0), 0);
   std::vector<Tensor> tensors = {t};
   using VC = duneuro::VolumeConductor<Grid>;
-  auto gv = grid->leafGridView();
-  VC volumeConductor(
-      std::move(grid),
-      std::make_unique<typename VC::MappingType>(
-          duneuro::IndirectEntityMapping<typename VC::GridView, Tensor>(gv, tensors, labels)));
+  VC volumeConductor(std::move(grid), labels, tensors);
 
   // create potential space
   using FS = Dune::PDELab::DGQkSpace<Grid, double, 1, Dune::GeometryType::BasicType::cube>;
@@ -59,8 +56,9 @@ int run(bool useJacobian)
   config["edge_norm_type"] = "houston";
   config["penalty"] = "1";
   config["weights"] = "1";
-  Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor), Dune::stackobject_to_shared_ptr(fs),
-            useJacobian, config);
+  Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor),
+            Dune::stackobject_to_shared_ptr(fs),
+            useJacobian, config, config);
   typename FluxFS::DOF fluxdof(fluxfs.getGFS(), 0.0);
   flux.interpolate(dof, fluxdof);
 
@@ -72,17 +70,36 @@ int run(bool useJacobian)
   DGFG dgfg(fs.getGFS(), dof);
 
   // test succesfull, if the l2difference between the numerical flux and the gradient is small
+  std::cerr << dim << "D, useJacobian = " << useJacobian << "\n";
+  std::cout << " -> difference : " << l2difference(dgfg, fgf) << std::endl;
   return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
 }
 
-int main()
+int main(int argc, char** argv)
 {
+  Dune::MPIHelper::instance(argc, argv);
+
+  bool sucess = true;
+
   if (run<2>(false) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<3>(false) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<2>(true) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
   if (run<3>(true) != 0)
-    return -1;
+  {
+    std::cout << "failed!\n";
+    sucess = false;
+  }
+  if (!sucess) return -1;
 }

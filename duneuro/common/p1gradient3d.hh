@@ -206,7 +206,7 @@ namespace duneuro
     /** \todo Please doc me !
      */
     P1Gradient3DLocalFiniteElement()
-        : gt(Dune::GeometryType::simplex, 3), basis(), coefficients(), interpolation(gt, basis)
+        : gt(Dune::GeometryTypes::simplex(3)), basis(), coefficients(), interpolation(gt, basis)
     {
     }
 

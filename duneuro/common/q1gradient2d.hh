@@ -194,7 +194,7 @@ namespace duneuro
     /** \todo Please doc me !
      */
     Q1Gradient2DLocalFiniteElement()
-        : gt(Dune::GeometryType::cube, 2), basis(), coefficients(), interpolation(gt, basis)
+      : gt(Dune::GeometryTypes::cube(2)), basis(), coefficients(), interpolation(gt, basis)
     {
     }
 

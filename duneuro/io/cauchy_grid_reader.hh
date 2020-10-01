@@ -112,8 +112,8 @@ namespace duneuro
         convStream >> type;
         Dune::GeometryType gtype;
         switch (type) {
-        case 303: gtype = Dune::GeometryType(Dune::GeometryType::simplex, Grid::dimension); break;
-        case 323: gtype = Dune::GeometryType(Dune::GeometryType::cube, Grid::dimension); break;
+        case 303: gtype = Dune::GeometryTypes::simplex(Grid::dimension); break;
+        case 323: gtype = Dune::GeometryTypes::cube(Grid::dimension); break;
         default: DUNE_THROW(Dune::IOError, "unknown geometry type: " << type);
         }
         // get element indices

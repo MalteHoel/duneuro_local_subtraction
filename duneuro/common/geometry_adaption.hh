@@ -22,7 +22,6 @@
 #include <duneuro/io/nifti_image_reader.hh>
 #endif
 #include <duneuro/io/gmsh_tensor_reader.hh>
-
 namespace duneuro
 {
   template <class GridView>
@@ -76,8 +75,8 @@ namespace duneuro
     explicit VertexToElementsMap(const GV& gridView)
         : gridView_(gridView), vertexToElements_(gridView.size(dim))
     {
-      Dune::MultipleCodimMultipleGeomTypeMapper<GV, Dune::MCMGElementLayout> elementMapper(
-          gridView);
+      Dune::MultipleCodimMultipleGeomTypeMapper<GV>
+          elementMapper(gridView, Dune::mcmgElementLayout());
       for (const auto& element : Dune::elements(gridView)) {
         auto elementIndex = elementMapper.index(element);
         for (unsigned int i = 0; i < element.subEntities(dim); ++i) {
@@ -111,7 +110,8 @@ namespace duneuro
     using Element = typename GV::template Codim<0>::Entity;
 
     explicit ElementCenters(const GV& gridView)
-        : gridView_(gridView), elementToCenter_(gridView_.size(0)), elementMapper_(gridView_)
+        : gridView_(gridView), elementToCenter_(gridView_.size(0)),
+          elementMapper_(gridView_, Dune::mcmgElementLayout())
     {
       for (const auto& element : Dune::elements(gridView_)) {
         elementToCenter_[elementMapper_.index(element)] = element.geometry().center();
@@ -141,7 +141,7 @@ namespace duneuro
   private:
     GV gridView_;
     std::vector<Dune::FieldVector<ctype, dim>> elementToCenter_;
-    Dune::MultipleCodimMultipleGeomTypeMapper<GV, Dune::MCMGElementLayout> elementMapper_;
+    Dune::MultipleCodimMultipleGeomTypeMapper<GV> elementMapper_;
   };
 
   template <class L>

@@ -18,8 +18,6 @@
  *   to write our own version.
  */
 
-#include <dune/common/version.hh>
-
 #include <dune/localfunctions/common/interfaceswitch.hh>
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
@@ -51,13 +49,8 @@ namespace duneuro
       const auto& geometryInInside = ig.geometryInInside();
       const auto& geometry = ig.geometry();
 
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const auto& rule =
           Dune::QuadratureRules<DF, IG::Entity::dimension - 1>::rule(geometryInInside.type(), intorder);
-#else
-      const auto& rule =
-          Dune::QuadratureRules<DF, IG::dimension - 1>::rule(geometryInInside.type(), intorder);
-#endif
 
       std::vector<RangeType> phi(lfsv.size());
       for (const auto& qp : rule) {
@@ -118,11 +111,7 @@ namespace duneuro
       using RF = typename BasisSwitch::RangeField;
       using RangeType = typename BasisSwitch::Range;
 
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::Entity::dimension;
-#else
-      const int dim = IG::dimension;
-#endif
 
       const int intorder = intorderadd
                            + 2 * std::max(FESwitch::basis(lfsv_s.finiteElement()).order(),

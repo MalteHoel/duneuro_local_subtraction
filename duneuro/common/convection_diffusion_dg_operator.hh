@@ -10,7 +10,6 @@
 #include <dune/common/exceptions.hh> // provides Dune::Exception
 #include <dune/common/fmatrix.hh> // provides FieldMatrix
 #include <dune/common/fvector.hh> // provides FieldVector
-#include <dune/common/version.hh>
 
 #include <dune/geometry/quadraturerules.hh> // provides QuadratureRule(s)
 #include <dune/geometry/referenceelements.hh> // provides GenericReferenceElements
@@ -152,7 +151,6 @@ namespace duneuro
  *       type is selected and the boundary condition is evaluated right or not.
  *       Thus, observe assertions at the spots marked by (***).
  */
-#warning Assuming piecewise constant diffusion tensor at the spots marked by (*).
 #warning Assuming continuity of the velocity field at the spots marked by (**) such that we may choose any side for its evaluation.
 #warning UDG assembler: Skeleton/boundary integrals: We evaluate data functions on the inside/outside "host entities" not on the "fundamental mesh home entities".
   template <typename T, typename EdgeNormProvider, typename PenaltyFluxWeighting>
@@ -187,6 +185,8 @@ namespace duneuro
     enum { doAlphaSkeleton = true };
     enum { doAlphaBoundary = true };
     enum { doLambdaVolume = true };
+
+    static_assert(T::permeabilityIsConstantPerCell() == true, "We require a piecewise constant diffusion tensor. (see all the spots marked by (*))");
 
     //! constructor: pass model parameters object and DG scheme related parameters
     //! UDG assembler: the model parameter data functions are supposed to live on the fundamental
@@ -368,11 +368,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -516,11 +512,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int order_n = FESwitch::basis(lfsu_n.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * std::max(order_s, order_n);
@@ -699,11 +691,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();
       const int intorder = intorderadd + quadrature_factor * order_s;
 
@@ -827,11 +815,7 @@ namespace duneuro
       typedef typename LFSV::Traits::SizeType size_type;
 
       // dimensions
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
       const int dim = IG::coorddimension;
-#else
-      const int dim = IG::dimension;
-#endif
       // const int intorder =
       // intorderadd+quadrature_factor*lfsu_s.finiteElement().localBasis().order();
       const int order_s = FESwitch::basis(lfsu_s.finiteElement()).order();

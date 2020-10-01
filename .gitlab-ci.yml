@@ -1,0 +1,16 @@
+---
+
+variables:
+  DUNECI_CMAKE_FLAGS: -DTPMC_PREFIX=/duneci/.local/lib/python2.7/site-packages/tpmc/
+
+before_script:
+  - pip -v install git+https://github.com/tpmc/tpmc.git
+  - python --version
+  - duneci-install-module https://gitlab.dune-project.org/extensions/dune-tpmc.git
+  - duneci-install-module https://gitlab.dune-project.org/pdelab/dune-pdelab.git
+  - duneci-install-module "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.dune-project.org/cutcell/dune-udg.git"
+
+debian:10--gcc:
+  image: registry.dune-project.org/docker/ci/dune-pdelab-deps:git
+  script: duneci-standard-test
+  tags: ["cutcell-ci"]

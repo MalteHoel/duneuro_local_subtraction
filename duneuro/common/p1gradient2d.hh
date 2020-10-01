@@ -181,7 +181,7 @@ namespace duneuro
     /** \todo Please doc me !
      */
     P1Gradient2DLocalFiniteElement()
-        : gt(Dune::GeometryType::simplex, 2), basis(), coefficients(), interpolation(gt, basis)
+      : gt(Dune::GeometryTypes::simplex(2)), basis(), coefficients(), interpolation(gt, basis)
     {
     }
 

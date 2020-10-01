@@ -28,6 +28,8 @@ namespace duneuro
       }
     }
 
+    static constexpr bool permeabilityIsConstantPerCell() { return true; }
+
     typename Traits::PermTensorType A(unsigned int domainIndex) const
     {
       if (domainIndex >= tensors_.size()) {

@@ -27,11 +27,7 @@ namespace duneuro
     static const int blockSize = 1;
     typedef Dune::LagrangeLocalFiniteElement<Dune::EquidistantPointSet, dim, double, double> LFE;
     typedef VirtualSubTriangulation<GV> SubTriangulation;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
     typedef Dune::PDELab::ISTL::VectorBackend<> VBE;
-#else
-    typedef Dune::PDELab::istl::VectorBackend<> VBE;
-#endif
     typedef Dune::PDELab::UnfittedFiniteElementMapTraits<LFE, typename SubTriangulation::EntityPart>
         UFEMTraits;
     typedef Dune::PDELab::UnfittedFiniteElementMap<UFEMTraits, SubTriangulation> FEM;
@@ -39,11 +35,7 @@ namespace duneuro
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE,
                                             LeafOrderingTag>
         DomainGFS;
-#if DUNE_VERSION_NEWER(DUNE_PDELAB, 2, 6)
     typedef Dune::PDELab::ISTL::VectorBackend<> PVBE;
-#else
-    typedef Dune::PDELab::istl::VectorBackend<> PVBE;
-#endif
     typedef Dune::PDELab::PowerGridFunctionSpace<DomainGFS, phases, PVBE,
                                                  Dune::PDELab::EntityBlockedOrderingTag>
         GFS;
@@ -53,7 +45,7 @@ namespace duneuro
         : gridView_(gv)
         , entitySet_(gridView_)
         , subTriangulation_(subTriangulation)
-        , lfe_(Dune::GeometryType(Dune::GeometryType::BasicType::cube, dim), degree)
+        , lfe_(Dune::GeometryTypes::cube(dim), degree)
     {
       for (unsigned int i = 0; i < phases; ++i) {
         fems_[i] = std::make_shared<FEM>(lfe_, *subTriangulation_, i, false);
