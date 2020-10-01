@@ -5,7 +5,10 @@
 
 namespace duneuro
 {
-  void issueDeprecationWarning(const std::string& msg);
+  inline void issueDeprecationWarning(const std::string& msg)
+  {
+    std::cout << "DEPRECATION WARNING:\n" << msg << std::endl;
+  }
 }
 
 #endif // DUNEURO_DEPRECATED_HH
