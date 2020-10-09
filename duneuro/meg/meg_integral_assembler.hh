@@ -57,7 +57,7 @@ namespace duneuro
                             const std::vector<DomainType>& coils,
                             const std::vector<std::vector<DomainType>>& projections,
                             const Dune::ParameterTree& config)
-        : cached_(config.get("cache.enable", true))
+        : cached_(config.get("cache.enable", false))
         , assembler_(volumeConductor, functionSpace, config)
         , coils_(coils)
         , projections_(projections)
