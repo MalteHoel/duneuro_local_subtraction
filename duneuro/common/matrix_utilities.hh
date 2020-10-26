@@ -114,6 +114,23 @@ namespace duneuro
       }
     }
   }
+      template <class T>
+  void set_matrix_row(DenseMatrix<T>& matrix, std::size_t row,
+                      const std::vector<T>& vector)
+  {
+    if (row >= matrix.rows()) {
+      DUNE_THROW(Dune::Exception, "tried to set row " << row << " but only " << matrix.rows()
+                                                      << " rows are present");
+    }
+    if (vector.size() != matrix.cols()) {
+      DUNE_THROW(Dune::Exception, "tried to set row with " << vector.size()
+                                                           << " entries, but row has actually "
+                                                           << matrix.cols() << " entries");
+    }
+    for (unsigned int i = 0; i < vector.size(); ++i) {
+      matrix(row, i) = vector[i];
+    }
+  }
 }
 
 #endif // DUNEURO_MATRIX_UTILITIES_HH

@@ -3,6 +3,7 @@
 
 #include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
+#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
@@ -18,6 +19,11 @@ namespace duneuro
   struct TDCSDriverFactory {
     static std::unique_ptr<TDCSDriverInterface<dim>>
     make_tdcs_driver(const PatchSet<double, dim>& patchSet, const Dune::ParameterTree& config,
+                     const TDCSDriverData<dim>& data = TDCSDriverData<dim>(),
+                     DataTree dataTree = DataTree());
+
+    static std::unique_ptr<TDCSDriverInterface<dim>>
+    make_tdcs_driver(const Dune::ParameterTree& config,
                      const TDCSDriverData<dim>& data = TDCSDriverData<dim>(),
                      DataTree dataTree = DataTree());
   };

@@ -280,26 +280,32 @@ namespace duneuro
   virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(Function& solution)
   {
 
-    auto elementCenter = Dune::Std::make_unique<DenseMatrix<double>>(
-       fundamentalGridView_.size(0),Traits::GridView::dimension + 1);
-    std::size_t offset = 0;
-    
-    for (const auto& element : Dune::elements(fundamentalGridView_)) {
-        double pot = 0;
-        auto y=element.geometry().center();
-        if (!subTriangulation_->isHostCell(element)) {
-          pot = 0;
-        }
-       else{ 
-         auto localPos = element.geometry().local(y);
-         pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>());
-       } 
-      std::vector<double> z(Traits::GridView::dimension + 1);
 
-      for(unsigned int i=0; i<Traits::GridView::dimension; ++i) {
+    unsigned int NumberHostCells = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_))
+    {
+        if (subTriangulation_->isHostCell(element)) {
+          NumberHostCells+=1;
+        }
+    }
+    auto elementCenter = Dune::Std::make_unique<DenseMatrix<double>>(
+    NumberHostCells,Traits::GridView::dimension + 1);
+
+    std::size_t offset = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_)) {
+      double pot = 0;
+      auto y=element.geometry().center();
+      if (!subTriangulation_->isHostCell(element)) 
+      {
+          continue;
+      }
+      auto localPos = element.geometry().local(y);
+      pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>());
+      std::vector<double> z(Traits::GridView::dimension + 1);
+      for(unsigned int i=0; i<Traits::GridView::dimension; ++i)
+      {
         z[i]=y[i];
       }
-      
       z[Traits::GridView::dimension] = pot;
       set_matrix_row(*elementCenter,offset,z);
       offset+=1;
@@ -352,7 +358,7 @@ namespace duneuro
 
             output += phi[i]*solution[ucache.containerIndex(childLfs.localIndex(i))];
           }  
-          break;
+//          break;
           
          }
          return output;

@@ -35,6 +35,20 @@ extern template class duneuro::UDGTDCSDriver<3, 1, 4>;
 extern template class duneuro::UDGTDCSDriver<3, 1, 5>;
 extern template class duneuro::UDGTDCSDriver<3, 1, 6>;
 
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 1>;
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 2>;
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 3>;
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 4>;
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 5>;
+extern template class duneuro::CutFEMTDCSPointDriver< 2, 1, 6>;
+
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 1>;
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 2>;
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 3>;
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 4>;
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 5>;
+extern template class duneuro::CutFEMTDCSPointDriver< 3, 1, 6>;
+
 extern template class duneuro::CutFEMTDCSDriver< 2, 1, 1>;
 extern template class duneuro::CutFEMTDCSDriver< 2, 1, 2>;
 extern template class duneuro::CutFEMTDCSDriver< 2, 1, 3>;
@@ -110,7 +124,9 @@ namespace duneuro
     }
       else if (type == "cutfem") {
         auto compartments = config.get<unsigned int>("compartments");
-        if (compartments == 1) {
+        auto electrode_type = config.get<std::string>("elec_type");
+        if (electrode_type == "patch"){
+          if (compartments == 1) {
           return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 1>>(data.udgData, patchSet, config);
         } else if (compartments == 2) {
           return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 2>>(data.udgData, patchSet, config);
@@ -122,8 +138,10 @@ namespace duneuro
           return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 5>>(data.udgData, patchSet, config);
         } else if (compartments == 6) {
           return Dune::Std::make_unique<CutFEMTDCSDriver< 3, 1, 6>>(data.udgData, patchSet, config);
-        } else {
+        }
+          else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
+        }
         }
 #endif
     } else {
@@ -176,7 +194,10 @@ namespace duneuro
       }
       }
       else if (type == "cutfem") {
+        
         auto compartments = config.get<unsigned int>("compartments");
+        auto electrode_type = config.get<std::string>("elec_type");
+        if (electrode_type == "patch"){
         if (compartments == 1) {
           return Dune::Std::make_unique<CutFEMTDCSDriver< 2, 1, 1>>(data.udgData, patchSet, config, dataTree);
         } else if (compartments == 2) {
@@ -192,9 +213,92 @@ namespace duneuro
         } else {
           DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
         }
+      }
+
 #endif
     } else {
       DUNE_THROW(Dune::Exception, "unknown type \"" << type << "\"");
+    }
+  }
+
+    template <>
+  std::unique_ptr<TDCSDriverInterface<2>>
+  TDCSDriverFactory<2>::make_tdcs_driver(
+                                         const Dune::ParameterTree& config,
+                                         const TDCSDriverData<2>& data, DataTree dataTree)
+  {
+    auto type = config.get<std::string>("type");
+    
+#if HAVE_DUNE_UDG
+     if (type == "cutfem") {
+        
+        auto compartments = config.get<unsigned int>("compartments");
+        auto electrode_type = config.get<std::string>("elec_type");
+
+       if (electrode_type =="point"){
+            if (compartments == 1) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 1>>(data.udgData, config, dataTree);
+        } else if (compartments == 2) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 2>>(data.udgData, config, dataTree);
+        } else if (compartments == 3) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 3>>(data.udgData, config, dataTree);
+        } else if (compartments == 4) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 4>>(data.udgData, config, dataTree);
+        } else if (compartments == 5) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 5>>(data.udgData, config, dataTree);
+        } else if (compartments == 6) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 2, 1, 6>>(data.udgData, config, dataTree);
+        }
+        else {
+          DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
+        }
+        }
+             else {
+      DUNE_THROW(Dune::Exception, "Point electrodes are only supported for CutFem, cg uses different Driver \"" << type << "\"");
+    }
+#endif
+
+    }
+  }
+
+
+      template <>
+  std::unique_ptr<TDCSDriverInterface<3>>
+  TDCSDriverFactory<3>::make_tdcs_driver(
+                                         const Dune::ParameterTree& config,
+                                         const TDCSDriverData<3>& data, DataTree dataTree)
+  {
+    auto type = config.get<std::string>("type");
+    
+#if HAVE_DUNE_UDG
+     if (type == "cutfem") {
+        
+        auto compartments = config.get<unsigned int>("compartments");
+        auto electrode_type = config.get<std::string>("elec_type");
+
+       if (electrode_type =="point"){
+            if (compartments == 1) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 1>>(data.udgData, config, dataTree);
+        } else if (compartments == 2) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 2>>(data.udgData, config, dataTree);
+        } else if (compartments == 3) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 3>>(data.udgData, config, dataTree);
+        } else if (compartments == 4) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 4>>(data.udgData, config, dataTree);
+        } else if (compartments == 5) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 5>>(data.udgData, config, dataTree);
+        } else if (compartments == 6) {
+          return Dune::Std::make_unique<CutFEMTDCSPointDriver< 3, 1, 6>>(data.udgData, config, dataTree);
+        }
+        else {
+          DUNE_THROW(Dune::Exception, "compartments " << compartments << " not supported");
+        }
+        }
+             else {
+      DUNE_THROW(Dune::Exception, "Point electrodes are only supported for CutFem, cg uses different Driver \"" << type << "\"");
+    }
+#endif
+
     }
   }
 }

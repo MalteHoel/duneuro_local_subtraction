@@ -66,7 +66,8 @@ namespace duneuro
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
     }
-
+    virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(Function& solution)
+    {}
     virtual std::unique_ptr<Function> makeDomainFunction() const override
     {
       return std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
@@ -130,6 +131,10 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }
     }
+        virtual void
+    setElectrodes(const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& electrodes,
+                  const Dune::ParameterTree& config) override
+                  {}
 
   private:
     Dune::ParameterTree config_;
