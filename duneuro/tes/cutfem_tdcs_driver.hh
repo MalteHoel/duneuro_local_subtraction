@@ -15,7 +15,7 @@
 #if HAVE_TBB
 #include <tbb/tbb.h>
 #endif
-
+#include <dune/udg/pdelab/gridfunction.hh>
 #include <dune/common/std/memory.hh>
 #include <dune/common/version.hh>
 
@@ -282,32 +282,35 @@ namespace duneuro
 
 
     unsigned int NumberHostCells = 0;
-    for (const auto& element : Dune::elements(fundamentalGridView_))
+    for (const auto& element : Dune::elements(fundamentalGridView_))    // Determine number of Host Cells
     {
         if (subTriangulation_->isHostCell(element)) {
           NumberHostCells+=1;
         }
     }
-    auto elementCenter = Dune::Std::make_unique<DenseMatrix<double>>(
-    NumberHostCells,Traits::GridView::dimension + 1);
+    auto elementCenter = Dune::Std::make_unique<DenseMatrix<double>>(   // Matrix that will later be filled with the Center Positions, Potentials and Gradients
+    NumberHostCells,2*Traits::GridView::dimension + 1);
 
     std::size_t offset = 0;
     for (const auto& element : Dune::elements(fundamentalGridView_)) {
-      double pot = 0;
+      
       auto y=element.geometry().center();
-      if (!subTriangulation_->isHostCell(element)) 
+      if (!subTriangulation_->isHostCell(element))                      // skip elements that are outside the brain
       {
           continue;
       }
-      auto localPos = element.geometry().local(y);
-      pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>());
-      std::vector<double> z(Traits::GridView::dimension + 1);
-      for(unsigned int i=0; i<Traits::GridView::dimension; ++i)
+      auto localPos = element.geometry().local(y);                      
+      auto pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>()); 
+      
+
+      for(std::size_t i=0; i<Traits::GridView::dimension; ++i)
       {
-        z[i]=y[i];
+        (*elementCenter)(offset,i) = y[i];
       }
-      z[Traits::GridView::dimension] = pot;
-      set_matrix_row(*elementCenter,offset,z);
+      for(std::size_t i = 0;i<4;i++)
+      {
+        (*elementCenter)(offset,i+3) = pot[i];
+      }
       offset+=1;
     }
     return elementCenter;
@@ -317,8 +320,12 @@ namespace duneuro
    // Creates Subtriangulation of the element,
    // binds the LFS of the different domains to the element, evaluates them at the local coordinate, multiplies them with 
    // the corresponding coeff. from the DOF-solution Vector and returns the sum.
+
+   // Problem: Is this inaccurate in elements cut by multiple domains? The function spaces for each domain should overlap there but I only 
+   // use one function space for the calculations.
+   // Iterating over all domains leads to wrong results though.
    template<typename Element, typename localCoordinate>
-    double evaluateatCoordinate(Element& element, localCoordinate& local,  typename Traits::DomainDOFVector& solution)
+    std::vector<double> evaluateatCoordinate(Element& element, localCoordinate& local,  typename Traits::DomainDOFVector& solution)
       {  
       using GFS = typename Traits::Solver::Traits::FunctionSpace::GFS;
       using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
@@ -328,19 +335,21 @@ namespace duneuro
       using FESwitch = Dune::FiniteElementInterfaceSwitch<typename ChildLFS::Traits::FiniteElementType>;
       using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
       using RangeType = typename BasisSwitch::Range;
+      using RangeFieldType = typename BasisSwitch::RangeField;
+      using Real = typename Traits::GridView::ctype;
+     
 
-      double output = 0;
-
-    
-      
 
       ULFS ulfs(solver_->functionSpace().getGFS());
       UCache ucache(ulfs);
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
-      std::vector<RangeType> phi;
-      ust.create(element);
-        for (const auto& ep : ust) {
-          ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );
+
+      std::vector<RangeType> phi;                                 // storage for Ansatzfunction
+      std::vector<double> output(4);      
+      ust.create(element);                                        // splitting the Element 
+      for (const auto& ep : ust) 
+      {
+          ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
           ulfs.bind(ep.subEntity(), true);
           ucache.update();
 
@@ -351,17 +360,34 @@ namespace duneuro
           FESwitch::basis(childLfs.finiteElement()).reset();
 
           phi.resize(childLfs.size());
-      
-          FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);
-      
+          std::vector<Dune::FieldMatrix<Real, 1, dim>> gradphi(childLfs.size());
+          FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
+          FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, gradphi);     // Gradients
           for (unsigned int i = 0; i < ucache.size(); ++i) {
-
-            output += phi[i]*solution[ucache.containerIndex(childLfs.localIndex(i))];
+            double& coeff = solution[ucache.containerIndex(childLfs.localIndex(i))];
+            output[0] += phi[i]*coeff;
+            output[1] += gradphi[i][0][0]*coeff;      // gradphi is a vector of 1xDim Matrices,so
+            output[2] += gradphi[i][0][1]*coeff;      // i is the number of the Ansatzfunction and 
+            output[3] += gradphi[i][0][2]*coeff;      // the first 0 is the row index
           }  
-//          break;
+         
+
+          break;
           
          }
          return output;
+        // Alternative potential computation using UnfittedDiscreteGridFunction
+        // Does not work for powergrids and powergrid does not have a method giving access to its component GFS
+/*
+        using UDGF = Dune::PDELab::UnfittedDiscreteGridFunction<
+        typename Traits::Solver::Traits::FunctionSpace::DomainGFS,
+        typename Traits::DomainDOFVector,typename Traits::SubTriangulation>;
+        UDGF udgf(solver_->functionSpace().getGFS(), solution, *subTriangulation_,0,false); // creation of the UDGF
+
+
+        udgf.evaluate(element, local, output);   
+        return output;
+    */
       }
 
     virtual void write(const Function& function, const Dune::ParameterTree& config,
