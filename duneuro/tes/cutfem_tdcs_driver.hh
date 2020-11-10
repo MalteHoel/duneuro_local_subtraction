@@ -246,6 +246,7 @@ namespace duneuro
         projectedGlobalElectrodes_.push_back(projectedElectrodes_->projection(i));
       }
     }
+
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
                                   DataTree dataTree = DataTree()) override
     {
@@ -255,20 +256,16 @@ namespace duneuro
       Dune::Timer timer;
       auto Ref = projectedElectrodes_->getProjection(0);
       auto Elec = projectedElectrodes_->getProjection(1);
-
       auto rhsAssembler =
-      UnfittedTdcsRHSFactory::template create<typename Traits::RangeDOFVector>(*solver_, *subTriangulation_, config);               
-      rhsAssembler->assemblePointRightHandSide(*rightHandSideVector_,projectedElectrodes_->element(0), Ref.localPosition, projectedElectrodes_->element(1),
+      UnfittedTdcsRHSFactory::template create<typename Traits::RangeDOFVector>(*solver_, *subTriangulation_, config);  
+      rhsAssembler->bind(projectedElectrodes_->element(0), Ref.localPosition, projectedElectrodes_->element(1),
                          Elec.localPosition);
-
+      rhsAssembler->assembleRightHandSide(*rightHandSideVector_);          
       timer.stop();
       dataTree.set("time_rhs_assembly", timer.lastElapsed());
       timer.start();
 
       // solve system
-      auto y = rightHandSideVector_->two_norm();
-            std::cout<< y << std::endl;
-
       solver_->solve(solverBackend_.get(),*rightHandSideVector_, solution.cast<typename Traits::DomainDOFVector>(), config.sub("solver"),
                      dataTree.sub("linear_system_solver"));
       timer.stop();
@@ -276,8 +273,8 @@ namespace duneuro
       dataTree.set("time", timer.elapsed());
 
     }
-
-  virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(Function& solution)
+ // to be deleted once a more suitable evaluation interface is implemented
+  const virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
   {
 
 
@@ -301,15 +298,13 @@ namespace duneuro
       }
       auto localPos = element.geometry().local(y);                      
       auto pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>()); 
-      
-
       for(std::size_t i=0; i<Traits::GridView::dimension; ++i)
       {
-        (*elementCenter)(offset,i) = y[i];
+        (*elementCenter)(offset,i) = y[i];    // xyz-coordinates of the center
       }
       for(std::size_t i = 0;i<4;i++)
       {
-        (*elementCenter)(offset,i+3) = pot[i];
+        (*elementCenter)(offset,i+3) = pot[i];    // potential and gradient values
       }
       offset+=1;
     }
@@ -317,16 +312,17 @@ namespace duneuro
   }
 
    // Evaluation of the Potential at the local Coordinate of an Element x
-   // Creates Subtriangulation of the element,
+   // 2 Versions: 
+
+   // The first creates Subtriangulation of the element,
    // binds the LFS of the different domains to the element, evaluates them at the local coordinate, multiplies them with 
    // the corresponding coeff. from the DOF-solution Vector and returns the sum.
 
-   // Problem: Is this inaccurate in elements cut by multiple domains? The function spaces for each domain should overlap there but I only 
-   // use one function space for the calculations.
-   // Iterating over all domains leads to wrong results though.
+   //The second uses  GridfunctionSubspace and DiscreteGridfunction.
    template<typename Element, typename localCoordinate>
     std::vector<double> evaluateatCoordinate(Element& element, localCoordinate& local,  typename Traits::DomainDOFVector& solution)
       {  
+        
       using GFS = typename Traits::Solver::Traits::FunctionSpace::GFS;
       using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
       using UST = Dune::PDELab::UnfittedSubTriangulation<typename Traits::GridView>;
@@ -344,7 +340,7 @@ namespace duneuro
       UCache ucache(ulfs);
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
 
-      std::vector<RangeType> phi;                                 // storage for Ansatzfunction
+      std::vector<RangeType> phi;                                 // storage for Ansatzfunction values
       std::vector<double> output(4);      
       ust.create(element);                                        // splitting the Element 
       for (const auto& ep : ust) 
@@ -374,20 +370,34 @@ namespace duneuro
 
           break;
           
-         }
-         return output;
-        // Alternative potential computation using UnfittedDiscreteGridFunction
-        // Does not work for powergrids and powergrid does not have a method giving access to its component GFS
+      }
+      return output;
+
+    // Alternative potential computation
+    
 /*
-        using UDGF = Dune::PDELab::UnfittedDiscreteGridFunction<
-        typename Traits::Solver::Traits::FunctionSpace::DomainGFS,
-        typename Traits::DomainDOFVector,typename Traits::SubTriangulation>;
-        UDGF udgf(solver_->functionSpace().getGFS(), solution, *subTriangulation_,0,false); // creation of the UDGF
-
-
-        udgf.evaluate(element, local, output);   
-        return output;
-    */
+      using SubGFS =
+          Dune::PDELab::GridFunctionSubSpace<typename Traits::Solver::Traits::FunctionSpace::GFS,
+                                             Dune::TypeTree::TreePath<0>>;      // Does this 0 represent Domain Index 0 aka the skin?
+      SubGFS subGFS(solver_->functionSpace().getGFS());
+      using DGF = Dune::PDELab::DiscreteGridFunction<SubGFS, typename Traits::DomainDOFVector>;
+      DGF dgf(subGFS, solution);
+      double pot;   
+      dgf.evaluate(element, local, pot);
+     
+      std::vector<double> output(4);
+      output[0] = pot;
+      using DGFG = Dune::PDELab::DiscreteGridFunctionGradient<SubGFS,
+                                                              typename Traits::DomainDOFVector>;
+      DGFG dgfg(subGFS, solution);
+      typename DGFG::Traits::RangeType y;
+      dgfg.evaluate(element, local, y); 
+      for(std::size_t i = 0; i<3; i++)  
+      {
+        output[i+1] = y[i];
+      }
+      return output;
+      */
       }
 
     virtual void write(const Function& function, const Dune::ParameterTree& config,

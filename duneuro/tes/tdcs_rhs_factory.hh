@@ -20,7 +20,7 @@ namespace duneuro
         return std::make_unique<FittedTdcsRHS<
             typename Solver::Traits::FunctionSpace::GFS, Vector>>(solver.functionSpace().getGFS());
       } else {
-        DUNE_THROW(Dune::Exception, "unknown transfer matrix type \"" << type << "\"");
+        DUNE_THROW(Dune::Exception, "unknown electrode type \"" << type << "\"");
       }
     }
   };
@@ -38,7 +38,7 @@ namespace duneuro
         return std::make_unique<UnfittedTdcsRHS<
             typename Solver::Traits::FunctionSpace::GFS, Vector,typename Solver::Traits::SubTriangulation>>(solver.functionSpace().getGFS(), subTriangulation,config.get<std::size_t>("compartments"));
       } else {
-        DUNE_THROW(Dune::Exception, "unknown transfer matrix type \"" << type << "\"");
+        DUNE_THROW(Dune::Exception, "unknown electrode type \"" << type << "\"");
       }
     }
   };

@@ -60,10 +60,6 @@ namespace duneuro
         output[cacheReference_.containerIndex(i)] -= phiReference_[i];
       }
     }
-    virtual void assemblePointRightHandSide(VectorType& output, const Element& referenceElement, const LocalCoordinate& referenceLocal,
-                      const Element& electrodeElement,
-                      const LocalCoordinate& electrodeLocal) override
-                      {}
   private:
     const GFS& gfs_;
     LFS lfsReference_;
@@ -110,108 +106,80 @@ namespace duneuro
 
     UnfittedTdcsRHS(const GFS& gfs,const ST& subTriangulation,std::size_t child)
         : gfs_(gfs)
-        , child_(child)
-        , ulfsReference_(gfs_)
-        , ucacheReference_(ulfsReference_)
-        , ulfsElectrode_(gfs_)
-        , ucacheElectrode_(ulfsElectrode_)
         , subTriangulation_(subTriangulation)
-        , childLfsElec_(ulfsElectrode_.child(child_))
-        , childLfsRef_(ulfsReference_.child(child_))
-
+        , child_(child)
+        , ulfs_(gfs_)
+        , ucacheReference_(ulfs_) 
+        , ucacheElectrode_(ulfs_)
 
     {
     }
-    //unused
     virtual void bind(const Element& referenceElement, const LocalCoordinate& referenceLocal,
                       const Element& electrodeElement,
                       const LocalCoordinate& electrodeLocal) override
     {
+      bind(referenceElement, referenceLocal, true);
+      bind(electrodeElement, electrodeLocal, false);
     }
-    virtual void assemblePointRightHandSide(VectorType& output, const Element& referenceElement, const LocalCoordinate& referenceLocal,
-                      const Element& electrodeElement,
-                      const LocalCoordinate& electrodeLocal) override
-                      
+
+
+    virtual void assembleRightHandSide(VectorType& output) const override
     {
-//Creates Subtriangulation of the fundamental grid cell containing the electrode, checks which/if any subelement contains the elec
-      //and writes the Ansatzfunction values at the elec pos. into the rhs Vector (point current is distribution)
-      UST ust(subTriangulation_.gridView(), subTriangulation_);
+      for (unsigned int i = 0; i < ucacheElectrode_.size(); ++i) {
+         output[ucacheElectrode_.containerIndex(childLfsElec_.localIndex(i))] = phiElectrode_[i];
+      }
+
+      for (unsigned int i = 0; i < ucacheReference_.size(); ++i) {
+          output[ucacheReference_.containerIndex(childLfsRef_.localIndex(i))] -= phiReference_[i];
+      } 
+
+    }
+  private:
     
-      ust.create(referenceElement);
+      virtual void bind(const Element& element, const LocalCoordinate& local, bool referenceElectrode)
+    {
+      UST ust(subTriangulation_.gridView(), subTriangulation_);
+      ust.create(element);
       bool foundCompartment = false;
       for (const auto& ep : ust) {
         if (ep.domainIndex() != child_)
           continue;
         foundCompartment = true;
-        ulfsReference_.bind(ep.subEntity(), true);
-        ucacheReference_.update();
-        assert(childLfsRef_.size() > 0);
-        FESwitch::basis(childLfsRef_.finiteElement()).reset();
+        ulfs_.bind(ep.subEntity(), true);
 
-        phiReference_.resize(childLfsRef_.size());
-      
-        FESwitch::basis(childLfsRef_.finiteElement()).evaluateFunction(referenceLocal, phiReference_);
-      
-        for (unsigned int i = 0; i < ucacheReference_.size(); ++i) {
-          output[ucacheReference_.containerIndex(childLfsRef_.localIndex(i))] -= phiReference_[i];
-        } 
-
-
-        break;
-        DUNE_THROW(Dune::Exception,
-                   "electrode should be in compartment "
-                       << child_
-                       << " but no such compartment was found in the fundamental element");
-      }
-
-
-     
-      ust.create(electrodeElement);
-      foundCompartment = false;
-      for (const auto& ep : ust) {
-        if (ep.domainIndex() != child_)
-          continue;
-        foundCompartment = true;
-        ulfsElectrode_.bind(ep.subEntity(), true);
-        ucacheElectrode_.update();
-        assert(childLfsElec_.size() > 0);
-        FESwitch::basis(childLfsElec_.finiteElement()).reset();
-
-        phiElectrode_.resize(childLfsElec_.size());
-      
-        FESwitch::basis(childLfsElec_.finiteElement()).evaluateFunction(electrodeLocal, phiElectrode_);
-      
-        for (unsigned int i = 0; i < ucacheElectrode_.size(); ++i) {
-          output[ucacheElectrode_.containerIndex(childLfsElec_.localIndex(i))] = phiElectrode_[i];
-          auto f = ucacheElectrode_.containerIndex(childLfsElec_.localIndex(i));
-          auto z = output[f];
+        if (referenceElectrode)
+        {
+          assert(childLfsRef_.size() > 0);
+          FESwitch::basis(childLfsRef_.finiteElement()).reset();
+          phiElectrode_.resize(childLfsRef_.size());
+          ucacheReference_.update();
+          FESwitch::basis(childLfsRef_.finiteElement()).evaluateFunction(local, phiReference_);
+        }
+        else
+        {
+          assert(childLfsElec_.size() > 0);
+          FESwitch::basis(childLfsElec_.finiteElement()).reset();
+          phiElectrode_.resize(childLfsElec_.size());
+          ucacheElectrode_.update();
+          FESwitch::basis(childLfsElec_.finiteElement()).evaluateFunction(local, phiElectrode_);
         }
         break;
-        DUNE_THROW(Dune::Exception,
-                   "electrode should be in compartment "
-                       << child_
-                       << " but no such compartment was found in the fundamental element");
       }
-      auto x = output.two_norm();
-      std::cout<< x << std::endl;
-      
     }
-    virtual void assembleRightHandSide(VectorType& output) const override
-    {
-    }
-  private:
+
     const GFS& gfs_;
-    mutable ULFS ulfsReference_;
-    mutable UCache ucacheReference_;
-    std::vector<RangeType> phiReference_;
     const ST subTriangulation_;
     std::size_t child_;
-    bool scaleToBBox_;
-    mutable ULFS ulfsElectrode_;
+    mutable ULFS ulfs_;
+    mutable UCache ucacheReference_;
     mutable UCache ucacheElectrode_;
+    std::vector<RangeType> phiReference_;
     std::vector<RangeType> phiElectrode_;
-    ChildLFS& childLfsElec_;
-    ChildLFS& childLfsRef_;
+    bool scaleToBBox_;
+    ChildLFS& childLfsElec_{ulfs_.child(child_)};
+    ChildLFS& childLfsRef_{ulfs_.child(child_)};
+
+
    
   };
 

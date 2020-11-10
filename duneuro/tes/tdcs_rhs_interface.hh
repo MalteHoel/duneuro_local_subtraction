@@ -16,8 +16,7 @@ namespace duneuro
     virtual void bind(const Element& referenceElement, const LocalCoordinate& referenceLocal,
                       const Element& electrodeElement, const LocalCoordinate& electrodeLocal) = 0;
     virtual void assembleRightHandSide(VectorType& vector) const = 0;
-    virtual void assemblePointRightHandSide(VectorType& vector, const Element& referenceElement, const LocalCoordinate& referenceLocal,
-                      const Element& electrodeElement, const LocalCoordinate& electrodeLocal) = 0;
+
 
     virtual ~TdcsRHSInterface(){};
   };
