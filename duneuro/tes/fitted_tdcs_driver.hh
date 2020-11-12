@@ -77,7 +77,7 @@ namespace duneuro
               solver_, config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree()))
     {
     }
-    virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(Function& solution)
+    virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
     {}
     virtual std::unique_ptr<Function> makeDomainFunction() const override
     {

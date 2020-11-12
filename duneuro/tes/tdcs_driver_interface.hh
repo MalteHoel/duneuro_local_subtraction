@@ -25,7 +25,7 @@ namespace duneuro
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const = 0;
     virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
                                const Dune::ParameterTree& config) = 0;
-    virtual std::unique_ptr<DenseMatrix<FieldType>> CenterEvaluation(Function& solution) = 0;
+    virtual std::unique_ptr<DenseMatrix<FieldType>> CenterEvaluation(const Function& solution) = 0;
     virtual ~TDCSDriverInterface()
     {
     }

@@ -10,7 +10,7 @@
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #include <duneuro/tes/tdcs_patch_udg_parameter.hh>
 #include <duneuro/tes/tdcs_rhs_factory.hh>
-
+#include <duneuro/tes/tdcs_solver.hh>
 
 #if HAVE_TBB
 #include <tbb/tbb.h>
@@ -92,7 +92,7 @@ namespace duneuro
     {
       return Dune::Std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     }
-    virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(Function& solution)
+    virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
     {}
 
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
@@ -187,7 +187,7 @@ namespace duneuro
     using ProjectedPosition = duneuro::ProjectedElectrode<GridView>;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-
+    using TdcsRHSFactory = UnfittedTdcsRHSFactory;
   };
 
   template <int dim, int degree, int compartments>
@@ -226,6 +226,7 @@ namespace duneuro
         , solverBackend_(solver_,
                          config.hasSub("solver") ? config.sub("solver") : Dune::ParameterTree())     
         , rightHandSideVector_(make_range_dof_vector(*solver_, 0.0))
+        , tdcsSolver_(solver_, *subTriangulation_, config_)
     {
     }
 
@@ -273,8 +274,21 @@ namespace duneuro
       dataTree.set("time", timer.elapsed());
 
     }
+
+
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeEvaluationMatrix(const Dune::ParameterTree& config,
+                             DataTree dataTree = DataTree()) 
+    {
+      return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
+                                            dataTree);
+    }
+template<typename T>
+void applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix, T& t, Dune::ParameterTree cfg, DataTree dataTree = DataTree() )
+{
+}
  // to be deleted once a more suitable evaluation interface is implemented
-  const virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
+  virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
   {
 
 
@@ -320,7 +334,7 @@ namespace duneuro
 
    //The second uses  GridfunctionSubspace and DiscreteGridfunction.
    template<typename Element, typename localCoordinate>
-    std::vector<double> evaluateatCoordinate(Element& element, localCoordinate& local,  typename Traits::DomainDOFVector& solution)
+   const std::vector<double> evaluateatCoordinate(Element& element, localCoordinate& local, const typename Traits::DomainDOFVector& solution)
       {  
         
       using GFS = typename Traits::Solver::Traits::FunctionSpace::GFS;
@@ -360,7 +374,7 @@ namespace duneuro
           FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
           FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, gradphi);     // Gradients
           for (unsigned int i = 0; i < ucache.size(); ++i) {
-            double& coeff = solution[ucache.containerIndex(childLfs.localIndex(i))];
+            const double& coeff = solution[ucache.containerIndex(childLfs.localIndex(i))];
             output[0] += phi[i]*coeff;
             output[1] += gradphi[i][0][0]*coeff;      // gradphi is a vector of 1xDim Matrices,so
             output[2] += gradphi[i][0][1]*coeff;      // i is the number of the Ansatzfunction and 
@@ -467,7 +481,7 @@ namespace duneuro
     std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>> projectedElectrodes_;
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>>
         projectedGlobalElectrodes_;
-
+    TDCSSolver<typename Traits::Solver, typename Traits::TdcsRHSFactory> tdcsSolver_;
   };
 }
 
