@@ -66,6 +66,20 @@ namespace duneuro
         , conductivities_(config.get<std::vector<double>>("solver.conductivities"))
     {
     }
+
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeEvaluationMatrix(const Dune::ParameterTree& config,
+                             DataTree dataTree = DataTree()) override{}
+  
+    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
+
+
+    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
+
+
     virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
     {}
     virtual std::unique_ptr<Function> makeDomainFunction() const override

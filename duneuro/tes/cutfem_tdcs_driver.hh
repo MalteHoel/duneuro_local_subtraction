@@ -26,7 +26,6 @@
 #include <duneuro/common/cutfem_solver_backend.hh>
 #include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/stl.hh>
-#include <duneuro/common/structured_grid_utilities.hh>
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
@@ -45,7 +44,6 @@ namespace duneuro
     using Problem = TDCSPatchUDGParameter<GridView>; 
     using Solver = CutFEMSolver<SubTriangulation, compartments, degree, Problem>;
     using SolverBackend = CutFEMSolverBackend<Solver>;
-
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
   };
 
@@ -157,7 +155,17 @@ namespace duneuro
     setElectrodes(const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& electrodes,
                   const Dune::ParameterTree& config) override
     {}
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeEvaluationMatrix(const Dune::ParameterTree& config,
+                             DataTree dataTree = DataTree()) override{}
+  
+    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
 
+
+    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
   private:
     Dune::ParameterTree config_;
     std::unique_ptr<typename Traits::Grid> grid_;
@@ -277,15 +285,44 @@ namespace duneuro
 
 
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeEvaluationMatrix(const Dune::ParameterTree& config,
-                             DataTree dataTree = DataTree()) 
+    computeEvaluationMatrix(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
     {
       return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
                                             dataTree);
     }
-template<typename T>
-void applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix, T& t, Dune::ParameterTree cfg, DataTree dataTree = DataTree() )
+  
+virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override
 {
+  return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, positions, cfg);
+}
+
+
+virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override
+{
+  unsigned int NumberHostCells = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_))    // Determine number of Host Cells
+    {
+        if (subTriangulation_->isHostCell(element)) {
+          NumberHostCells+=1;
+        }
+    }
+  std::vector<typename TDCSDriverInterface<dim>::CoordinateType> centerPositions(NumberHostCells);
+  std::size_t index = 0;
+  for (const auto& element : Dune::elements(fundamentalGridView_))    
+  {
+    if (!subTriangulation_->isHostCell(element))                      // skip elements that are outside the brain
+    {
+      continue;
+    }
+
+    centerPositions[index]=element.geometry().center();
+    index+=1;
+  }
+
+ return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, centerPositions, cfg);
 }
  // to be deleted once a more suitable evaluation interface is implemented
   virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
