@@ -4,6 +4,11 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
+// Base Interface for evaluating the TDCS Forward Prolem. 'evaluate' takes in a Matrix containing the coefficients of the Ansatzfcts
+// and positions where to evaluate
+// possible outputs could be elecric potential, field or current, evaluated at a point, in an area around the positions
+// or at an EEG source model (last 2 are tbd)
+
 namespace duneuro
 {
   template <typename GV, typename GFS>

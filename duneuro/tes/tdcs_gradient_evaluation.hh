@@ -4,6 +4,10 @@
 #include <duneuro/tes/cutfem_tdcs_driver.hh>
 #include <duneuro/tes/tdcs_evaluation_interface.hh>
 #include <duneuro/common/kdtree.hh>
+
+// evaluates electric field at given positions
+// returns it as a vector containg one vector per Electrode which lists the electric field for every position
+
 namespace duneuro
 {
 template <typename GV, typename GFS>
@@ -72,7 +76,7 @@ struct TDCSGradientEvaluationTraits{
       typename Traits::UCache ucache(ulfs);
       typename Traits::UST ust(subTriangulation.gridView(), subTriangulation);
       std::vector<std::vector<double>> output(GV::dimension);   
-      ust.create(element);                                        // splitting the Element 
+      ust.create(element);                                        // splitting of the Element 
       for (const auto& ep : ust) 
       {
           typename Traits::ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
@@ -86,13 +90,13 @@ struct TDCSGradientEvaluationTraits{
           Traits::FESwitch::basis(childLfs.finiteElement()).reset();
           std::vector<Dune::FieldMatrix<typename Traits::Real, 1, GV::dimension>> gradphi(childLfs.size());
           Traits::FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, gradphi);     // Gradient eval.
-          for (std::size_t j = 0; j<GV::dimension; j++)
+          for (std::size_t j = 0; j<GV::dimension; j++)   // one iteration per derivation direction
           {
             typename Traits::RangeDOFVector tmp(gfs_, 0.0);
             for (unsigned int i = 0; i < ucache.size(); ++i) {
                 tmp[ucache.containerIndex(childLfs.localIndex(i))] += gradphi[i][0][j]; // gradphi is a Vector of 1xdim Matrices, so the first index
             }                                                                 // corresponds to the Ansatzfct. index, the third to the xyz-direction
-          output[j] = matrix_dense_vector_product(EvaluationMatrix, Dune::PDELab::Backend::native(tmp));
+          output[j] = matrix_dense_vector_product(EvaluationMatrix, Dune::PDELab::Backend::native(tmp)); // contains 1 partial derivative for each stimulation eleectrode 
           }
           break;
           

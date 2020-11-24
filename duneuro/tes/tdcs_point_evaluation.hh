@@ -5,7 +5,7 @@
 #include <duneuro/tes/tdcs_evaluation_interface.hh>
 #include <duneuro/common/kdtree.hh>
 
-
+// evaluates electric potential at given points
 namespace duneuro
 {
   template<typename GV, typename GFS>
@@ -28,7 +28,7 @@ namespace duneuro
     using Real = typename GV::ctype;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<GFS, Real>;
   };
-  
+
   template <typename GV, typename GFS>
   class TDCSPointEvaluation : public TDCSEvaluationInterface<GV,GFS> {
     using Traits = TDCSPointEvaluationTraits<GV,GFS>;
@@ -43,14 +43,14 @@ namespace duneuro
     std::size_t index = 0;
     for (const auto& coord : positions) {
       
-        const auto& element = search.findEntity(coord);
+        const auto& element = search.findEntity(coord);       // find cut-cell containing the position
         if (!subTriangulation.isHostCell(element)) {
           DUNE_THROW(Dune::Exception, "element  at "
                                           << coord << " is not a host cell for any domain");
         }
         const auto localPos = element.geometry().local(coord);                      
-        auto pot = evaluateAtCoordinate(element, localPos, EvaluationMatrix, subTriangulation); 
-        output[index] = pot;
+        auto pot = evaluateAtCoordinate(element, localPos, EvaluationMatrix, subTriangulation); // compute the potential
+        output[index] = pot;                                                      
         index+=1;
     }
     return output;
@@ -67,8 +67,8 @@ namespace duneuro
       typename Traits::UCache ucache(ulfs);
       typename Traits::UST ust(subTriangulation.gridView(), subTriangulation);
       std::vector<double> output(EvaluationMatrix.rows());
-      std::vector<typename Traits::RangeType> phi;                                 // storage for Ansatzfunction values     
-      ust.create(element);                                        // splitting the Element 
+      std::vector<typename Traits::RangeType> phi;                                  // storage for Ansatzfunction values     
+      ust.create(element);                                                          // splitting of the Element 
       for (const auto& ep : ust) 
       {
           typename Traits::ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
@@ -79,14 +79,16 @@ namespace duneuro
           {
             continue;
           }
-          Traits::FESwitch::basis(childLfs.finiteElement()).reset();
+          Traits::FESwitch::basis(childLfs.finiteElement()).reset();                  // reset from previous computations
 
           phi.resize(childLfs.size());
           typename Traits::RangeDOFVector tmp(gfs_, 0.0);
           Traits::FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
           for (unsigned int i = 0; i < ucache.size(); ++i) {
-              tmp[ucache.containerIndex(childLfs.localIndex(i))] += phi[i];
+              tmp[ucache.containerIndex(childLfs.localIndex(i))] += phi[i];                   
           }
+      // tmp contains the Ansatzfct. values at the given position, multiplication with coefficient matrix yields 
+      // vector containing the respective potential value for each stimulation electrode
           output = matrix_dense_vector_product(EvaluationMatrix, Dune::PDELab::Backend::native(tmp));
           break;
           
