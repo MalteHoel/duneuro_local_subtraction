@@ -8,8 +8,8 @@
 
 namespace duneuro
 {
-  template <typename GV, typename GFS>
-  class TDCSPointEvaluation : public TDCSEvaluationInterface<GV,GFS> {
+  template<typename GV, typename GFS>
+  struct TDCSPointEvaluationTraits{
     using BaseT = TDCSEvaluationInterface<GV, GFS>;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
@@ -27,14 +27,16 @@ namespace duneuro
     using RangeFieldType = typename BasisSwitch::RangeField;
     using Real = typename GV::ctype;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<GFS, Real>;
-
-
-
+  };
+  
+  template <typename GV, typename GFS>
+  class TDCSPointEvaluation : public TDCSEvaluationInterface<GV,GFS> {
+    using Traits = TDCSPointEvaluationTraits<GV,GFS>;
   public:
   explicit TDCSPointEvaluation(const GFS& gfs) : gfs_(gfs) {}
 #if HAVE_DUNE_UDG
-  virtual std::vector<std::vector<double>> evaluate(const std::vector<Coordinate>& positions, const DenseMatrix<double>& EvaluationMatrix,
-                                                    const SubTriangulation& subTriangulation) const override
+  virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Coordinate>& positions, const DenseMatrix<double>& EvaluationMatrix,
+                                                    const typename Traits::SubTriangulation& subTriangulation) const override
     {
     std::vector<std::vector<double>> output(positions.size());
     KDTreeElementSearch<GV> search(gfs_.gridView());
@@ -58,18 +60,18 @@ namespace duneuro
   const GFS& gfs_;
 
 #if HAVE_DUNE_UDG
-    std::vector<double> evaluateAtCoordinate(const Element& element,
-     const LocalCoordinate& local, const DenseMatrix<double>& EvaluationMatrix, const SubTriangulation& subTriangulation) const
+    std::vector<double> evaluateAtCoordinate(const typename Traits::Element& element,
+     const typename Traits::LocalCoordinate& local, const DenseMatrix<double>& EvaluationMatrix, const typename Traits::SubTriangulation& subTriangulation) const
     {
-      ULFS ulfs(gfs_);
-      UCache ucache(ulfs);
-      UST ust(subTriangulation.gridView(), subTriangulation);
+      typename Traits::ULFS ulfs(gfs_);
+      typename Traits::UCache ucache(ulfs);
+      typename Traits::UST ust(subTriangulation.gridView(), subTriangulation);
       std::vector<double> output(EvaluationMatrix.rows());
-      std::vector<RangeType> phi;                                 // storage for Ansatzfunction values     
+      std::vector<typename Traits::RangeType> phi;                                 // storage for Ansatzfunction values     
       ust.create(element);                                        // splitting the Element 
       for (const auto& ep : ust) 
       {
-          ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
+          typename Traits::ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
           ulfs.bind(ep.subEntity(), true);
           ucache.update();
 
@@ -77,11 +79,11 @@ namespace duneuro
           {
             continue;
           }
-          FESwitch::basis(childLfs.finiteElement()).reset();
+          Traits::FESwitch::basis(childLfs.finiteElement()).reset();
 
           phi.resize(childLfs.size());
-          RangeDOFVector tmp(gfs_, 0.0);
-          FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
+          typename Traits::RangeDOFVector tmp(gfs_, 0.0);
+          Traits::FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
           for (unsigned int i = 0; i < ucache.size(); ++i) {
               tmp[ucache.containerIndex(childLfs.localIndex(i))] += phi[i];
           }
