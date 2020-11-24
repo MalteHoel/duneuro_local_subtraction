@@ -14,12 +14,13 @@
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/eeg/monopolar_venant.hh>
+#include <duneuro/eeg/multipolar_venant.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/venant_utilities.hh>
 
 namespace duneuro
 {
-  template <class VC, class GFS, class V>
+  template <class VC, class GFS, class V, template<class, int> class VenantImp>
   class VertexBasedVenantSourceModel : public SourceModelBase<typename GFS::Traits::GridViewType, V>
   {
   public:
@@ -41,7 +42,7 @@ namespace duneuro
         , elementNeighborhoodMap_(
               std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
         , gfs_(gfs)
-        , monopolarVenant_(params)
+        , venantImp_(params)
         , config_(params)
     {
     }
@@ -53,7 +54,8 @@ namespace duneuro
       for (unsigned int i = 0; i < vertices.size(); ++i)
         positions[i] = vertices[i].geometry().center();
 
-      auto solution = monopolarVenant_.interpolate(positions, dipole);
+
+      auto solution = venantImp_.interpolate(positions, dipole);
 
       // store solution in output dofvector
       Dune::PDELab::EntityIndexCache<GFS> cache(gfs_);
@@ -94,7 +96,7 @@ namespace duneuro
     std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     const GFS& gfs_;
-    MonopolarVenant<Real, dim> monopolarVenant_;
+    VenantImp<Real, dim> venantImp_;
     Dune::ParameterTree config_;
   };
 }
