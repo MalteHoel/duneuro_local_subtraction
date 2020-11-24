@@ -333,6 +333,7 @@ namespace duneuro
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
+      auto grainSize = config.get<int>("grainSize", 16);
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
                                         config.get<std::size_t>("numberOfThreads") :
                                         tbb::task_scheduler_init::automatic);
@@ -384,6 +385,7 @@ namespace duneuro
       using User = TransferMatrixUser<typename Traits::Solver, typename Traits::SourceModelFactory>;
 
 #if HAVE_TBB
+      auto grainSize = config.get<int>("grainSize", 16);
       tbb::task_scheduler_init init(config.hasKey("numberOfThreads") ?
                                         config.get<std::size_t>("numberOfThreads") :
                                         tbb::task_scheduler_init::automatic);
