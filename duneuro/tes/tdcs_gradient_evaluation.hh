@@ -54,8 +54,9 @@ struct TDCSGradientEvaluationTraits{
         for(std::size_t i = 0; i<GV::dimension; i++)
         {
             output[index + i] = pot[i];
-            index+=1;
+           
         }
+         index+=3;
     }
     return output;
     }
