@@ -23,7 +23,7 @@ namespace duneuro
   public:
 #if HAVE_DUNE_UDG
     virtual std::vector<std::vector<double>> evaluate(const std::vector<Coordinate>& positions, 
-                                                      const DenseMatrix<double>& EvaluationMatrix, const SubTriangulation& subTriangulation) const = 0;
+                                                      const DenseMatrix<double>& EvaluationMatrix) const = 0;
 #endif
     virtual ~TDCSEvaluationInterface(){};
   };

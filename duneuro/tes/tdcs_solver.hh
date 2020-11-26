@@ -72,8 +72,9 @@ std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>
 {
 
   auto evaluationFactory = UnfittedTDCSEvaluationFactory::template create<typename Traits::Solver::Traits::GridView,
-                           typename Traits::Solver::Traits::FunctionSpace::GFS>(config, solver_->functionSpace().getGFS());
- return evaluationFactory->evaluate(positions, EvaluationMatrix, subTriangulation_);
+                           typename Traits::Solver::Traits::FunctionSpace::GFS, typename Traits::SubTriangulation>
+                           (config, solver_->functionSpace().getGFS(), subTriangulation_);
+ return evaluationFactory->evaluate(positions, EvaluationMatrix);
 }
 
 private:

@@ -8,8 +8,12 @@
 // evaluates electric potential at given points
 namespace duneuro
 {
-  template<typename GV, typename GFS>
-  struct TDCSPointEvaluationTraits{
+#if HAVE_DUNE_UDG
+template <typename GV, typename GFS, typename VC>
+struct TDCSCoordinatePointEvaluation;
+#endif
+template<typename GV, typename GFS>
+struct TDCSPointEvaluationTraits{
     using BaseT = TDCSEvaluationInterface<GV, GFS>;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
@@ -27,45 +31,51 @@ namespace duneuro
     using RangeFieldType = typename BasisSwitch::RangeField;
     using Real = typename GV::ctype;
     using RangeDOFVector = Dune::PDELab::Backend::Vector<GFS, Real>;
-  };
+};
 
-  template <typename GV, typename GFS>
-  class TDCSPointEvaluation : public TDCSEvaluationInterface<GV,GFS> {
+template <typename GV, typename GFS, typename VC>
+class TDCSPointEvaluation : public TDCSEvaluationInterface<GV,GFS> {
     using Traits = TDCSPointEvaluationTraits<GV,GFS>;
   public:
-  explicit TDCSPointEvaluation(const GFS& gfs) : gfs_(gfs) {}
-#if HAVE_DUNE_UDG
-  virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Coordinate>& positions, const DenseMatrix<double>& EvaluationMatrix,
-                                                    const typename Traits::SubTriangulation& subTriangulation) const override
+    explicit TDCSPointEvaluation(const GFS& gfs, const typename Traits::SubTriangulation& subTriangulation)
+                               : evaluatorBackend_ (gfs,subTriangulation) {}
+
+    virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Coordinate>& positions,
+                                                      const DenseMatrix<double>& EvaluationMatrix) const override
     {
-    std::vector<std::vector<double>> output(positions.size());
-    KDTreeElementSearch<GV> search(gfs_.gridView());
-    std::size_t index = 0;
-    for (const auto& coord : positions) {
-      
+
+      std::vector<std::vector<double>> output(positions.size());
+
+      std::size_t index = 0;
+      for (const auto& coord : positions) {                    
+        auto pot = evaluatorBackend_(coord, EvaluationMatrix); // compute the potential
+        output[index] = pot;                                                      
+        index+=1;
+      }
+      return output;
+    }
+private:
+TDCSCoordinatePointEvaluation<GV,GFS,VC> evaluatorBackend_;
+};
+#if HAVE_DUNE_UDG
+template <typename GV, typename GFS, typename SubTriangulation>
+struct TDCSCoordinatePointEvaluation
+{
+  using Traits = TDCSPointEvaluationTraits<GV,GFS>;
+  explicit TDCSCoordinatePointEvaluation (const GFS& gfs,const SubTriangulation& subTriangulation) 
+          : gfs_(gfs), subTriangulation_(subTriangulation) {}
+  std::vector<double> operator()(const typename Traits::BaseT::Coordinate coord, const DenseMatrix<double>& EvaluationMatrix) const
+    {
+        KDTreeElementSearch<GV> search(gfs_.gridView());
         const auto& element = search.findEntity(coord);       // find cut-cell containing the position
-        if (!subTriangulation.isHostCell(element)) {
+        if (!subTriangulation_.isHostCell(element)) {
           DUNE_THROW(Dune::Exception, "element  at "
                                           << coord << " is not a host cell for any domain");
         }
-        const auto localPos = element.geometry().local(coord);                      
-        auto pot = evaluateAtCoordinate(element, localPos, EvaluationMatrix, subTriangulation); // compute the potential
-        output[index] = pot;                                                      
-        index+=1;
-    }
-    return output;
-    }
-#endif
-  private:
-  const GFS& gfs_;
-
-#if HAVE_DUNE_UDG
-    std::vector<double> evaluateAtCoordinate(const typename Traits::Element& element,
-     const typename Traits::LocalCoordinate& local, const DenseMatrix<double>& EvaluationMatrix, const typename Traits::SubTriangulation& subTriangulation) const
-    {
+        const auto localPos = element.geometry().local(coord);  
       typename Traits::ULFS ulfs(gfs_);
       typename Traits::UCache ucache(ulfs);
-      typename Traits::UST ust(subTriangulation.gridView(), subTriangulation);
+      typename Traits::UST ust(subTriangulation_.gridView(), subTriangulation_);
       std::vector<double> output(EvaluationMatrix.rows());
       std::vector<typename Traits::RangeType> phi;                                  // storage for Ansatzfunction values     
       ust.create(element);                                                          // splitting of the Element 
@@ -83,7 +93,7 @@ namespace duneuro
 
           phi.resize(childLfs.size());
           typename Traits::RangeDOFVector tmp(gfs_, 0.0);
-          Traits::FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
+          Traits::FESwitch::basis(childLfs.finiteElement()).evaluateFunction(localPos, phi);         // Ansatzfct eval.
           for (unsigned int i = 0; i < ucache.size(); ++i) {
               tmp[ucache.containerIndex(childLfs.localIndex(i))] += phi[i];                   
           }
@@ -95,8 +105,11 @@ namespace duneuro
       }
       return output;
     }
-#endif
+  private:
+    const GFS& gfs_;
+    const typename Traits::SubTriangulation& subTriangulation_;
   };
+#endif
 }
 
 #endif // DUNEURO_TDCS_POINT_EVALUATION_HH
