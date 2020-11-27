@@ -1,5 +1,9 @@
 #ifndef DUNEURO_TDCS_SOLVER_HH
 #define DUNEURO_TDCS_SOLVER_HH
+  /**
+   * \file tdcs_solver.hh
+   * \brief Solverclass that serves as an Interface to the RHS-factory and Solver of the TDCS forward problem and the Evaluation factory
+   */
 
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #include <duneuro/tes/tdcs_patch_udg_parameter.hh>
@@ -14,6 +18,7 @@
 
 namespace duneuro
 {
+
   template <class S> 
   struct TDCSSolverTraits {
   using Solver = S;
@@ -27,8 +32,6 @@ namespace duneuro
       duneuro::ProjectedElectrode<typename Solver::Traits::GridView>;
   using SubTriangulation = typename Solver::Traits::SubTriangulation;
 };
-// The TDCSSolver class is used to compute the TDCS-Matrix and as an Interface to the Evaluation Factory
-// which uses the Matrix to evaluate Electric Potential, field or current
 
 template <class S, class RHSFactory> 
 class TDCSSolver {
@@ -42,9 +45,9 @@ public:
         , subTriangulation_(subTriangulation)
         , config_(config) {}
   public:
-
-  // Matrix that contains one row per stimulation electrode, each one contains the coefficient Vector 
-  // for the Ansatzfunctions
+    /**
+   * \brief returns Matrix that contains one row per stimulation electrode, each one contains the coefficient Vector for the Ansatzfunctions 
+   */
   template <class SolverBackend>
   std::unique_ptr<DenseMatrix<double>>
   tdcsEvaluationMatrix(SolverBackend &solverBackend,
@@ -67,6 +70,9 @@ public:
     }
     return tdcsMatrix;
   }
+  /**
+   * \brief creates an Evaluation Factory that depends on the requested Evaluationtype and returns the respective evaluation
+   */
  template<typename Coordinate>
 std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix, const std::vector<Coordinate>& positions, Dune::ParameterTree& config) const
 {
@@ -82,7 +88,9 @@ std::shared_ptr<typename Traits::Solver> solver_;
 typename Traits::RangeDOFVector rightHandSideVector_;
 Dune::ParameterTree config_;
 typename Traits::SubTriangulation& subTriangulation_;
-
+    /**
+     * \brief solves the TDCS forward problem for a given pair of electrodes
+     */
 template <class SolverBackend>
 void solve( SolverBackend &solverBackend,
              const typename Traits::ProjectedPosition &reference,

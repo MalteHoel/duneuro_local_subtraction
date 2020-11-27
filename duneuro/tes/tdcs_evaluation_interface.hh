@@ -1,13 +1,16 @@
 #ifndef DUNEURO_TDCS_EVALUATION_INTERFACE_HH
 #define DUNEURO_TDCS_EVALUATION_INTERFACE_HH
-
+    /**
+   * \file tdcs_evaluation_interface.hh
+   * \brief Base class for evaluating the TDCS Forward Prolem. 'evaluate' takes in a Matrix containing the coefficients of the Ansatzfcts
+   * and positions where to evaluate
+   * possible outputs could be elecric potential, field or current, evaluated at a point, in an area around the positions
+   * or at an EEG source model (last 2 are tbd)
+   */
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
-// Base Interface for evaluating the TDCS Forward Prolem. 'evaluate' takes in a Matrix containing the coefficients of the Ansatzfcts
-// and positions where to evaluate
-// possible outputs could be elecric potential, field or current, evaluated at a point, in an area around the positions
-// or at an EEG source model (last 2 are tbd)
+
 
 namespace duneuro
 {
@@ -22,6 +25,9 @@ namespace duneuro
 
   public:
 #if HAVE_DUNE_UDG
+/**
+ *\brief returns vector that contains the (also vector valued) evaluation result for each stimulation electrode
+ */
     virtual std::vector<std::vector<double>> evaluate(const std::vector<Coordinate>& positions, 
                                                       const DenseMatrix<double>& EvaluationMatrix) const = 0;
 #endif
