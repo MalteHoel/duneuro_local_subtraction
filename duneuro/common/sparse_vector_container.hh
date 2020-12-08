@@ -158,6 +158,28 @@ namespace duneuro
     return output;
   }
 
+  template <class T, int blockSize>
+  std::vector<T>
+  matrix_sparse_vector_product(const DenseMatrix<T>& matrix,
+                               const SparseBlockVector<SparseBlockVector<Dune::FieldVector<T, blockSize>>>& vector)
+  {
+    std::vector<T> output(matrix.rows(), T(0));
+    for (std::size_t k = 0; k < matrix.rows(); ++k) {
+      unsigned int offset = 0;
+      for (std::size_t co = 0; co < vector.N(); ++co) { // the outer vector must have all entries...
+        for (auto && b : vector) {
+          unsigned int cb = b.first;
+          for (std::size_t bi = 0; bi < blockSize; ++bi) {
+            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[cb][bi];
+          }
+        }
+        // offset += vector[co].dim();
+        offset += vector[co].N() * blockSize;
+      }
+    }
+    return output;
+  }
+
 }
 
 #endif // DUNEURO_SPARSEVECTORCONTAINER_HH
