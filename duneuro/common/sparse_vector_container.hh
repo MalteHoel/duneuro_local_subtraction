@@ -132,13 +132,38 @@ namespace duneuro
     using Vector = Dune::PDELab::ISTL::BlockVector<GFS,Container>;
   };
 
+  namespace Impl {
+    template<typename T, int N>
+    void printSparseHelper(std::ostream& stream, std::vector<std::size_t> prefix, const Dune::FieldVector<T,N>& v)
+    {
+      for (std::size_t i=0; i<N; i++) {
+        std::copy( prefix.begin(), prefix.end(), std::ostream_iterator<int>(stream, ","));
+        stream << "," << i << ":\t" << v[i] << "\n";
+      }
+    }
+    template<typename B, typename GFS>
+    void printSparseHelper(std::ostream& stream, std::vector<std::size_t> prefix, const SparseBlockVector<B>& v)
+    {
+      prefix.push_back(1);
+      for (auto && e : v) {
+        prefix.back() = e.first;
+        printSparseHelper(stream, prefix, e.second);
+      }
+    }
+  }
+
   template <class B>
   std::ostream& operator<<(std::ostream& stream, const SparseBlockVector<B>& v)
   {
-    // for (const auto& e : v.values_) {
-    //   stream << "Index: " << e.first << " Value: " << e.second << "\n";
-    // }
-    // return stream;
+    printSparseHelper(stream, {}, v);
+    return stream;
+  }
+
+  template <typename GFS, class B>
+  std::ostream& operator<<(std::ostream& stream, const Dune::PDELab::ISTL::BlockVector<GFS,SparseBlockVector<B>>& v)
+  {
+    printSparseHelper(stream, {}, Dune::PDELab::Backend::native(v));
+    return stream;
   }
 
   template <class T, int blockSize>
