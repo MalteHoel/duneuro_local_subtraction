@@ -38,7 +38,7 @@ public:
    * The configuration is passed on to the selected volume conductor.
    */
   static std::shared_ptr<VolumeConductorInterface<dim>>
-  make_volume_conductor(const Dune::ParameterTree &config,
+  make_volume_conductor(Dune::ParameterTree config,
                         const MEEGDriverData<dim> &data,
                         DataTree dataTree = DataTree());
 };
