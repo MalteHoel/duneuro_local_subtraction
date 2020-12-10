@@ -12,7 +12,7 @@
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
-#include <duneuro/meeg/feature_manager.hh>
+#include <duneuro/driver/feature_manager.hh>
 
 
 namespace duneuro

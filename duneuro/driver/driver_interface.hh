@@ -196,6 +196,11 @@ public:
     volumeConductor_->statistics(dataTree);
   }
 
+  void print_citations()
+  {
+    volumeConductor_->print_citations();
+  }
+
   ~DriverInterface() {}
 
 private:

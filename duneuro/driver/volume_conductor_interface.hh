@@ -10,6 +10,7 @@
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/function.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/driver/feature_manager.hh>
 
 #include <vector>
 
@@ -21,6 +22,10 @@ public:
   using FieldType = double;
   using DipoleType = Dipole<FieldType, dimension>;
   using CoordinateType = Dune::FieldVector<FieldType, dimension>;
+
+  VolumeConductorInterface(std::shared_ptr<FeatureManager> featureManager)
+      : featureManager_(featureManager)
+  {}
   /**
    * \brief create a domain function for the given interface
    *
@@ -72,7 +77,7 @@ public:
    */
   virtual std::vector<FieldType>
   solveMEGForward(const Function &eegSolution,
-                  const Dune::ParameterTree &config,
+                  Dune::ParameterTree config,
                   DataTree dataTree = DataTree()) = 0;
 
   /**
@@ -169,17 +174,25 @@ public:
    */
   virtual void statistics(DataTree dataTree) const = 0;
 
+  void print_citations()
+  {
+    featureManager_->print_citations();
+  }
+
   virtual ~VolumeConductorInterface() {}
 
 protected:
+  std::shared_ptr<FeatureManager> featureManager_;
+
   template <class EEGForwardSolver, class Solver, class SolverBackend>
   void solveEEGForward_impl(const DipoleType &dipole, Function &solution,
-                            const Dune::ParameterTree &config,
+                            Dune::ParameterTree config,
                             const Dune::ParameterTree &config_complete,
                             EEGForwardSolver &eegForwardSolver, Solver &solver,
                             SolverBackend solverBackend,
                             DataTree dataTree = DataTree()) {
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+    featureManager_->check_feature(config);
     eegForwardSolver.setSourceModel(config.sub("source_model"),
                                     config_complete.sub("solver"), dataTree);
     eegForwardSolver.bind(dipole, dataTree);
@@ -205,10 +218,12 @@ protected:
   template <class Traits, class ProjectedGlobalElectrodesType>
   std::vector<std::vector<double>> applyEEGTransfer_impl(
       const DenseMatrix<double> &transferMatrix,
-      const std::vector<DipoleType> &dipoles, const Dune::ParameterTree &config,
+      const std::vector<DipoleType> &dipoles, Dune::ParameterTree cfg,
       DataTree dataTree, const Dune::ParameterTree &config_complete,
       std::shared_ptr<typename Traits::Solver> solver,
       ProjectedGlobalElectrodesType &projectedGlobalElectrodes) {
+    this->featureManager_->check_feature(cfg);
+    const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 
     using User = typename Traits::TransferMatrixUser;
@@ -262,9 +277,11 @@ protected:
   std::vector<std::vector<double>>
   applyMEGTransfer_impl(const DenseMatrix<double> &transferMatrix,
                         const std::vector<DipoleType> &dipoles,
-                        const Dune::ParameterTree &config, DataTree dataTree,
+                        Dune::ParameterTree cfg, DataTree dataTree,
                         const Dune::ParameterTree &config_complete,
                         std::shared_ptr<typename Traits::Solver> solver) {
+    this->featureManager_->check_feature(cfg);
+    const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 
     using User = typename Traits::TransferMatrixUser;

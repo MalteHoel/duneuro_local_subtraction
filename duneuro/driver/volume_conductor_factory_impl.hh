@@ -4,6 +4,7 @@
 #include <duneuro/driver/fitted_volume_conductor.hh>
 #include <duneuro/driver/volume_conductor_factory.hh>
 #include <duneuro/driver/volume_conductor_interface.hh>
+#include <duneuro/driver/feature_manager.hh>
 
 #if HAVE_DUNE_UDG
 #include <duneuro/driver/unfitted_volume_conductor.hh>
@@ -102,8 +103,10 @@ namespace duneuro {
 template <>
 std::shared_ptr<VolumeConductorInterface<2>>
 VolumeConductorFactory<2>::make_volume_conductor(
-    const Dune::ParameterTree &config, const MEEGDriverData<2> &data,
+    Dune::ParameterTree config, const MEEGDriverData<2> &data,
     DataTree dataTree) {
+  std::shared_ptr<FeatureManager> featureManager = std::make_shared<FeatureManager>(config.get<bool>("enable_experimental", false));
+  featureManager->check_feature(config);
   auto type = config.get<std::string>("type");
   if (type == "fitted") {
     auto solverType = config.get<std::string>("solver_type");
@@ -112,21 +115,21 @@ VolumeConductorFactory<2>::make_volume_conductor(
       if (elementType == "tetrahedron") {
         return std::make_shared<FittedVolumeConductor<
             2, ElementType::tetrahedron, FittedSolverType::cg, 1>>(
-            data.fittedData, config, dataTree);
+            data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
         auto geometryAdapted = config.get<bool>("geometry_adapted", false);
         if (geometryAdapted) {
 #if HAVE_DUNE_SUBGRID
           return std::make_shared<FittedVolumeConductor<
               2, ElementType::hexahedron, FittedSolverType::cg, 1, true>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
           return std::make_shared<FittedVolumeConductor<
               2, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
         }
       } else {
         DUNE_THROW(Dune::Exception,
@@ -136,21 +139,21 @@ VolumeConductorFactory<2>::make_volume_conductor(
       if (elementType == "tetrahedron") {
         return std::make_shared<FittedVolumeConductor<
             2, ElementType::tetrahedron, FittedSolverType::dg, 1>>(
-            data.fittedData, config, dataTree);
+            data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
         auto geometryAdapted = config.get<bool>("geometry_adapted", false);
         if (geometryAdapted) {
 #if HAVE_DUNE_SUBGRID
           return std::make_shared<FittedVolumeConductor<
               2, ElementType::hexahedron, FittedSolverType::dg, 1, true>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
           return std::make_shared<FittedVolumeConductor<
               2, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
         }
       } else {
         DUNE_THROW(Dune::Exception,
@@ -158,7 +161,7 @@ VolumeConductorFactory<2>::make_volume_conductor(
       }
     } else {
       DUNE_THROW(Dune::Exception,
-                 "unknown solver type \"" << solverType << "\"");
+                 "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
     }
 #if HAVE_DUNE_UDG
   } else if (type == "unfitted") {
@@ -168,27 +171,27 @@ VolumeConductorFactory<2>::make_volume_conductor(
       if (compartments == 1) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 1>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 2) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 2>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 3) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 3>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 4) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 4>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 5) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 5>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 6) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 2, 1, 6>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else {
         DUNE_THROW(Dune::Exception,
                    "compartments " << compartments << " not supported");
@@ -198,34 +201,34 @@ VolumeConductorFactory<2>::make_volume_conductor(
       if (compartments == 1) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 1>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 2) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 2>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 3) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 3>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 4) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 4>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 5) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 5>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 6) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 2, 1, 6>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else {
         DUNE_THROW(Dune::Exception,
                    "compartments " << compartments << " not supported");
       }
     } else {
       DUNE_THROW(Dune::Exception,
-                 "unknown solver type \"" << solverType << "\"");
+                 "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
     }
 #endif
   } else {
@@ -236,8 +239,10 @@ VolumeConductorFactory<2>::make_volume_conductor(
 template <>
 std::shared_ptr<VolumeConductorInterface<3>>
 VolumeConductorFactory<3>::make_volume_conductor(
-    const Dune::ParameterTree &config, const MEEGDriverData<3> &data,
+    Dune::ParameterTree config, const MEEGDriverData<3> &data,
     DataTree dataTree) {
+  std::shared_ptr<FeatureManager> featureManager = std::make_shared<FeatureManager>(config.get<bool>("enable_experimental", false));
+  featureManager->check_feature(config);
   auto type = config.get<std::string>("type");
   if (type == "fitted") {
     auto solverType = config.get<std::string>("solver_type");
@@ -246,21 +251,21 @@ VolumeConductorFactory<3>::make_volume_conductor(
       if (elementType == "tetrahedron") {
         return std::make_shared<FittedVolumeConductor<
             3, ElementType::tetrahedron, FittedSolverType::cg, 1>>(
-            data.fittedData, config, dataTree);
+            data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
         auto geometryAdapted = config.get<bool>("geometry_adapted", false);
         if (geometryAdapted) {
 #if HAVE_DUNE_SUBGRID
           return std::make_shared<FittedVolumeConductor<
               3, ElementType::hexahedron, FittedSolverType::cg, 1, true>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
           return std::make_shared<FittedVolumeConductor<
               3, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
         }
       } else {
         DUNE_THROW(Dune::Exception,
@@ -270,21 +275,21 @@ VolumeConductorFactory<3>::make_volume_conductor(
       if (elementType == "tetrahedron") {
         return std::make_shared<FittedVolumeConductor<
             3, ElementType::tetrahedron, FittedSolverType::dg, 1>>(
-            data.fittedData, config, dataTree);
+            data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
         auto geometryAdapted = config.get<bool>("geometry_adapted", false);
         if (geometryAdapted) {
 #if HAVE_DUNE_SUBGRID
           return std::make_shared<FittedVolumeConductor<
               3, ElementType::hexahedron, FittedSolverType::dg, 1, true>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
 #else
           DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
 #endif
         } else {
           return std::make_shared<FittedVolumeConductor<
               3, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
-              data.fittedData, config, dataTree);
+              data.fittedData, config, featureManager, dataTree);
         }
       } else {
         DUNE_THROW(Dune::Exception,
@@ -292,7 +297,7 @@ VolumeConductorFactory<3>::make_volume_conductor(
       }
     } else {
       DUNE_THROW(Dune::Exception,
-                 "unknown solver type \"" << solverType << "\"");
+                 "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
     }
 #if HAVE_DUNE_UDG
   } else if (type == "unfitted") {
@@ -302,27 +307,27 @@ VolumeConductorFactory<3>::make_volume_conductor(
       if (compartments == 1) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 1>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 2) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 2>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 3) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 3>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 4) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 4>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 5) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 5>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else if (compartments == 6) {
         return std::make_shared<
             UnfittedVolumeConductor<duneuro::UnfittedSolverType::udg, 3, 1, 6>>(
-            data.unfittedData, config);
+            data.unfittedData, config, featureManager);
       } else {
         DUNE_THROW(Dune::Exception,
                    "compartments " << compartments << " not supported");
@@ -332,34 +337,34 @@ VolumeConductorFactory<3>::make_volume_conductor(
       if (compartments == 1) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 1>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 2) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 2>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 3) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 3>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 4) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 4>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 5) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 5>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else if (compartments == 6) {
         return std::make_shared<UnfittedVolumeConductor<
             duneuro::UnfittedSolverType::cutfem, 3, 1, 6>>(data.unfittedData,
-                                                           config);
+                                                           config, featureManager);
       } else {
         DUNE_THROW(Dune::Exception,
                    "compartments " << compartments << " not supported");
       }
     } else {
       DUNE_THROW(Dune::Exception,
-                 "unknown solver type \"" << solverType << "\"");
+                 "unknown solver type \"" << FeatureManager::strip_prefix(solverType) << "\"");
     }
 #endif
   } else {

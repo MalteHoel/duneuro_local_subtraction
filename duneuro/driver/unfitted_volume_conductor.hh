@@ -99,12 +99,15 @@ class UnfittedVolumeConductor : public VolumeConductorInterface<dim> {
 public:
   using Traits = UnfittedDriverTraits<solverType, dim, degree, compartments>;
 
-  explicit UnfittedVolumeConductor(const Dune::ParameterTree &config)
-      : UnfittedVolumeConductor(UnfittedMEEGDriverData<dim>{}, config) {}
+  explicit UnfittedVolumeConductor(const Dune::ParameterTree &config,
+                                   std::shared_ptr<FeatureManager> featureManager)
+      : UnfittedVolumeConductor(UnfittedMEEGDriverData<dim>{}, config, featureManager) {}
 
   explicit UnfittedVolumeConductor(UnfittedMEEGDriverData<dim> data,
-                                   const Dune::ParameterTree &config)
-      : data_(data), config_(config),
+                                   const Dune::ParameterTree &config,
+                                   std::shared_ptr<FeatureManager> featureManager)
+      : VolumeConductorInterface<dim>(featureManager),
+        data_(data), config_(config),
         grid_(make_structured_grid<dim>(config.sub("volume_conductor.grid"))),
         fundamentalGridView_(grid_->levelGridView(0)),
         levelSetGridView_(grid_->levelGridView(grid_->maxLevel())),
@@ -141,7 +144,7 @@ public:
 
   virtual std::vector<double>
   solveMEGForward(const Function &eegSolution,
-                  const Dune::ParameterTree &config,
+                  Dune::ParameterTree config,
                   DataTree dataTree = DataTree()) override {
     DUNE_THROW(Dune::NotImplemented, "currently not implemented");
   }
@@ -255,6 +258,7 @@ public:
   virtual std::unique_ptr<DenseMatrix<double>>
   computeEEGTransferMatrix(const Dune::ParameterTree &config,
                            DataTree dataTree = DataTree()) override {
+    this->featureManager_->update_features("transfer_matrix");
     return eegTransferMatrixSolver_.solve(solverBackend_, *projectedElectrodes_,
                                           config, dataTree);
   }
@@ -271,7 +275,6 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
-
     return this->template applyEEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_,
         projectedGlobalElectrodes_);

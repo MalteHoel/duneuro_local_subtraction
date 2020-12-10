@@ -12,7 +12,7 @@
 #include <duneuro/common/udg_solver_backend.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
-#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/driver/unfitted_meeg_driver_data.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #include <duneuro/tes/tdcs_patch_udg_parameter.hh>
 #include <duneuro/tes/udg_tdcs_solver.hh>

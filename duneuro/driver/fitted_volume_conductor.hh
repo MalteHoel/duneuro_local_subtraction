@@ -81,13 +81,16 @@ public:
                                         geometryAdaption>;
 
   explicit FittedVolumeConductor(const Dune::ParameterTree &config,
+                                 std::shared_ptr<FeatureManager> featureManager,
                                  DataTree dataTree = DataTree())
-      : FittedVolumeConductor(FittedDriverData<dim>{}, config, dataTree) {}
+      : FittedVolumeConductor(FittedDriverData<dim>{}, config, featureManager, dataTree) {}
 
   explicit FittedVolumeConductor(const FittedDriverData<dim> &data,
                                  const Dune::ParameterTree &config,
+                                 std::shared_ptr<FeatureManager> featureManager,
                                  DataTree dataTree = DataTree())
-      : config_(config),
+      : VolumeConductorInterface<dim>(featureManager),
+        config_(config),
         volumeConductorStorage_(data, config.sub("volume_conductor"),
                                 dataTree.sub("volume_conductor")),
         elementSearch_(std::make_shared<typename Traits::ElementSearch>(
@@ -128,11 +131,12 @@ public:
 
   virtual std::vector<double>
   solveMEGForward(const Function &eegSolution,
-                  const Dune::ParameterTree &config,
+                  Dune::ParameterTree config,
                   DataTree dataTree = DataTree()) override {
     if (!megSolver_) {
       DUNE_THROW(Dune::Exception, "no meg solver created");
     }
+    this->featureManager_->check_feature(config);
     megSolver_->bind(eegSolution.cast<typename Traits::DomainDOFVector>());
     std::vector<double> output;
     for (unsigned int i = 0; i < megSolver_->numberOfCoils(); ++i) {
@@ -303,6 +307,7 @@ public:
   virtual std::unique_ptr<DenseMatrix<double>>
   computeEEGTransferMatrix(const Dune::ParameterTree &config,
                            DataTree dataTree = DataTree()) override {
+    this->featureManager_->update_features("transfer_matrix");
     return eegTransferMatrixSolver_.solve(solverBackend_, *electrodeProjection_,
                                           config, dataTree);
   }
@@ -313,6 +318,7 @@ public:
     if (!megSolver_) {
       DUNE_THROW(Dune::Exception, "no meg solver created");
     }
+    this->featureManager_->update_features("transfer_matrix");
     return megTransferMatrixSolver_.solve(solverBackend_, config, dataTree);
   }
 
