@@ -10,7 +10,7 @@
 #include <duneuro/eeg/udg_subtraction_source_model.hh>
 #include <duneuro/eeg/unfitted_partial_integration_source_model.hh>
 #include <duneuro/eeg/unfitted_patch_based_venant_source_model.hh>
-#include <duneuro/meeg/feature_manager.hh>
+#include <duneuro/driver/feature_manager.hh>
 
 namespace duneuro
 {

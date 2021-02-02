@@ -8,7 +8,7 @@
 #include <duneuro/eeg/localized_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
-#include <duneuro/meeg/feature_manager.hh>
+#include <duneuro/driver/feature_manager.hh>
 
 namespace duneuro
 {

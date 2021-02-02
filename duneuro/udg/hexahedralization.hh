@@ -6,7 +6,7 @@
 #include <dune/udg/simpletpmctriangulation.hh>
 
 #include <duneuro/common/structured_grid_utilities.hh>
-#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/driver/unfitted_meeg_driver_data.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
 
 namespace duneuro

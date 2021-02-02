@@ -8,8 +8,8 @@
 #include <dune/udg/pdelab/subtriangulation.hh>
 
 #include <duneuro/common/volume_conductor.hh>
-#include <duneuro/meeg/unfitted_meeg_driver.hh>
-#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/driver/unfitted_volume_conductor.hh>
+#include <duneuro/driver/unfitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
