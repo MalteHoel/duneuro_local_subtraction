@@ -5,7 +5,7 @@ variables:
 
 before_script:
   - pip -v install git+https://github.com/tpmc/tpmc.git
-  - ls /duneci/.local/lib/python*/site-packages/tpmc/
+  - find /duneci/.local/lib/python*/site-packages/tpmc/
   - python --version
   - duneci-install-module https://gitlab.dune-project.org/extensions/dune-tpmc.git
   - duneci-install-module https://gitlab.dune-project.org/pdelab/dune-pdelab.git
