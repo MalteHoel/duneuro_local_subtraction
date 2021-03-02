@@ -9,7 +9,6 @@
 #include <duneuro/tes/tdcs_evaluation_interface.hh>
 #include <duneuro/tes/tdcs_potential_evaluation.hh>
 #include <duneuro/tes/tdcs_gradient_evaluation.hh>
-#include <duneuro/tes/tdcs_current_evaluation.hh>
 namespace duneuro
   { 
 /**\class Unfitted evaluator Factory 
@@ -26,16 +25,16 @@ namespace duneuro
         return std::make_unique<TDCSPotentialEvaluation<GV, GFS, ST>>(gfs, subTriangulation);
       }
       
-      if (evaluationUnit == "field") {
-        return std::make_unique<TDCSPotentialEvaluation<GV, GFS, ST>>(gfs, subTriangulation); // td: change back to gradient 
+      if (evaluationUnit == "gradient") {
+        return std::make_unique<TDCSGradientEvaluation<GV, GFS, ST>>(gfs, subTriangulation, false);  
 
       }
       if (evaluationUnit == "current") {
-         return std::make_unique<TDCSPotentialEvaluation<GV, GFS, ST>>(gfs, subTriangulation);
+         return std::make_unique<TDCSGradientEvaluation<GV, GFS, ST>>(gfs, subTriangulation, true);
       }
       
       else {
-        DUNE_THROW(Dune::Exception, "unknown return type, choose potential, field or current \""  "\"");
+        DUNE_THROW(Dune::Exception, "unknown return type, choose potential, gradient or current \""  "\"");
       }
     }
   };

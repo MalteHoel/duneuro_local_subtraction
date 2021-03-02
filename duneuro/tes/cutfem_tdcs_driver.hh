@@ -18,6 +18,8 @@
 #include <dune/udg/pdelab/gridfunction.hh>
 #include <dune/common/std/memory.hh>
 #include <dune/common/version.hh>
+#include <dune/geometry/multilineargeometry.hh>
+#include <dune/geometry/referenceelement.hh>
 
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
@@ -295,58 +297,86 @@ virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix
                                            const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
                                            Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override
 {
-  return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, positions, cfg);
+  KDTreeElementSearch<typename Traits::GridView> search(solver_->functionSpace().getGFS().gridView());
+  std::vector<typename TDCSDriverInterface<dim>::CoordinateType> localPositions(positions.size());
+  std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
+  std::size_t index = 0;
+  for (const auto& coord : positions)
+  {
+    const auto& element = search.findEntity(coord);
+    elements[index] = element;
+    const auto local = element.geometry().local(coord);
+    localPositions[index] = local;
+    index++;
+  }
+
+  return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, elements, localPositions, cfg);
 }
 
 
 virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
                                            Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override
 {
-  unsigned int NumberHostCells = 0;
+  unsigned int numberHostCells = 0;
     for (const auto& element : Dune::elements(fundamentalGridView_))    // Determine number of Host Cells
     {
         if (subTriangulation_->isHostCell(element)) {
-          NumberHostCells+=1;
+          numberHostCells+=1;
         }
     }
-  std::vector<typename TDCSDriverInterface<dim>::CoordinateType> centerPositions(NumberHostCells);
+  std::vector<typename TDCSDriverInterface<dim>::CoordinateType> localPositions(numberHostCells);
+  std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(numberHostCells);
   std::size_t index = 0;
+
   for (const auto& element : Dune::elements(fundamentalGridView_))    
   {
     if (!subTriangulation_->isHostCell(element))                      // skip elements that are outside the brain
     {
       continue;
     }
-
-    centerPositions[index]=element.geometry().center();
-    index+=1;
+    elements[index] = element;
+    const auto local = element.geometry().local(element.geometry().center());
+    localPositions[index] = local;
+    index++;
   }
 
- return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, centerPositions, cfg);
+ return tdcsSolver_.applyEvaluationMatrix(EvaluationMatrix, elements, localPositions, cfg);
 }
  // to be deleted once a more suitable evaluation interface is implemented
   virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)
   {
+    auto testMat = Dune::Std::make_unique<DenseMatrix<double>>(
+        1,
+        solver_->functionSpace().getGFS().ordering().size()); 
+      set_matrix_row(*testMat, 0, Dune::PDELab::Backend::native(solution.cast<typename Traits::DomainDOFVector>()));
 
 
     unsigned int NumberHostCells = 0;
-    for (const auto& element : Dune::elements(fundamentalGridView_))    // Determine number of Host Cells
+
+    for (const auto& element : Dune::elements(subTriangulation_->gridView()))    // Determine number of Host Cells
     {
         if (subTriangulation_->isHostCell(element)) {
           NumberHostCells+=1;
         }
     }
+
+  //  KDTreeElementSearch<typename Traits::GridView> search(solver_->functionSpace().getGFS().gridView());
+  //  unsigned int numberHostCells = EvalPoints.size();
     auto elementCenter = Dune::Std::make_unique<DenseMatrix<double>>(   // Matrix that will later be filled with the Center Positions, Potentials and Gradients
     NumberHostCells,2*Traits::GridView::dimension + 1);
 
     std::size_t offset = 0;
-    for (const auto& element : Dune::elements(fundamentalGridView_)) {
-      
-      auto y=element.geometry().center();
+    for (const auto& element : Dune::elements(subTriangulation_->gridView())) {
+
+    //const auto& element = search.findEntity(coord);
+
       if (!subTriangulation_->isHostCell(element))                      // skip elements that are outside the brain
       {
+      //    offset+=1;
           continue;
       }
+      auto y=element.geometry().center();
+      //auto y = coord;
       auto localPos = element.geometry().local(y);                      
       auto pot = evaluateatCoordinate(element, localPos, solution.cast<typename Traits::DomainDOFVector>()); 
       for(std::size_t i=0; i<Traits::GridView::dimension; ++i)
@@ -370,8 +400,8 @@ virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix
    // the corresponding coeff. from the DOF-solution Vector and returns the sum.
 
    //The second uses  GridfunctionSubspace and DiscreteGridfunction.
-   template<typename Element, typename localCoordinate>
-   const std::vector<double> evaluateatCoordinate(Element& element, localCoordinate& local, const typename Traits::DomainDOFVector& solution)
+   template<typename Element, typename LocalCoordinate>
+   const std::vector<double> evaluateatCoordinate(Element& element, LocalCoordinate& local, const typename Traits::DomainDOFVector& solution)
       {  
         
       using GFS = typename Traits::Solver::Traits::FunctionSpace::GFS;
@@ -390,25 +420,46 @@ virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix
       ULFS ulfs(solver_->functionSpace().getGFS());
       UCache ucache(ulfs);
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
+      auto global = element.geometry().global(local); 
+      int comp = 0;
+      for (int i = 0;i<dim;i++)
+      {
+        global[i]-=127;
+      }
 
+      double ecc = global.two_norm();
+      global[0]-=2;
+      double ecc2 = global.two_norm();
+      if (ecc<86)
+      {comp = 1;}
+      if (ecc<80)
+      {
+          comp = 2;
+        }
+      if (ecc2<78)
+      {comp = 3;}
+      Dune::FieldVector<Real, dim> y;
       std::vector<RangeType> phi;                                 // storage for Ansatzfunction values
       std::vector<double> output(4);      
       ust.create(element);                                        // splitting the Element 
       for (const auto& ep : ust) 
       {
+        if(ep.domainIndex()!= comp)
+        {continue;}
           ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
           ulfs.bind(ep.subEntity(), true);
           ucache.update();
-
           if (childLfs.size() == 0)
           {
             continue;
           }
+          /*
           FESwitch::basis(childLfs.finiteElement()).reset();
-
+        
           phi.resize(childLfs.size());
           std::vector<Dune::FieldMatrix<Real, 1, dim>> gradphi(childLfs.size());
           FESwitch::basis(childLfs.finiteElement()).evaluateFunction(local, phi);         // Ansatzfct eval.
+
           FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, gradphi);     // Gradients
           for (unsigned int i = 0; i < ucache.size(); ++i) {
             const double& coeff = solution[ucache.containerIndex(childLfs.localIndex(i))];
@@ -417,10 +468,35 @@ virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix
             output[2] += gradphi[i][0][1]*coeff;      // i is the number of the Ansatzfunction and 
             output[3] += gradphi[i][0][2]*coeff;      // the first 0 is the row index
           }  
-         
+          */
+                 // get Jacobian of geometry
+                 
+        const auto JgeoIT = element.geometry().jacobianInverseTransposed(local);
+        // get local Jacobians/gradients of the shape functions
+        std::vector<Dune::FieldMatrix<Real, 1, dim>> J(childLfs.size());
+        FESwitch::basis(childLfs.finiteElement()).reset();
+        FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, J);     // Gradients
+
+  
+        Dune::FieldVector<Real, dim> gradphi;
+        y = 0;
+        for(unsigned int i = 0; i < ucache.size(); ++i) {
+          // compute global gradient of shape function i
+          gradphi = 0;
+          JgeoIT.umv(J[i][0], gradphi);
+          const double& coeff = solution[ucache.containerIndex(childLfs.localIndex(i))];
+          // sum up global gradients, weighting them with the appropriate coeff
+          y.axpy(coeff, gradphi);
+
+
+        }
 
           break;
           
+      }
+      for (int i = 0;i<dim; ++i)
+      {
+        output[i+1] = y[i];
       }
       return output;
 

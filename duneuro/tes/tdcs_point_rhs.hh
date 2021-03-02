@@ -125,6 +125,7 @@ namespace duneuro
 
     virtual void assembleRightHandSide(VectorType& output) const override
     {
+      output = 0;
       for (unsigned int i = 0; i < ucacheElectrode_.size(); ++i) {
          output[ucacheElectrode_.containerIndex(childLfsElec_.localIndex(i))] = phiElectrode_[i];
       }

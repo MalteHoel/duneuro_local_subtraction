@@ -41,7 +41,6 @@ public:
   TDCSSolver(std::shared_ptr<typename Traits::Solver> solver, typename Traits::SubTriangulation& subTriangulation,
                    const Dune::ParameterTree &config)
       :   solver_(solver)
-        , rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0)
         , subTriangulation_(subTriangulation)
         , config_(config) {}
   public:
@@ -63,6 +62,8 @@ public:
     typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(),
                                               0.0);
     for (std::size_t index = 1; index < projectedElectrodes.size(); ++index) {    // compute the coefficients for every electrode,
+          typename Traits::DomainDOFVector rightHandSideVector_(solver_->functionSpace().getGFS(),
+                                              0.0);
       solve(solverBackend.get(), projectedElectrodes.getProjection(0),            // electrode 0 is reference electrode/ cathode
             projectedElectrodes.getProjection(index), solution, rightHandSideVector_, solver_config,
             dataTree.sub("solver.electrode_" + std::to_string(index)));
@@ -71,21 +72,20 @@ public:
     return tdcsMatrix;
   }
   /**
-   * \brief creates an Evaluation Factory that depends on the requested Evaluationtype and returns the respective evaluation
+   * \brief creates an Evaluator instance depending on the requested return type and returns the respective evaluation
    */
- template<typename Coordinate>
-std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix, const std::vector<Coordinate>& positions, Dune::ParameterTree& config) const
+ template<typename Coordinate, typename Element>
+std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,const std::vector<Element>& elements, const std::vector<Coordinate>& localPositions, Dune::ParameterTree& config) const
 {
 
   auto evaluationFactory = UnfittedTDCSEvaluationFactory::template create<typename Traits::Solver::Traits::GridView,
                            typename Traits::Solver::Traits::FunctionSpace::GFS, typename Traits::SubTriangulation>
                            (config, solver_->functionSpace().getGFS(), subTriangulation_);
- return evaluationFactory->evaluate(positions, EvaluationMatrix);
+ return evaluationFactory->evaluate(elements, localPositions, EvaluationMatrix);
 }
 
 private:
 std::shared_ptr<typename Traits::Solver> solver_;
-typename Traits::RangeDOFVector rightHandSideVector_;
 Dune::ParameterTree config_;
 typename Traits::SubTriangulation& subTriangulation_;
     /**
@@ -110,6 +110,7 @@ void solve( SolverBackend &solverBackend,
     dataTree.set("time_rhs_assembly", timer.lastElapsed());
     timer.start();
     // solve system
+    solution = 0.0;
     solver_->solve(solverBackend, rightHandSideVector, solution, config,
                    dataTree.sub("linear_system_solver"));
     timer.stop();

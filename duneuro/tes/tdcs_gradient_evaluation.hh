@@ -1,22 +1,29 @@
 #ifndef DUNEURO_TDCS_GRADIENT_EVALUATION_HH
 #define DUNEURO_TDCS_GRADIENT_EVALUATION_HH
 
+/**
+ *\file tdcs_gradient_evaluation.hh
+ *\brief evaluates electric field at given positions, returns vector valued result as vector of whose 
+ *       length is equal to the number of stimulation electrodes 
+ */
 #include <duneuro/tes/cutfem_tdcs_driver.hh>
 #include <duneuro/tes/tdcs_evaluation_interface.hh>
 #include <duneuro/common/kdtree.hh>
-
-// evaluates electric field at given positions
-// returns it as a vector containg one vector per Electrode which lists the electric field for every position
+#include <duneuro/common/matrix_utilities.hh>
 
 namespace duneuro
 {
+  #if HAVE_DUNE_UDG
+template <typename GV, typename GFS, typename VC>
+struct GradientEvaluator;
+#endif
 template <typename GV, typename GFS>
 struct TDCSGradientEvaluationTraits{
     using BaseT = TDCSEvaluationInterface<GV, GFS>;
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
     using Coordinate = typename BaseT::Coordinate;
-    using SubTriangulation = typename BaseT::SubTriangulation;
+    using ST = typename BaseT::SubTriangulation;
 #if HAVE_DUNE_UDG
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
@@ -33,78 +40,122 @@ struct TDCSGradientEvaluationTraits{
 
 };
 
-  template <typename GV, typename GFS>
+  template <typename GV, typename GFS,typename VC>
   class TDCSGradientEvaluation : public TDCSEvaluationInterface<GV,GFS> {
       using Traits = TDCSGradientEvaluationTraits<GV,GFS>;
 
   public:
-  explicit TDCSGradientEvaluation(const GFS& gfs) : gfs_(gfs) {}
-#if HAVE_DUNE_UDG
-  virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Coordinate>& positions, const DenseMatrix<double>& EvaluationMatrix,
-                                                    const typename Traits::SubTriangulation& subTriangulation) const override
-    {
-    std::vector<std::vector<double>> output(GV::dimension*positions.size());
-    KDTreeElementSearch<GV> search(gfs_.gridView());
-    std::size_t index = 0;
-    for (const typename Traits::Coordinate& coord : positions) {
-      
-        const auto& element = search.findEntity(coord);
-        if (!subTriangulation.isHostCell(element)) {
-          DUNE_THROW(Dune::Exception, "element  at "
-                                          << coord << " is not a host cell for any domain");
-        }
-        const auto localPos = element.geometry().local(coord);                      
-        auto pot = evaluateAtCoordinate(element, localPos, EvaluationMatrix, subTriangulation); 
-        for(std::size_t i = 0; i<GV::dimension; i++)
-        {
-            output[index + i] = pot[i];
-           
-        }
-         index+=3;
-    }
-    return output;
-    }
-#endif
-  private:
-  const GFS& gfs_;
+  /**\brief constructor for the unfitted case 
+  */
+    explicit TDCSGradientEvaluation(const GFS& gfs, const typename Traits::ST& subTriangulation, bool current)
+                               : gradientEvaluator_ (gfs,subTriangulation), current_(current), gfs_(gfs){}
 
-#if HAVE_DUNE_UDG
-    virtual std::vector<std::vector<double>> evaluateAtCoordinate(const typename Traits::Element& element,
-     const typename Traits::LocalCoordinate& local, const DenseMatrix<double>& EvaluationMatrix, const typename Traits::SubTriangulation& subTriangulation) const
+    virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Element>& elements, const std::vector<typename Traits::LocalCoordinate>& localPositions,
+                                                      const DenseMatrix<double>& EvaluationMatrix) const override
+    {
+      typename Traits::RangeDOFVector tmp(gfs_, 0.0);
+      std::vector<std::vector<double>> output(localPositions.size());
+      for (unsigned int elec = 0; elec<EvaluationMatrix.rows();++elec){
+        tmp = 0.0;
+        extract_matrix_row(EvaluationMatrix, elec, Dune::PDELab::Backend::native(tmp));
+        std::size_t index = 0;
+        for (const auto& element : elements) {                    
+          auto pot = gradientEvaluator_(current_, elements[index], localPositions[index], tmp); // compute the potential
+          for (unsigned int i = 0; i< GV::dimension;++i)
+          {
+            
+            output[index].push_back(pot[i]); 
+  
+          }                                                 
+          index+=1;
+        }
+      }
+      return output;
+    }
+private:
+GradientEvaluator<GV,GFS,VC> gradientEvaluator_;
+bool current_;
+const GFS& gfs_;
+};
+  #if HAVE_DUNE_UDG
+  /**\class Functor that evaluates the elec. Field or Current density at a single point. Unfitted case.
+ */
+template <typename GV, typename GFS, typename ST>
+struct GradientEvaluator
+{
+  using Traits = TDCSGradientEvaluationTraits<GV,GFS>;
+  explicit GradientEvaluator (const GFS& gfs,const ST& subTriangulation) 
+          : gfs_(gfs), subTriangulation_(subTriangulation) {}
+  Dune::FieldVector<typename Traits::Real, GV::dimension> operator()(bool current, const typename Traits::Element& element, const typename Traits::LocalCoordinate localPos, const typename Traits::RangeDOFVector& coeffs) const
     {
       typename Traits::ULFS ulfs(gfs_);
       typename Traits::UCache ucache(ulfs);
-      typename Traits::UST ust(subTriangulation.gridView(), subTriangulation);
-      std::vector<std::vector<double>> output(GV::dimension);   
-      ust.create(element);                                        // splitting of the Element 
+      typename Traits::UST ust(subTriangulation_.gridView(), subTriangulation_);
+      Dune::FieldVector<typename Traits::Real, GV::dimension> result;
+      auto global = element.geometry().global(localPos); 
+      int comp = 0;
+      for (int i = 0;i<GV::dimension;i++)
+      {
+        global[i]-=127;
+      }
+
+      double ecc = global.two_norm();
+      global[0]-=2;
+      double ecc2 = global.two_norm();
+      if (ecc<86)
+      {comp = 1;}
+      if (ecc<80)
+      {
+          comp = 2;
+        }
+      if (ecc2<78)
+      {comp = 3;}
+      Dune::FieldVector<typename Traits::Real, GV::dimension> y;
+      std::vector<typename Traits::RangeType> phi;                                 // storage for Ansatzfunction values
+
+      ust.create(element);                                                          // Subtriangulate Element
       for (const auto& ep : ust) 
       {
+        if(ep.domainIndex()!= comp)
+        {continue;}
           typename Traits::ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
           ulfs.bind(ep.subEntity(), true);
           ucache.update();
-
           if (childLfs.size() == 0)
           {
             continue;
           }
-          Traits::FESwitch::basis(childLfs.finiteElement()).reset();
-          std::vector<Dune::FieldMatrix<typename Traits::Real, 1, GV::dimension>> gradphi(childLfs.size());
-          Traits::FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(local, gradphi);     // Gradient eval.
-          for (std::size_t j = 0; j<GV::dimension; j++)   // one iteration per derivation direction
-          {
-            typename Traits::RangeDOFVector tmp(gfs_, 0.0);
-            for (unsigned int i = 0; i < ucache.size(); ++i) {
-                tmp[ucache.containerIndex(childLfs.localIndex(i))] += gradphi[i][0][j]; // gradphi is a Vector of 1xdim Matrices, so the first index
-            }                                                                 // corresponds to the Ansatzfct. index, the third to the xyz-direction
-          output[j] = matrix_dense_vector_product(EvaluationMatrix, Dune::PDELab::Backend::native(tmp)); // contains 1 partial derivative for each stimulation eleectrode 
+          const auto JgeoIT = element.geometry().jacobianInverseTransposed(localPos);
+        // get local Jacobians/gradients of the shape functions
+        std::vector<Dune::FieldMatrix<typename Traits::Real, 1, GV::dimension>> J(childLfs.size());
+        Traits::FESwitch::basis(childLfs.finiteElement()).reset();
+        Traits::FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(localPos, J);     // Gradients
+        Dune::FieldVector<typename Traits::Real, GV::dimension> gradphi;
+        Dune::FieldVector<typename Traits::Real, GV::dimension> y;
+
+          y = 0; 
+          for(unsigned int i = 0; i < ucache.size(); ++i) {
+            gradphi = 0;
+            JgeoIT.umv(J[i][0], gradphi);
+            // compute global gradient of shape function i (chain rule)
+            const double& coeff = coeffs[ucache.containerIndex(childLfs.localIndex(i))];
+            // sum up global gradients, weighting them with the appropriate coeff
+            y.axpy(coeff, gradphi);
           }
+        
+          result = y;
+
           break;
           
       }
-      return output;
+      return result;
     }
+  private:
+    const GFS& gfs_;
+    const typename Traits::ST& subTriangulation_;
+};
 #endif
-  };
 }
+
 
 #endif // DUNEURO_TDCS_GRADIENT_EVALUATION_HH

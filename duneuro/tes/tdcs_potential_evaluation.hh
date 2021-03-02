@@ -13,7 +13,7 @@ namespace duneuro
 {
 #if HAVE_DUNE_UDG
 template <typename GV, typename GFS, typename VC>
-struct TDCSCoordinatePotentialEvaluation;
+struct PotentialEvaluator;
 #endif
 template<typename GV, typename GFS>
 struct TDCSPotentialEvaluationTraits{
@@ -21,7 +21,7 @@ struct TDCSPotentialEvaluationTraits{
     using LocalCoordinate = typename BaseT::LocalCoordinate;
     using Element = typename BaseT::Element;
     using Coordinate = typename BaseT::Coordinate;
-    using SubTriangulation = typename BaseT::SubTriangulation;
+    using ST = typename BaseT::SubTriangulation;
 #if HAVE_DUNE_UDG
     using ULFS = Dune::PDELab::UnfittedLocalFunctionSpace<GFS>;
     using UST = Dune::PDELab::UnfittedSubTriangulation<GV>;
@@ -44,42 +44,37 @@ class TDCSPotentialEvaluation : public TDCSEvaluationInterface<GV,GFS> {
   public:
 /**\brief constructor for the unfitted case 
 */
-    explicit TDCSPotentialEvaluation(const GFS& gfs, const typename Traits::SubTriangulation& subTriangulation)
-                               : evaluatorBackend_ (gfs,subTriangulation) {}
+    explicit TDCSPotentialEvaluation(const GFS& gfs, const typename Traits::ST& subTriangulation)
+                               : potentialEvaluator_ (gfs,subTriangulation) {}
 
-    virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Coordinate>& positions,
+    virtual std::vector<std::vector<double>> evaluate(const std::vector<typename Traits::Element>& elements, const std::vector<typename Traits::LocalCoordinate>& localPositions,
                                                       const DenseMatrix<double>& EvaluationMatrix) const override
     {
 
-      std::vector<std::vector<double>> output(positions.size());
+      std::vector<std::vector<double>> output(localPositions.size());
 
       std::size_t index = 0;
-      for (const auto& coord : positions) {                    
-        auto pot = evaluatorBackend_(coord, EvaluationMatrix); // compute the potential
+      for (const auto& element : elements) {                    
+        auto pot = potentialEvaluator_(elements[index], localPositions[index], EvaluationMatrix); // compute the potential
         output[index] = pot;                                                      
         index+=1;
       }
       return output;
     }
 private:
-TDCSCoordinatePotentialEvaluation<GV,GFS,VC> evaluatorBackend_;
+PotentialEvaluator<GV,GFS,VC> potentialEvaluator_;
 };
 #if HAVE_DUNE_UDG
-template <typename GV, typename GFS, typename SubTriangulation>
-struct TDCSCoordinatePotentialEvaluation
+/**\class Functor that evaluates the elec. Pot. at a single point. Unfitted case.
+ */
+template <typename GV, typename GFS, typename ST>
+struct PotentialEvaluator
 {
   using Traits = TDCSPotentialEvaluationTraits<GV,GFS>;
-  explicit TDCSCoordinatePotentialEvaluation (const GFS& gfs,const SubTriangulation& subTriangulation) 
+  explicit PotentialEvaluator (const GFS& gfs,const ST& subTriangulation) 
           : gfs_(gfs), subTriangulation_(subTriangulation) {}
-  std::vector<double> operator()(const typename Traits::BaseT::Coordinate coord, const DenseMatrix<double>& EvaluationMatrix) const
+  std::vector<double> operator()(const typename Traits::Element& element, const typename Traits::LocalCoordinate localPos, const DenseMatrix<double>& EvaluationMatrix) const
     {
-        KDTreeElementSearch<GV> search(gfs_.gridView());
-        const auto& element = search.findEntity(coord);       // find cut-cell containing the position
-        if (!subTriangulation_.isHostCell(element)) {
-          DUNE_THROW(Dune::Exception, "element  at "
-                                          << coord << " is not a host cell for any domain");
-        }
-        const auto localPos = element.geometry().local(coord);  
       typename Traits::ULFS ulfs(gfs_);
       typename Traits::UCache ucache(ulfs);
       typename Traits::UST ust(subTriangulation_.gridView(), subTriangulation_);
@@ -114,7 +109,7 @@ struct TDCSCoordinatePotentialEvaluation
     }
   private:
     const GFS& gfs_;
-    const typename Traits::SubTriangulation& subTriangulation_;
+    const typename Traits::ST& subTriangulation_;
   };
 #endif
 }

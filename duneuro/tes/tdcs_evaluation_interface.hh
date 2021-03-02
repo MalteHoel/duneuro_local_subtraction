@@ -27,10 +27,11 @@ namespace duneuro
 #if HAVE_DUNE_UDG
 /**
  *\brief returns vector that contains the (also vector valued) evaluation result for each stimulation electrode
- * @param positions where to evaluate
+ * @param elements mesh element to evaluate in 
+ * @param positions local position inside elem
  * @param EvaluationMatrix Contains the coefficients of the Ansatz functions aka the solutions of the TDCS forward problem for every electrode
  */
-    virtual std::vector<std::vector<double>> evaluate(const std::vector<Coordinate>& positions, 
+    virtual std::vector<std::vector<double>> evaluate(const std::vector<Element>& elements, const std::vector<Coordinate>& positions, 
                                                       const DenseMatrix<double>& EvaluationMatrix) const = 0;
 #endif
     virtual ~TDCSEvaluationInterface(){};
