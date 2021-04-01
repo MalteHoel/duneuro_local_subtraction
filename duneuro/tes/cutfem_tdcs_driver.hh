@@ -31,7 +31,7 @@
 #include <duneuro/eeg/projected_electrodes.hh>
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
-#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/driver/unfitted_meeg_driver_data.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
 
 

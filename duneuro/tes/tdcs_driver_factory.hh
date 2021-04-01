@@ -3,7 +3,7 @@
 
 #include <duneuro/common/fitted_driver_data.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
-#include <duneuro/meeg/unfitted_meeg_driver_data.hh>
+#include <duneuro/driver/unfitted_meeg_driver_data.hh>
 
 namespace duneuro
 {
