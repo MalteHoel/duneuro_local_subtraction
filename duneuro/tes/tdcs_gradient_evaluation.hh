@@ -94,6 +94,7 @@ struct GradientEvaluator
       Dune::FieldVector<typename Traits::Real, GV::dimension> result;
       auto global = element.geometry().global(localPos); 
       int comp = 0;
+      /*
       for (int i = 0;i<GV::dimension;i++)
       {
         global[i]-=127;
@@ -110,14 +111,24 @@ struct GradientEvaluator
         }
       if (ecc2<78)
       {comp = 3;}
+      */
+
       Dune::FieldVector<typename Traits::Real, GV::dimension> y;
       std::vector<typename Traits::RangeType> phi;                                 // storage for Ansatzfunction values
 
       ust.create(element);                                                          // Subtriangulate Element
       for (const auto& ep : ust) 
       {
-        if(ep.domainIndex()!= comp)
-        {continue;}
+       // if(ep.domainIndex()!= comp)
+       // {continue;}
+
+      // create refElement, check if Evaluation point is inside, skip if it isn't
+       const auto& geo = ep.subEntity().geometryInCell();
+       const auto local = geo.local(localPos);      // sometimes leads to an error 
+       const auto& refElement = Dune::ReferenceElements<typename GV::ctype, GV::dimension>::general(geo.type());
+       if (!refElement.checkInside(local))
+            {
+              continue;}
           typename Traits::ChildLFS& childLfs(ulfs.child(ep.domainIndex() ) );     // chooses the correct Ansatzfunctionspace and binds it to the El.
           ulfs.bind(ep.subEntity(), true);
           ucache.update();
@@ -132,7 +143,6 @@ struct GradientEvaluator
         Traits::FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(localPos, J);     // Gradients
         Dune::FieldVector<typename Traits::Real, GV::dimension> gradphi;
         Dune::FieldVector<typename Traits::Real, GV::dimension> y;
-
           y = 0; 
           for(unsigned int i = 0; i < ucache.size(); ++i) {
             gradphi = 0;
@@ -142,7 +152,6 @@ struct GradientEvaluator
             // sum up global gradients, weighting them with the appropriate coeff
             y.axpy(coeff, gradphi);
           }
-        
           result = y;
 
           break;
