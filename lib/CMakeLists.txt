@@ -19,3 +19,4 @@ endif()
 
 dune_add_library(duneuro SOURCES ${duneuro_SOURCES} _DUNE_TARGET_OBJECTS:SimBio_)
 dune_target_enable_all_packages(duneuro)
+add_dune_tbb_flags(duneuro)

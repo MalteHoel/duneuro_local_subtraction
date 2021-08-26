@@ -6,8 +6,10 @@
 #endif
 
 #include <dune/common/version.hh>
-
+#if HAVE_DUNE_UDG
 #include <dune/udg/simpletpmctriangulation.hh>
+#endif
+
 #include <duneuro/udg/simpletpmc_domain.hh>
 
 #include <duneuro/common/cutfem_solver.hh>
