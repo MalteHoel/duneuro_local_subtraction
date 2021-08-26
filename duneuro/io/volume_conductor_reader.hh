@@ -13,7 +13,7 @@
 #include <duneuro/io/cauchy_tensor_reader.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/gmsh_tensor_reader.hh>
-
+#include <dune/geometry/utility/typefromvertexcount.hh>
 namespace duneuro
 {
   template <class G>

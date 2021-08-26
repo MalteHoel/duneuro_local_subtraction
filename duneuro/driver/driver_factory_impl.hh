@@ -6,9 +6,12 @@
 #include <duneuro/driver/volume_conductor_factory_impl.hh>
 
 #include <duneuro/driver/fitted_volume_conductor.hh>
-#include <duneuro/driver/unfitted_volume_conductor.hh>
-#include <duneuro/driver/volume_conductor_interface.hh>
 
+#if HAVE_DUNE_UDG
+#include <duneuro/driver/unfitted_volume_conductor.hh>
+#endif
+
+#include <duneuro/driver/volume_conductor_interface.hh>
 namespace duneuro {
 
 template <>
