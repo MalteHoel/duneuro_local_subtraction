@@ -117,7 +117,10 @@ namespace duneuro
       extend(ex, repeatUntil);
     }
 
-    const std::vector<Element>& elements() const
+    //
+    // I deleted the reference here
+    //
+    const std::vector<Element> elements() const
     {
       return elements_;
     }
@@ -146,6 +149,47 @@ namespace duneuro
       return out;
     }
 
+
+    // written by me
+    Element initialElement() 
+    {
+      return element_of_start_position_;
+    }
+    
+    size_t sizeOfPatch() {
+      return elements_.size();
+    }
+
+    // For the CG localized subtraction source model, we need one additional vertex extension as a transitional region 
+    // for chi to drop to zero. This function computes a vector containing the elements of this transitional region,
+    // where we assume that the inner region of the patch has already been computed
+    std::vector<Element> computeTransitionRegion() 
+    {
+      // we essentially need to perfrom one additional vertex extension and simply store the new elements inside the array
+      
+      // we first get all elements that share a vertex with one element in the current patch. Note that candidates get included mutliple times
+      std::vector<Element> candidates;
+      for(const auto& element : elements_) {
+      	elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));
+      }
+      
+      // we now check all candidates to see if they are new additions
+      std::vector<Element> transitionElements;
+      std::set<std::size_t> visitedTransitionElementIndices;
+      for(const auto& candidate : candidates) {
+        auto index = elementMapper_.index(candidate);
+        // check if candidate is not in inner region as was not already included earlier
+        if(elementIndices_.count(index) == 0 && visitedTransitionElementIndices.count(index) == 0) {
+          transitionElements.push_back(candidate);
+          visitedTransitionElementIndices.insert(index);
+        }
+      }
+      
+      return transitionElements;  
+    }
+
+    // end of part written by me
+  
   private:
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     std::function<bool(Element)> elementFilter_;
@@ -153,24 +197,27 @@ namespace duneuro
     ElementMapper elementMapper_;
     VertexMapper vertexMapper_;
 
+    // written by me
+    Element element_of_start_position_;
+
     std::vector<Element> elements_;
     std::set<std::size_t> elementIndices_;
 
     template <typename ElementSearch>
     void initializeSingleElement(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      auto candidate = elementSearch.findEntity(position);
-      if (elementFilter_(candidate)) {
-        elements_.push_back(candidate);
-        elementIndices_.insert(elementMapper_.index(candidate));
+      element_of_start_position_ = elementSearch.findEntity(position);
+      if (elementFilter_(element_of_start_position_)) {
+        elements_.push_back(element_of_start_position_);
+        elementIndices_.insert(elementMapper_.index(element_of_start_position_));
       }
     }
 
     template <typename ElementSearch>
     void initializeClosestVertex(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      auto element = elementSearch.findEntity(position);
-      const auto& geo = element.geometry();
+      element_of_start_position_ = elementSearch.findEntity(position);
+      const auto& geo = element_of_start_position_.geometry();
       // find closest corner
       unsigned int minCorner = 0;
       double minDistance = std::numeric_limits<double>::max();
@@ -186,7 +233,7 @@ namespace duneuro
       // retrieve elements belonging to that corner
       std::vector<Element> candidates;
       elementNeighborhoodMap_->getNeighborsOfVertex(
-          vertexMapper_.subIndex(element, minCorner, GV::dimension),
+          vertexMapper_.subIndex(element_of_start_position_, minCorner, GV::dimension),
           std::back_inserter(candidates));
       // filter them and push them to the list
       for (const auto& e : candidates) {

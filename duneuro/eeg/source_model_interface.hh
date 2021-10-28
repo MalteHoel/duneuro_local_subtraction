@@ -83,7 +83,7 @@ namespace duneuro
     {
     }
 
-  private:
+  protected:
     std::shared_ptr<const SearchType> search_;
     std::shared_ptr<DipoleType> dipole_;
     ElementType dipoleElement_;
