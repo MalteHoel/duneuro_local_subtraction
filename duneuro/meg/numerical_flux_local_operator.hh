@@ -2,6 +2,7 @@
 #define DUNEURO_NUMERICAL_FLUX_LOCAL_OPERATOR_HH
 
 #include <memory>
+#include <string>
 
 #include <dune/grid/common/rangegenerators.hh>
 
@@ -40,7 +41,7 @@ namespace duneuro
     };
 
     LocalBasisNumericalFlux(std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider,
-                            double penalty, bool weights, const Basis& basis,
+                            double penalty, std::string weights, const Basis& basis,
                             std::size_t localBasisIndex, const EG& eg, const T& tensor)
         : volumeConductor_(volumeConductor)
         , edgeNormProvider_(edgeNormProvider)
@@ -51,8 +52,9 @@ namespace duneuro
         , eg_(eg)
         , tensor_(tensor)
     {
+    std::cout << 1 << std::endl;
     }
-
+    
     template <class Domain, class Range>
     void evaluate(const Domain& x, Range& y) const
     {
@@ -95,7 +97,7 @@ namespace duneuro
       RF harmonic_average;
       Range An_F_s;
       tensor_.mv(normal, An_F_s);
-      if (weights_) {
+      if (weights_.compare("constant")) { //previously: if (weights_)
         auto tensorOutside =
             intersection.neighbor() ? volumeConductor_->tensor(intersection.outside()) : tensor_;
         Range An_F_n;
@@ -104,7 +106,7 @@ namespace duneuro
         const RF delta_n = (An_F_n * normal);
         omega_s = delta_n / (delta_s + delta_n + 1e-20);
         harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-      } else {
+      } else if (weights_.compare("tensorOnly")) { //previously: else
         omega_s = 0.5;
         harmonic_average = 1.0;
       }
@@ -128,7 +130,7 @@ namespace duneuro
     std::shared_ptr<const VC> volumeConductor_;
     const ENP& edgeNormProvider_;
     double penalty_;
-    bool weights_;
+    std::string weights_;
     const Basis& basis_;
     std::size_t localBasisIndex_;
     const EG& eg_;
@@ -140,10 +142,12 @@ namespace duneuro
   template <class VC, class ENP, class Basis, class EG, class T>
   std::unique_ptr<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>> make_local_basis_numerical_flux(
       std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider, double penalty,
-      bool weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
+      std::string weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
   {
+   std::cout << 2 << std::endl;
     return std::make_unique<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>(
         volumeConductor, edgeNormProvider, penalty, weights, basis, localBasisIndex, eg, tensor);
+    std::cout << 3 << std::endl;     
   }
 
   template <class VC, class RF>
@@ -167,8 +171,9 @@ namespace duneuro
         : volumeConductor_(volumeConductor)
         , edgeNormProvider_(eegSolverConfig.get<std::string>("edge_norm_type"), 1.0)
         , penalty_(eegSolverConfig.get<double>("penalty"))
-        , weights_(eegSolverConfig.get<bool>("weights"))
+        , weights_(eegSolverConfig.get<std::string>("weights"))
     {
+    std::cout << 4 << std::endl;
     }
 
     // lfsu: potential space; lfsv: flux space
@@ -193,6 +198,7 @@ namespace duneuro
           r.accumulate(lfsv, j, x(lfsu, i) * coefficients[j]);
         }
       }
+       std::cout << 5 << std::endl;
     }
 
     // jacobian of volume term
@@ -217,13 +223,14 @@ namespace duneuro
           mat.accumulate(lfsv, j, lfsu, i, coefficients[j]);
         }
       }
+      std::cout << 6 << std::endl;
     }
 
   private:
     std::shared_ptr<const VC> volumeConductor_;
     EdgeNormProvider edgeNormProvider_;
     double penalty_;
-    bool weights_;
+    std::string weights_;
   };
 }
 
