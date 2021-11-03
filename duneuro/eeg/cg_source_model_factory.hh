@@ -123,11 +123,14 @@ namespace duneuro
             Vector>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
                      solver.elementSearch(), config);
       } else if (type == "localized_subtraction") {
-        return std::make_shared<LocalizedSubtractionSourceModel<
-            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
-            Vector, SubtractionContinuityType::continuous>>(
-            solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
-            solver.elementSearch(), config, solverConfig);
+        return std::make_shared<LocalizedSubtractionCGSourceModel<
+          typename Solver::Traits::VolumeConductor,
+          typename Solver::Traits::FunctionSpace,
+          Vector>>(
+            solver.volumeConductor(),
+            &(solver.functionSpace()),
+            solver.elementSearch(),
+            config);
       } else if (type == "whitney") {
         return std::make_shared<WhitneySourceModel<typename Solver::Traits::VolumeConductor,
                                                    typename Solver::Traits::FunctionSpace::GFS,

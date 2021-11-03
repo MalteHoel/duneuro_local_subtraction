@@ -22,22 +22,23 @@
 
 namespace duneuro {
 
-  template<class VolumeConductor, class FunctionSpace, class DOFVector>
+  template<class VolumeConductor, class FunctionSpace, class RHSContainer>
   class LocalizedSubtractionCGSourceModel
-    : public SourceModelBase<typename FunctionSpace::GFS::Traits::GridViewType, DOFVector>
+    : public SourceModelBase<typename FunctionSpace::GFS::Traits::GridViewType, RHSContainer>
   {
   public: 
     // typedefs
-    using BaseType = SourceModelBase<typename FunctionSpace::GFS::Traits::GridViewType, DOFVector>;
+    using BaseType = SourceModelBase<typename FunctionSpace::GFS::Traits::GridViewType, RHSContainer>;
     using SearchType = typename BaseType::SearchType;
     using DipoleType = typename BaseType::DipoleType;
-    using VectorType = DOFVector;
+    using VectorType = RHSContainer;
     using GridView = typename VolumeConductor::GridView;
     enum {dim = GridView::dimension};
     using Patch = ElementPatch<GridView>;
     using Element = typename BaseType::ElementType;
     using Intersection = typename GridView::Intersection;
     using GridFunctionSpace = typename FunctionSpace::GFS;
+    using DOFVector = Dune::PDELab::Backend::Vector<GridFunctionSpace, typename FunctionSpace::NT>;
     using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<GridFunctionSpace, DOFVector>;
     using LocalFunction = typename DiscreteGridFunction::LocalFunction;
     enum {diffOrder = 1};
@@ -85,7 +86,6 @@ namespace duneuro {
     
     
       // we first create the initial patch. We will later need to add a transitional region
-      std::cout << " Building patch\n";
       patchPtr = make_element_patch(volumeConductorPtr_,
                                     elementNeighborhoodMapPtr_,
                                     this->elementSearch(),
@@ -101,7 +101,6 @@ namespace duneuro {
       inner_boundary = patchPtr->extractBoundaryIntersections();
       transition_region = patchPtr->computeTransitionRegion();
       
-      std::cout << " Patch build\n";
       
       if(verbosity_ >= 1) {
         std::cout << " Inner region contains\t\t " << inner_region.size() << "\t elements\n";
@@ -109,10 +108,13 @@ namespace duneuro {
         std::cout << " Transition region contains\t " << transition_region.size() << "\t elements\n";
       }
       
+      
+      
       if(config_.get<bool>("write_vtu", false)) {
         vtu_write_patch_from_entities(inner_region, config_.get<std::string>("filename_inner_region"));
         vtu_write_patch_from_entities(transition_region, config_.get<std::string>("filename_transition_region"));
       }
+      
       
       // initialise chi. Here we view chi as a discrete grid function on the entire domain. This function is defined to be
       // 1 on the inner region, 0 on the outer region, and drops from 1 to 0 on the transition domain
@@ -137,9 +139,6 @@ namespace duneuro {
       
       // get sigma_infinity
       sigma_infinity = volumeConductorPtr_->tensor(this->dipoleElement_);
-      if(verbosity_ >= 2) {
-        std::cout << " sigma_infinity = " << sigma_infinity[0][0] << "\n"; // TODO : print the anisotropic case correctly
-      }
       
       // setup u_infinity and grad_u_infinity
       Tensor sigma_infinity_inv = sigma_infinity;
@@ -160,7 +159,6 @@ namespace duneuro {
     
     virtual void assembleRightHandSide(VectorType& vector) const override 
     {
-      vector = 0.0;
       assembleInteriorVolume(vector);
       assembleInteriorBoundary(vector);
       assembleTransitionVolume(vector);
@@ -197,7 +195,6 @@ namespace duneuro {
     //////////////////////////////////////////////////////////
     void assembleInteriorVolume(VectorType& vector) const
     {
-      std::cout << " Assembling integral over inner region\n";
       // to assemble the integral over the inner region, we need to loop over all elements making up the inner region
       for(const auto& element : inner_region) {
         // bind focal finite element and get necessary information regarding the element
@@ -250,7 +247,6 @@ namespace duneuro {
           } // end loop over local dofs
         } //end loop over quadrature points
       } //end loop over inner_region
-      std::cout << " Integral over inner region assembled\n";
       return;
     } //end assembleInteriorVolume
     
