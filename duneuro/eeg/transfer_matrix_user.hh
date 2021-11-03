@@ -11,6 +11,8 @@
 #include <duneuro/common/sparse_vector_container.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/io/data_tree.hh>
+#include <mutex>					// for std::mutex
+#include <fstream>					// include for writing to files
 
 namespace duneuro
 {
@@ -80,53 +82,102 @@ namespace duneuro
 
     template <class M>
     std::vector<typename Traits::DomainField> solve(const M& transferMatrix,
+   					 	      std::ofstream& rhs_assembly_ofstream,
+                                                    std::ofstream& tm_multiplication_ofstream,
                                                     DataTree dataTree = DataTree()) const
     {
       Dune::Timer timer;
       std::vector<typename Traits::DomainField> result;
       if (density_ == VectorDensity::sparse) {
         dataTree.set("density", "sparse");
-        result = solveSparse(transferMatrix);
+        result = solveSparse(transferMatrix, rhs_assembly_ofstream, tm_multiplication_ofstream);
       } else {
         dataTree.set("density", "dense");
-        result = solveDense(transferMatrix);
+        result = solveDense(transferMatrix, rhs_assembly_ofstream, tm_multiplication_ofstream);
       }
       dataTree.set("time", timer.elapsed());
       return result;
     }
 
     template <class M>
-    std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
+    std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix,
+    							    std::ofstream& rhs_assembly_ofstream,
+    							    std::ofstream& tm_multiplication_ofstream) const
     {
       using SVC = typename Traits::SparseRHSVector;
       SVC rhs;
+      
+      Dune::Timer timer(false);
+      std::mutex write_to_file_mutex;
+      
+      timer.start();
       sparseSourceModel_->assembleRightHandSide(rhs);
+      timer.stop();
+      double time_rhs_assembly = timer.lastElapsed();
+
+      {
+        std::lock_guard<std::mutex> lock(write_to_file_mutex);
+        rhs_assembly_ofstream << time_rhs_assembly << "\n";
+      }
+
 
       const auto blockSize = Traits::DenseRHSVector::block_type::dimension;
 
+      timer.start();
       std::vector<typename Traits::DomainField> output;
-      if (blockSize == 1) {
-        return matrix_sparse_vector_product(transferMatrix, rhs,
-                                            [](const typename SVC::Index& c) { return c[0]; });
-      } else {
-        return matrix_sparse_vector_product(
+
+      auto product = (blockSize == 1) ? matrix_sparse_vector_product(transferMatrix, rhs,
+                                            [](const typename SVC::Index& c) { return c[0]; }) 
+                                   : matrix_sparse_vector_product(
             transferMatrix, rhs,
             [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
+
+      timer.stop();
+      double time_matrix_vector_product = timer.lastElapsed();
+      
+      {    
+        std::lock_guard<std::mutex> lock(write_to_file_mutex);
+        tm_multiplication_ofstream << time_matrix_vector_product << "\n";
       }
+      
+      return product;
     }
 
     template <class M>
-    std::vector<typename Traits::DomainField> solveDense(const M& transferMatrix) const
+    std::vector<typename Traits::DomainField> solveDense(const M& transferMatrix,
+    							   std::ofstream& rhs_assembly_ofstream,
+    							   std::ofstream& tm_multiplication_ofstream) const
     {
+      Dune::Timer timer(false);
+      std::mutex write_to_file_mutex;
+    
+      timer.start();
       if (!denseRHSVector_) {
         denseRHSVector_ = make_range_dof_vector(*solver_, 0.0);
       } else {
         *denseRHSVector_ = 0.0;
       }
       denseSourceModel_->assembleRightHandSide(*denseRHSVector_);
-
-      return matrix_dense_vector_product(transferMatrix,
+      timer.stop();
+      double time_rhs_assembly = timer.lastElapsed();
+      
+      {
+        std::lock_guard<std::mutex> lock(write_to_file_mutex);
+        rhs_assembly_ofstream << time_rhs_assembly << "\n";
+      }
+      
+      
+      timer.start();
+      auto product_vector = matrix_dense_vector_product(transferMatrix,
                                          Dune::PDELab::Backend::native(*denseRHSVector_));
+      timer.stop();
+      double time_matrix_vector_product = timer.lastElapsed();
+      {
+        std::lock_guard<std::mutex> lock(write_to_file_mutex);
+        tm_multiplication_ofstream << time_matrix_vector_product << "\n";
+      }
+    
+      return product_vector;
     }
 
   private:

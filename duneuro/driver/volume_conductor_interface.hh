@@ -14,6 +14,11 @@
 
 #include <vector>
 
+#include <fstream>					// include for writing to files
+
+#include <dune/common/exceptions.hh>                        // include for Dune::Exception and derived classes
+
+#include <mutex>					// for std::mutex
 namespace duneuro {
 
 template <int dim> struct VolumeConductorInterface {
@@ -226,8 +231,29 @@ protected:
     const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 
+
+    std::ofstream binding_times;
+    std::ofstream rhs_assembly_times;
+    std::ofstream tm_multiplication_times;
+    
+    binding_times.open("binding_times.txt");
+    rhs_assembly_times.open("rhs_assembly_times.txt");
+    tm_multiplication_times.open("tm_multiplication_times.txt");
+
+    if(!(binding_times && rhs_assembly_times && tm_multiplication_times)) {
+     DUNE_THROW(Dune::Exception, " Failed to open files for writing times");
+    }
+
+    binding_times << "Times needed for binding dipoles\n";
+    rhs_assembly_times << " Times needed for assembly of RHS\n";
+    tm_multiplication_times << " Times needed for matrix vector multiplication\n";
+
     using User = typename Traits::TransferMatrixUser;
 #if HAVE_TBB
+
+    std::mutex write_to_file_mutex;
+
+
     auto grainSize = config.get<int>("grainSize", 16);
     tbb::task_scheduler_init init(
         config.hasKey("numberOfThreads")
@@ -241,9 +267,27 @@ protected:
                                 config_complete.sub("solver"));
           for (std::size_t index = range.begin(); index != range.end();
                ++index) {
+            
+            Dune::Timer timer(false);
+            
             auto dt = dataTree.sub("dipole_" + std::to_string(index));
+            
+            timer.start();
             myUser.bind(dipoles[index], dt);
-            auto current = myUser.solve(transferMatrix, dt);
+            timer.stop();
+            
+            double time_for_bind = timer.lastElapsed();
+            {
+              std::lock_guard<std::mutex> lock(write_to_file_mutex);
+              binding_times << time_for_bind << "\n";
+            }
+            
+            
+            
+            auto current = myUser.solve(transferMatrix,
+                                        rhs_assembly_times,
+                                        tm_multiplication_times,
+                                        dt);
             if (config.get<bool>("post_process")) {
               myUser.postProcessPotential(projectedGlobalElectrodes, current);
             }
@@ -260,7 +304,7 @@ protected:
     for (std::size_t index = 0; index < dipoles.size(); ++index) {
       auto dt = dataTree.sub("dipole_" + std::to_string(index));
       myUser.bind(dipoles[index], dt);
-      auto current = myUser.solve(transferMatrix, dt);
+      auto current = myUser.solve(transferMatrix, rhs_assembly_times, tm_multiplication_times, dt);
       if (config.get<bool>("post_process")) {
         myUser.postProcessPotential(projectedGlobalElectrodes, current);
       }
@@ -284,6 +328,9 @@ protected:
     const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 
+    std::ofstream rhs_assembly_times;
+    std::ofstream tm_multiplication_times;
+
     using User = typename Traits::TransferMatrixUser;
 
 #if HAVE_TBB
@@ -302,7 +349,7 @@ protected:
                ++index) {
             auto dt = dataTree.sub("dipole_" + std::to_string(index));
             myUser.bind(dipoles[index], dt);
-            result[index] = myUser.solve(transferMatrix, dt);
+            result[index] = myUser.solve(transferMatrix, rhs_assembly_times, tm_multiplication_times, dt); //TODO makes no sense
           }
         });
 #else
@@ -312,7 +359,7 @@ protected:
     for (std::size_t index = 0; index < dipoles.size(); ++index) {
       auto dt = dataTree.sub("dipole_" + std::to_string(index));
       myUser.bind(dipoles[index], dt);
-      result[index] = myUser.solve(transferMatrix, dt);
+      result[index] = myUser.solve(transferMatrix, rhs_assembly_times, tm_multiplication_times, dt); //TODO makes no sense
     }
 #endif
     return result;

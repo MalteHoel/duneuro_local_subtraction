@@ -19,6 +19,7 @@
 #include <dune/common/fmatrix.hh>					            // include for the FieldMatrix data structure
 #include <dune/geometry/quadraturerules.hh>				        // include for quadrature rules
 #include <type_traits>                                          // include for std::decay
+#include <dune/common/timer.hh>                                 // for timing the code, more concretely for the Timer class
 
 namespace duneuro {
 
@@ -83,8 +84,7 @@ namespace duneuro {
     {
       // we first set the dipole member variable of the class
       this->dipole_ = std::make_shared<DipoleType>(dipole);
-    
-    
+      
       // we first create the initial patch. We will later need to add a transitional region
       patchPtr = make_element_patch(volumeConductorPtr_,
                                     elementNeighborhoodMapPtr_,
@@ -153,7 +153,7 @@ namespace duneuro {
                                       this->dipole_->position(),
                                       sigma_infinity,
                                       sigma_infinity_inv);
-      
+          
       return;
     }
     
