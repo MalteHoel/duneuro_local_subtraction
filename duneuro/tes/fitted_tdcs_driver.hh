@@ -80,15 +80,15 @@ namespace duneuro
 
 
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeEvaluationMatrix(const Dune::ParameterTree& config,
+    computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
                              DataTree dataTree = DataTree()) override{}
   
-    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+    virtual std::vector<std::vector<double>> applyTDCSEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
                                            const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
                                            Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
 
 
-    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+    virtual std::vector<std::vector<double>> applyTDCSEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
                                            Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const override {}
 
     virtual std::unique_ptr<DenseMatrix<double>> CenterEvaluation(const Function& solution)

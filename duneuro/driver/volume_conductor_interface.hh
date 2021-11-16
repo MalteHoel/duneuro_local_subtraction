@@ -163,6 +163,34 @@ public:
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
 
+  /**
+   * \brief compute the tDCS evaluation matrix
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
+                            const Dune::ParameterTree& config,
+                            DataTree dataTree = DataTree()) = 0;
+
+  /**
+   * \brief evaluate electric potential, field or current density for tDCS
+   *  by applying the evaluation matrix
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+      const DenseMatrix<double>& EvaluationMatrix,
+      const std::vector<CoordinateType>& positions,
+      Dune::ParameterTree config) const = 0;
+  /**
+   * \brief evaluate electric potential, field or current density for tDCS
+   *  by applying the evaluation matrix at the element centers
+   */  
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
+      const DenseMatrix<double>& EvaluationMatrix,
+      Dune::ParameterTree config) const = 0;
+
+   /**
+     * \brief return the label, volume and center of all mesh elements
+   */      
+  virtual std::unique_ptr<DenseMatrix<double>> elementStatistics() = 0;
+          
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
   /**

@@ -100,12 +100,14 @@ namespace duneuro
       using RangeType = typename BasisSwitch::Range;
 
       UST ust(subTriangulation_->gridView(), *subTriangulation_);
+      bool foundCompartment = 0;
       for (unsigned int i = 0; i < elements.size(); ++i) {
         const auto& element = elements[i];
         ust.create(element);
         for (const auto& ep : ust) {
           if (ep.domainIndex() != child_)
             continue;
+          foundCompartment = 1;
           lfs.bind(ep.subEntity(), true);
           cache.update();
           FESwitch::basis(childLfs.finiteElement()).reset();
@@ -128,6 +130,12 @@ namespace duneuro
             ++offset;
           }
           break;
+        }
+        if (!foundCompartment) {
+          DUNE_THROW(Dune::Exception,
+                     "dipole should be in compartment "
+                         << child_
+                         << " but no such compartment was found in the fundamental element");
         }
       }
     }

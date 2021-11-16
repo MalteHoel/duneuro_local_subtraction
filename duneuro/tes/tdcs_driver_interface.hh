@@ -19,23 +19,24 @@ namespace duneuro
     virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
     virtual void solveTDCSForward(Function& solution, const Dune::ParameterTree& config,
                                   DataTree dataTree = DataTree()) = 0;
-                                  
+
     virtual void write(const Function& solution, const Dune::ParameterTree& config,
                        DataTree dataTree = DataTree()) const = 0;
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) const = 0;
     virtual void setElectrodes(const std::vector<CoordinateType>& electrodes,
                                const Dune::ParameterTree& config) = 0;
     virtual std::unique_ptr<DenseMatrix<double>>
-    computeEvaluationMatrix(const Dune::ParameterTree& config,
-                             DataTree dataTree = DataTree()) = 0;
-  
-    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
-                                           const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
-                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const = 0;
+    computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
+                                DataTree dataTree = DataTree()) = 0;
 
+    virtual std::vector<std::vector<double>> applyTDCSEvaluationMatrix(
+        const DenseMatrix<double>& EvaluationMatrix,
+        const std::vector<typename TDCSDriverInterface<dim>::CoordinateType>& positions,
+        Dune::ParameterTree cfg, DataTree dataTree = DataTree()) const = 0;
 
-    virtual std::vector<std::vector<double>> applyEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
-                                           Dune::ParameterTree cfg, DataTree dataTree = DataTree() ) const = 0;
+    virtual std::vector<std::vector<double>>
+    applyTDCSEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree cfg,
+                              DataTree dataTree = DataTree()) const = 0;
     virtual std::unique_ptr<DenseMatrix<FieldType>> CenterEvaluation(const Function& solution) = 0;
     virtual ~TDCSDriverInterface()
     {

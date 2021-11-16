@@ -33,6 +33,7 @@
 #include <duneuro/io/refined_vtk_writer.hh>
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
+#include <duneuro/tes/tdcs_solver.hh>
 
 namespace duneuro {
 template <int dim> struct SubTriangulationTraits {
@@ -90,6 +91,8 @@ struct UnfittedDriverTraits {
                                     compartments>::SolverBackendType;
 
   using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+  using TdcsRHSFactory = UnfittedTdcsRHSFactory;
+
   static constexpr bool scaleToBBox() {
     return SelectUnfittedSolver<solverType, dim, degree,
                                 compartments>::scaleToBBox();
@@ -133,7 +136,9 @@ public:
         eegTransferMatrixSolver_(solver_, config.sub("solver")),
         eegForwardSolver_(solver_),
         conductivities_(
-            config.get<std::vector<double>>("solver.conductivities")) {
+            config.get<std::vector<double>>("solver.conductivities")),
+        tdcsSolver_(solver_, subTriangulation_, config_)
+ {
   }
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -292,6 +297,94 @@ public:
         transferMatrix, dipoles, config, dataTree, config_, solver_);
   }
 
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
+                                DataTree dataTree = DataTree()) override
+    {
+      return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
+                                              dataTree);
+    }
+
+    virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+        const DenseMatrix<double>& EvaluationMatrix,
+        const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+        Dune::ParameterTree config) const override
+    {
+      KDTreeElementSearch<typename Traits::GridView> search(
+          solver_->functionSpace().getGFS().gridView());
+      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
+          positions.size());
+      std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
+      std::size_t index = 0;
+      for (const auto& coord : positions) {
+        const auto& element = search.findEntity(coord);
+        elements[index] = element;
+        auto local = element.geometry().local(coord);
+        localPositions[index] = local;
+        std::cout << local << std::endl;
+        std::cout << element.geometry().global(local) << std::endl;
+        index++;
+      }
+      return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
+                                                   config);
+    }
+    virtual std::unique_ptr<DenseMatrix<double>>
+    applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                       Dune::ParameterTree config) const override
+    {
+      unsigned int numberHostCells = 0;
+      for (const auto& element :
+           Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
+      {
+        if (subTriangulation_->isHostCell(element)) {
+          numberHostCells += 1;
+        }
+      }
+      std::size_t offset = 0;
+      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
+          numberHostCells);
+      std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(numberHostCells);
+      for (const auto& element : Dune::elements(fundamentalGridView_)) {
+        if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
+        {
+          continue;
+        }
+        elements[offset] = element;
+        localPositions[offset] = element.geometry().local(element.geometry().center());
+        offset += 1;
+      }
+      return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
+                                                   config);
+    }
+
+    virtual std::unique_ptr<DenseMatrix<double>> elementStatistics()
+    {
+      unsigned int numberHostCells = 0;
+      for (const auto& element :
+           Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
+      {
+        if (subTriangulation_->isHostCell(element)) {
+          numberHostCells += 1;
+        }
+      }
+      auto elementStatistics =
+          Dune::Std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
+      std::size_t index = 0;
+      for (const auto& element : Dune::elements(fundamentalGridView_)) {
+        if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
+        {
+          continue;
+        }
+        std::vector<double> z(Traits::GridView::dimension);
+        auto dummy = element.geometry().center();
+        for (unsigned int i = 0; i < Traits::GridView::dimension; ++i) {
+          z[i] = dummy[i];
+        }
+        set_matrix_row(*elementStatistics, index, z);
+        index++;
+      }
+      return elementStatistics;
+    }
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
     return projectedGlobalElectrodes_;
@@ -343,6 +436,9 @@ private:
                                 Traits::GridView::dimension>>
       projectedGlobalElectrodes_;
   std::vector<double> conductivities_;
+  TDCSSolver<typename Traits::Solver, typename Traits::TdcsRHSFactory,
+            typename Traits::SubTriangulation>
+      tdcsSolver_;
 };
 
 } // namespace duneuro
