@@ -40,7 +40,7 @@ namespace duneuro
     };
 
     LocalBasisNumericalFlux(std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider,
-                            double penalty, bool weights, const Basis& basis,
+                            double penalty, PenaltyFluxWeightsTypes weights, const Basis& basis,
                             std::size_t localBasisIndex, const EG& eg, const T& tensor)
         : volumeConductor_(volumeConductor)
         , edgeNormProvider_(edgeNormProvider)
@@ -95,18 +95,27 @@ namespace duneuro
       RF harmonic_average;
       Range An_F_s;
       tensor_.mv(normal, An_F_s);
-      if (weights_) {
-        auto tensorOutside =
+      switch (weights_) {
+        case PenaltyFluxWeightsTypes::tensorOnly:
+        {
+          auto tensorOutside =
             intersection.neighbor() ? volumeConductor_->tensor(intersection.outside()) : tensor_;
-        Range An_F_n;
-        tensorOutside.mv(normal, An_F_n);
-        const RF delta_s = (An_F_s * normal);
-        const RF delta_n = (An_F_n * normal);
-        omega_s = delta_n / (delta_s + delta_n + 1e-20);
-        harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
-      } else {
-        omega_s = 0.5;
-        harmonic_average = 1.0;
+          Range An_F_n;
+          tensorOutside.mv(normal, An_F_n);
+          const RF delta_s = (An_F_s * normal);
+          const RF delta_n = (An_F_n * normal);
+          omega_s = delta_n / (delta_s + delta_n + 1e-20);
+          harmonic_average = 2.0 * delta_s * delta_n / (delta_s + delta_n + 1e-20);
+          break;
+        }
+        case PenaltyFluxWeightsTypes::constant:
+        {
+          omega_s = 0.5;
+          harmonic_average = 1.0;
+          break;
+        }
+        default:
+          DUNE_THROW(Dune::Exception, "illegal weighting for a DG method");
       }
       y *= omega_s;
 
@@ -128,7 +137,7 @@ namespace duneuro
     std::shared_ptr<const VC> volumeConductor_;
     const ENP& edgeNormProvider_;
     double penalty_;
-    bool weights_;
+    const PenaltyFluxWeightsTypes weights_;
     const Basis& basis_;
     std::size_t localBasisIndex_;
     const EG& eg_;
@@ -140,7 +149,7 @@ namespace duneuro
   template <class VC, class ENP, class Basis, class EG, class T>
   std::unique_ptr<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>> make_local_basis_numerical_flux(
       std::shared_ptr<const VC> volumeConductor, const ENP& edgeNormProvider, double penalty,
-      bool weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
+      PenaltyFluxWeightsTypes weights, const Basis& basis, std::size_t localBasisIndex, const EG& eg, const T& tensor)
   {
     return std::make_unique<LocalBasisNumericalFlux<VC, ENP, Basis, EG, T>>(
         volumeConductor, edgeNormProvider, penalty, weights, basis, localBasisIndex, eg, tensor);
@@ -167,7 +176,7 @@ namespace duneuro
         : volumeConductor_(volumeConductor)
         , edgeNormProvider_(eegSolverConfig.get<std::string>("edge_norm_type"), 1.0)
         , penalty_(eegSolverConfig.get<double>("penalty"))
-        , weights_(eegSolverConfig.get<bool>("weights"))
+        , weighting_(penaltyFluxWeightingFromString(eegSolverConfig.get<std::string>("weights")))
     {
     }
 
@@ -186,7 +195,7 @@ namespace duneuro
 
       for (unsigned int i = 0; i < lfsu.size(); ++i) {
         auto numerical_flux = make_local_basis_numerical_flux(
-            volumeConductor_, edgeNormProvider_, penalty_, weights_,
+            volumeConductor_, edgeNormProvider_, penalty_, weighting_,
             UFESwitch::basis(lfsu.finiteElement()), i, eg, conductivity);
         VFESwitch::interpolation(lfsv.finiteElement()).interpolate(*numerical_flux, coefficients);
         for (unsigned int j = 0; j < lfsv.size(); ++j) {
@@ -210,7 +219,7 @@ namespace duneuro
 
       for (unsigned int i = 0; i < lfsu.size(); ++i) {
         auto numerical_flux = make_local_basis_numerical_flux(
-            volumeConductor_, edgeNormProvider_, penalty_, weights_,
+            volumeConductor_, edgeNormProvider_, penalty_, weighting_,
             UFESwitch::basis(lfsu.finiteElement()), i, eg, conductivity);
         VFESwitch::interpolation(lfsv.finiteElement()).interpolate(*numerical_flux, coefficients);
         for (unsigned int j = 0; j < lfsv.size(); ++j) {
@@ -223,7 +232,7 @@ namespace duneuro
     std::shared_ptr<const VC> volumeConductor_;
     EdgeNormProvider edgeNormProvider_;
     double penalty_;
-    bool weights_;
+    PenaltyFluxWeightsTypes weighting_;
   };
 }
 
