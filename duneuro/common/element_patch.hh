@@ -117,10 +117,7 @@ namespace duneuro
       extend(ex, repeatUntil);
     }
 
-    //
-    // I deleted the reference here
-    //
-    const std::vector<Element> elements() const
+    const std::vector<Element> & elements() const
     {
       return elements_;
     }
@@ -149,46 +146,48 @@ namespace duneuro
       return out;
     }
 
-
-    // written by me
     Element initialElement()
     {
       return element_of_start_position_;
     }
 
-    size_t sizeOfPatch() {
-      return elements_.size();
-    }
-
     // For the CG localized subtraction source model, we need one additional vertex extension as a transitional region
     // for chi to drop to zero. This function computes a vector containing the elements of this transitional region,
     // where we assume that the inner region of the patch has already been computed
-    std::vector<Element> computeTransitionRegion()
+    std::vector<Element> transitionElements()
     {
-      // we essentially need to perfrom one additional vertex extension and simply store the new elements inside the array
+      // we perform a lazy evaluation
+      if (!transitionElements_)
+      {
+        transitionElements_ = std::make_shared<std::vector<Element>>();
 
-      // we first get all elements that share a vertex with one element in the current patch. Note that candidates get included mutliple times
-      std::vector<Element> candidates;
-      for(const auto& element : elements_) {
-        elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));
-      }
+        // we essentially need to perfrom one additional vertex
+        // extension and simply store the new elements inside the
+        // array
 
-      // we now check all candidates to see if they are new additions
-      std::vector<Element> transitionElements;
-      std::set<std::size_t> visitedTransitionElementIndices;
-      for(const auto& candidate : candidates) {
-        auto index = elementMapper_.index(candidate);
-        // check if candidate is not in inner region as was not already included earlier
-        if(elementIndices_.count(index) == 0 && visitedTransitionElementIndices.count(index) == 0) {
-          transitionElements.push_back(candidate);
-          visitedTransitionElementIndices.insert(index);
+        // we first get all elements that share a vertex with one
+        // element in the current patch. Note that candidates get
+        // included mutliple times
+        std::vector<Element> candidates;
+        for(const auto& element : elements_) {
+          elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));
+        }
+
+        // we now check all candidates to see if they are new additions
+        std::set<std::size_t> visitedTransitionElementIndices;
+        for(const auto& candidate : candidates) {
+          auto index = elementMapper_.index(candidate);
+          // check if candidate is not in inner region as was not already included earlier
+          if(elementIndices_.count(index) == 0 &&
+            visitedTransitionElementIndices.count(index) == 0) {
+            transitionElements_->push_back(candidate);
+            visitedTransitionElementIndices.insert(index);
+          }
         }
       }
-
-      return transitionElements;
+      return *transitionElements_;
     }
 
-    // end of part written by me
 
   private:
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
@@ -197,11 +196,10 @@ namespace duneuro
     ElementMapper elementMapper_;
     VertexMapper vertexMapper_;
 
-    // written by me
     Element element_of_start_position_;
-
     std::vector<Element> elements_;
     std::set<std::size_t> elementIndices_;
+    std::shared_ptr<std::vector<Element>> transitionElements_;
 
     template <typename ElementSearch>
     void initializeSingleElement(const ElementSearch& elementSearch, const Coordinate& position)
