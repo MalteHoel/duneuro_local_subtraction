@@ -206,96 +206,122 @@ namespace duneuro
       using RF = typename BasisSwitch::RangeField;
       using RangeType = typename BasisSwitch::Range;
 
-      SubLFS sublfs(subFS_->getGFS());
-      SubLFSCache subcache(sublfs);
       HostLFS hostlfs_inside(functionSpace_->getGFS());
       HostLFSCache hostcache_inside(hostlfs_inside);
       HostLFS hostlfs_outside(functionSpace_->getGFS());
       HostLFSCache hostcache_outside(hostlfs_outside);
-      for (const auto& is : patchBoundaryIntersections_) {
-        const auto& geo = is.geometry();
 
+      Dune::PDELab::LocalVector<RF> v_inside;
+      Dune::PDELab::LocalVector<RF> v_outside;
+
+        // local operator
+        auto lop_call = [this](const auto& is, const auto& lfs_inside, const auto& lfs_outside, auto& v_inside, auto& v_outside)
+        {
+          const auto& geo = is.geometry();
+          const auto& inside = is.inside();
+          const auto& outside = is.outside();
+
+          const auto& A_s = this->volumeConductor_->tensor(inside);
+          const auto& A_n = this->volumeConductor_->tensor(outside);
+
+          const auto& n_F = is.centerUnitOuterNormal();
+
+          auto weights = weighting_(is, A_s, A_n);
+
+          // note: edgenorm provider needs the intersectiongeometry interface
+          RF h_F;
+          edgeNormProvider_.edgeNorm(
+              Dune::PDELab::IntersectionGeometry<typename HostGridView::Intersection>(is, 0), h_F);
+
+          const int order_s = FESwitch::basis(lfs_inside.finiteElement()).order();
+          const int order_n = FESwitch::basis(lfs_outside.finiteElement()).order();
+
+          const int degree = std::max(order_s, order_n);
+          const RF penalty_factor =
+              (penalty_ / h_F) * weights.penaltyWeight * degree * (degree + VC::dim - 1);
+
+          const int intorder = intorderadd_lb_ + 2 * degree;
+
+          std::vector<RangeType> phi_s(lfs_inside.size());
+          std::vector<RangeType> phi_n(lfs_outside.size());
+          std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_s(lfs_inside.size());
+          std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_n(lfs_outside.size());
+          std::vector<Dune::FieldVector<RF, dim>> Agradpsi_s(lfs_inside.size());
+          std::vector<Dune::FieldVector<RF, dim>> Agradpsi_n(lfs_outside.size());
+          const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
+          for (const auto& qp : rule) {
+            auto qp_inside = is.geometryInInside().global(qp.position());
+            auto qp_outside = is.geometryInOutside().global(qp.position());
+            // evaluate basis function and their gradients
+            FESwitch::basis(lfs_inside.finiteElement()).evaluateFunction(qp_inside, phi_s);
+            BasisSwitch::gradient(FESwitch::basis(lfs_inside.finiteElement()), inside.geometry(),
+                                  qp_inside, gradpsi_s);
+            FESwitch::basis(lfs_outside.finiteElement()).evaluateFunction(qp_outside, phi_n);
+            BasisSwitch::gradient(FESwitch::basis(lfs_outside.finiteElement()),
+                                  outside.geometry(), qp_outside, gradpsi_n);
+            // compute sigma*gradient_psi
+            for (unsigned int i = 0; i < gradpsi_s.size(); ++i)
+              A_s.mv(gradpsi_s[i][0], Agradpsi_s[i]);
+            for (unsigned int i = 0; i < gradpsi_n.size(); ++i)
+              A_n.mv(gradpsi_n[i][0], Agradpsi_n[i]);
+
+            RF factor = qp.weight() * geo.integrationElement(qp.position());
+
+            // compute infinity potential and its gradient
+            auto global = geo.global(qp.position());
+            auto uinfty = hostProblem_->get_u_infty(global);
+            auto graduinfty = hostProblem_->get_grad_u_infty(global);
+            Dune::FieldVector<RF, VC::dim> A_s_graduinfty;
+            A_s.mv(graduinfty, A_s_graduinfty);
+
+            // assemble the integrals
+            auto term1 = factor * (n_F * A_s_graduinfty);
+            auto term2 = factor * uinfty;
+            auto term3 = term2 * penalty_factor;
+            for (unsigned int i = 0; i < lfs_inside.size(); i++) {
+              v_inside.accumulate(lfs_inside, i,
+                phi_s[i] * term1
+                - phi_s[i] * weights.fluxOutsideWeight * term1
+                + (Agradpsi_s[i] * n_F) * term2 * weights.fluxInsideWeight // symmetry term
+                - phi_s[i] * term3 // penalty term
+              );
+            }
+            for (unsigned int i = 0; i < lfs_outside.size(); i++) {
+              v_outside.accumulate(lfs_outside, i,
+                - phi_n[i] * weights.fluxInsideWeight * term1
+                + (Agradpsi_n[i] * n_F) * term2 * weights.fluxOutsideWeight // symmetry term
+                + phi_n[i] * term3 // penalty term
+              );
+            }
+          }
+        };
+
+      for (const auto& is : patchBoundaryIntersections_) {
         // retrieve and bind inside
-        const auto& inside = is.inside();
-        hostlfs_inside.bind(inside);
+        hostlfs_inside.bind(is.inside());
         hostcache_inside.update();
-        const auto& A_s = volumeConductor_->tensor(inside);
 
         // retrieve and bind outside
-        const auto& outside = is.outside();
-        hostlfs_outside.bind(outside);
+        hostlfs_outside.bind(is.outside());
         hostcache_outside.update();
-        const auto& A_n = volumeConductor_->tensor(outside);
 
-        const auto& n_F = is.centerUnitOuterNormal();
+        // resize local vectors
+        v_inside.resize(hostcache_inside.size());
+        v_outside.resize(hostcache_outside.size());
 
-        auto weights = weighting_(is, A_s, A_n);
+        // call local operator
+        auto view_inside = v_inside.weightedAccumulationView(1.0);
+        auto view_outside = v_outside.weightedAccumulationView(1.0);
+        lop_call(is, hostlfs_inside, hostlfs_outside, view_inside, view_outside);
 
-        // note: edgenorm provider needs the intersectiongeometry interface
-        RF h_F;
-        edgeNormProvider_.edgeNorm(
-            Dune::PDELab::IntersectionGeometry<typename HostGridView::Intersection>(is, 0), h_F);
-
-        const int order_s = FESwitch::basis(hostlfs_inside.finiteElement()).order();
-        const int order_n = FESwitch::basis(hostlfs_outside.finiteElement()).order();
-
-        const int degree = std::max(order_s, order_n);
-        const RF penalty_factor =
-            (penalty_ / h_F) * weights.penaltyWeight * degree * (degree + VC::dim - 1);
-
-        const int intorder = intorderadd_lb_ + 2 * degree;
-
-        std::vector<RangeType> phi_s(hostcache_inside.size());
-        std::vector<RangeType> phi_n(hostcache_outside.size());
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_s(hostcache_inside.size());
-        std::vector<Dune::FieldMatrix<RF, 1, dim>> gradpsi_n(hostcache_outside.size());
-        std::vector<Dune::FieldVector<RF, dim>> Agradpsi_s(hostcache_inside.size());
-        std::vector<Dune::FieldVector<RF, dim>> Agradpsi_n(hostcache_outside.size());
-        const auto& rule = Dune::QuadratureRules<DF, VC::dim - 1>::rule(geo.type(), intorder);
-        for (const auto& qp : rule) {
-          auto qp_inside = is.geometryInInside().global(qp.position());
-          auto qp_outside = is.geometryInOutside().global(qp.position());
-          // evaluate basis function and their gradients
-          FESwitch::basis(hostlfs_inside.finiteElement()).evaluateFunction(qp_inside, phi_s);
-          BasisSwitch::gradient(FESwitch::basis(hostlfs_inside.finiteElement()), inside.geometry(),
-                                qp_inside, gradpsi_s);
-          FESwitch::basis(hostlfs_outside.finiteElement()).evaluateFunction(qp_outside, phi_n);
-          BasisSwitch::gradient(FESwitch::basis(hostlfs_outside.finiteElement()),
-                                outside.geometry(), qp_outside, gradpsi_n);
-          // compute sigma*gradient_psi
-          for (unsigned int i = 0; i < gradpsi_s.size(); ++i)
-            A_s.mv(gradpsi_s[i][0], Agradpsi_s[i]);
-          for (unsigned int i = 0; i < gradpsi_n.size(); ++i)
-            A_n.mv(gradpsi_n[i][0], Agradpsi_n[i]);
-
-          RF factor = qp.weight() * geo.integrationElement(qp.position());
-
-          // compute infinity potential and its gradient
-          auto global = geo.global(qp.position());
-          auto uinfty = hostProblem_->get_u_infty(global);
-          auto graduinfty = hostProblem_->get_grad_u_infty(global);
-          Dune::FieldVector<RF, VC::dim> A_s_graduinfty;
-          A_s.mv(graduinfty, A_s_graduinfty);
-
-          // assemble the integrals
-          auto term1 = factor * (n_F * A_s_graduinfty);
-          auto term2 = factor * uinfty;
-          auto term3 = term2 * penalty_factor;
-          for (unsigned int i = 0; i < hostcache_inside.size(); i++) {
-            auto index = hostcache_inside.containerIndex(i);
-            vector[index] += phi_s[i] * term1;
-            vector[index] += -phi_s[i] * weights.fluxOutsideWeight * term1;
-            vector[index] +=
-                (Agradpsi_s[i] * n_F) * term2 * weights.fluxInsideWeight; // symmetry term
-            vector[index] += -phi_s[i] * term3; // penalty term
-          }
-          for (unsigned int i = 0; i < hostcache_outside.size(); i++) {
-            auto index = hostcache_outside.containerIndex(i);
-            vector[index] += -phi_n[i] * weights.fluxInsideWeight * term1;
-            vector[index] +=
-                (Agradpsi_n[i] * n_F) * term2 * weights.fluxOutsideWeight; // symmetry term
-            vector[index] += phi_n[i] * term3; // penalty term
-          }
+        // copy back to main vector
+        for (unsigned int i = 0; i < hostcache_inside.size(); i++) {
+          auto index = hostcache_inside.containerIndex(i);
+          vector[index] += v_inside(hostlfs_inside,i);
+        }
+        for (unsigned int i = 0; i < hostcache_outside.size(); i++) {
+          auto index = hostcache_outside.containerIndex(i);
+          vector[index] += v_outside(hostlfs_outside,i);
         }
       }
     }
