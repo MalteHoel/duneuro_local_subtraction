@@ -351,7 +351,6 @@ namespace duneuro
       }
       tensors.push_back(t);
     }
-    typename VC::GridView gv = grid->leafGridView();
     return std::make_shared<VC>(std::move(grid), *labels, tensors);
   }
 

@@ -55,7 +55,6 @@ namespace duneuro
       Eigen::VectorXd systemRHS = momentMatrix.transpose() * rightHandSide;
       Eigen::VectorXd solution = systemMatrix.colPivHouseholderQr().solve(systemRHS);
       std::vector<T> result;
-      unsigned int count = 0;
       for (unsigned int i = 0; i < solution.size(); ++i) {
         result.push_back(solution[i]);
       }
