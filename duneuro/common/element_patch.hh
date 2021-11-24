@@ -174,7 +174,8 @@ namespace duneuro
       // find closest corner
       unsigned int minCorner = 0;
       double minDistance = std::numeric_limits<double>::max();
-      for (unsigned int i = 0; i < geo.corners(); ++i) {
+      unsigned int corners = geo.corners();
+      for (unsigned int i = 0; i < corners; ++i) {
         Coordinate tmp = position;
         tmp -= geo.corner(i);
         double tn = tmp.two_norm();

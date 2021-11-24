@@ -54,7 +54,8 @@ namespace duneuro
     {
       const auto& geo = element.geometry();
       std::set<typename GV::IndexSet::IndexType> usedElements;
-      for (unsigned int i = 0; i < geo.corners(); ++i) {
+      unsigned int corners = geo.corners();
+      for (unsigned int i = 0; i < corners; ++i) {
         auto vertexIndex = vertexMapper_.subIndex(element, i, GV::dimension);
         for (const auto& es : vertexToElements_[vertexIndex]) {
           const auto& candidate = gridView_.grid().entity(es);
