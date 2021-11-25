@@ -120,8 +120,8 @@ namespace duneuro
     using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
     using RF = typename BasisSwitch::RangeField;
 
-    Dune::PDELab::LocalVector<RF> v_inside;
-    Dune::PDELab::LocalVector<RF> v_outside;
+    mutable Dune::PDELab::LocalVector<RF> v_inside;
+    mutable Dune::PDELab::LocalVector<RF> v_outside;
 
     template<typename Vector, typename Caller>
     void assembleElementSetVolume(Vector& vector,
@@ -157,10 +157,10 @@ namespace duneuro
     std::shared_ptr<ElementNeighborhoodMap<typename VC::GridView>> elementNeighborhoodMap_;
     Dune::ParameterTree config_;
 
-    LFS lfs_inside;
-    LFSCache cache_inside;
-    LFS lfs_outside;
-    LFSCache cache_outside;
+    mutable LFS lfs_inside;
+    mutable LFSCache cache_inside;
+    mutable LFS lfs_outside;
+    mutable LFSCache cache_outside;
     
     std::vector<Element> patchElements_;
     std::vector<Intersection> patchBoundaryIntersections_;
