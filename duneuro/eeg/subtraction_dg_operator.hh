@@ -3,14 +3,14 @@
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/eeg/subtraction_dg_lambda.hh>
+#include <duneuro/common/flags.hh>
 
 namespace duneuro
 {
-  enum class SubtractionContinuityType { continuous, discontinuous };
 
   /**** class definition of the operator ****/
   template <typename PROBLEMDATA, typename EdgeNormProvider, typename PenaltyFluxWeighting,
-            SubtractionContinuityType continuityType = SubtractionContinuityType::discontinuous>
+            ContinuityType continuityType = ContinuityType::discontinuous>
   class SubtractionDG : public SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>,
                         public Dune::PDELab::FullVolumePattern,
                         public Dune::PDELab::FullSkeletonPattern,
@@ -20,7 +20,7 @@ namespace duneuro
     /*** flags that tell the grid operator what to do ***/
     enum { doLambdaBoundary = true };
     enum { doLambdaVolume = true };
-    enum { doLambdaSkeleton = continuityType == SubtractionContinuityType::discontinuous };
+    enum { doLambdaSkeleton = continuityType == ContinuityType::discontinuous };
 
     using SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>::lambda_volume;
     using SubtractionDGLambda<PROBLEMDATA, PenaltyFluxWeighting>::lambda_boundary;

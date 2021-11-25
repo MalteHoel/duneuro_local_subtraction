@@ -21,10 +21,11 @@
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
 #include <duneuro/eeg/localized_subtraction_dg_local_operator.hh>
+#include <duneuro/common/flags.hh>
 
 namespace duneuro
 {
-  template <class VC, class FS, class V>
+  template <class VC, class FS, class V, ContinuityType continuityType>
   class LocalizedSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {

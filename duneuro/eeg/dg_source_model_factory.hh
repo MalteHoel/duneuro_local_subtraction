@@ -9,6 +9,7 @@
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/driver/feature_manager.hh>
+#include <duneuro/common/flags.hh>
 
 namespace duneuro
 {
@@ -32,12 +33,12 @@ namespace duneuro
       } else if (type == "subtraction") {
         return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V,
-            SubtractionContinuityType::discontinuous>>(
+            ContinuityType::discontinuous>>(
             solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
             solverConfig);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
-            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V, ContinuityType::discontinuous>>(
             solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
             solver.elementSearch(), config, solverConfig);
       } else if (type == "truncated_spatial_venant") {
@@ -68,7 +69,7 @@ namespace duneuro
                 config);
       } else if (type == "localized_subtraction") {
         return std::make_shared<LocalizedSubtractionSourceModel<
-            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V>>(
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V, ContinuityType::discontinuous>>(
             solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
             solver.elementSearch(), config, solverConfig);
       } else if (type == "truncated_spatial_venant") {

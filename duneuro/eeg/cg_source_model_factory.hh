@@ -13,6 +13,7 @@
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
 #include <duneuro/driver/feature_manager.hh>
+#include <duneuro/common/flags.hh>
 
 
 namespace duneuro
@@ -60,7 +61,7 @@ namespace duneuro
       } else if (type == "subtraction") {
         return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
-            Vector, SubtractionContinuityType::continuous>>(
+            Vector, ContinuityType::continuous>>(
             solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
             solverConfig);
       } else if (type == "whitney") {

@@ -14,7 +14,7 @@
 
 namespace duneuro
 {
-  template <class VC, class FS, class V, SubtractionContinuityType continuityType>
+  template <class VC, class FS, class V, ContinuityType continuityType>
   class FittedSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {
