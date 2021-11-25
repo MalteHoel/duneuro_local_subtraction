@@ -47,7 +47,7 @@ namespace duneuro
     {
       // create patch, according to config
       auto elementPatch = make_element_patch(volumeConductor_, elementNeighborhoodMap_,
-                                             search_, pos, config_);
+                                             *search_, pos, config_);
       // extract patch elements
       patchElements_ = elementPatch->elements();
       dataTree.set("elements", patchElements_.size());
@@ -83,8 +83,8 @@ namespace duneuro
         cache_outside.update();
 
         // resize local vectors
-        v_inside.resize(cache_inside.size());
-        v_outside.resize(cache_outside.size());
+        v_inside.assign(cache_inside.size(), 0.0);
+        v_outside.assign(cache_outside.size(), 0.0);
 
         // create geometry wrapper
         Dune::PDELab::IntersectionGeometry<typename GridView::Intersection> ig(is, 0);
@@ -134,7 +134,7 @@ namespace duneuro
         cache_inside.update();
 
         // resize local vector
-        v_inside.resize(cache_inside.size());
+        v_inside.assign(cache_inside.size(), 0.0);
 
         // create geometry wrapper
         Dune::PDELab::ElementGeometry<Element> eg(element);
