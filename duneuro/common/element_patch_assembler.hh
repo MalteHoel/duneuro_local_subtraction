@@ -114,6 +114,19 @@ namespace duneuro
           lop.lambda_transition_volume(eg, lfs_inside, view_inside);
         });
     }
+    
+    const std::vector<Element>& patchElements() {
+      return patchElements_;
+    }
+    
+    const std::vector<Intersection>& intersections() {
+      return patchBoundaryIntersections_;
+    }
+    
+    const std::vector<Element>& transitionElements() {
+      return transitionElements_;
+    }
+    
   private:
     using FESwitch =
       Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;

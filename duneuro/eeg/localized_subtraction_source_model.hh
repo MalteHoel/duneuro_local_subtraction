@@ -195,25 +195,19 @@ namespace duneuro
       timer.lap("bind_base");
 
       patchAssembler_.bind(dipole.position(), dataTree);
+      timer.lap("bind_patch_assembler");
     
-      // select elements for the local subtraction space
-      auto elementPatch = make_element_patch(volumeConductor_, elementNeighborhoodMap_,
-                                             this->elementSearch(), dipole.position(), config_);
       timer.lap("make_element_patch");
-      dataTree.set("elements", elementPatch->elements().size());
+      dataTree.set("elements", patchAssembler_.patchElements().size());
 
-      // extract patch boundary intersection
-      patchBoundaryIntersections_ = elementPatch->extractBoundaryIntersections();
-      timer.lap("extract_boundary_intersection");
-
-      SubEntitySet subEntitySet(volumeConductor_->gridView(), elementPatch->elements());
+      SubEntitySet subEntitySet(volumeConductor_->gridView(), patchAssembler_.patchElements());
       timer.lap("create_sub_entity_set");
 
       // extract conductivity tensors to create a local volume conductor
       Dune::MultipleCodimMultipleGeomTypeMapper<SubEntitySet>
           mapper(subEntitySet, Dune::mcmgElementLayout());
       std::vector<typename VC::TensorType> tensors(mapper.size());
-      for (const auto& subElement : elementPatch->elements()) {
+      for (const auto& subElement : patchAssembler_.patchElements()) {
         tensors[mapper.index(subElement)] = volumeConductor_->tensor(subElement);
       }
       timer.lap("extract_sub_tensors");
@@ -290,7 +284,6 @@ namespace duneuro
     std::shared_ptr<DOF> r_;
     Dune::ParameterTree config_;
     ElementPatchAssembler<VC, FS> patchAssembler_;
-    std::vector<typename HostGridView::Intersection> patchBoundaryIntersections_;
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;
     unsigned int intorderadd_lb_;
