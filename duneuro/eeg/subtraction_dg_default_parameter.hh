@@ -86,11 +86,11 @@ namespace duneuro
     }
 
     /** multiple helper functions that return private variables **/
-    typename Traits::PermTensorType get_sigma_infty()
+    typename Traits::PermTensorType get_sigma_infty() const
     {
       return sigma_infty;
     }
-    typename Traits::PermTensorType get_sigma_infty_inv()
+    typename Traits::PermTensorType get_sigma_infty_inv() const
     {
       return sigma_infty_inv;
     }

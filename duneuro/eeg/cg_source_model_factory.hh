@@ -12,6 +12,7 @@
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
+#include <duneuro/eeg/localized_subtraction_source_model.hh>
 #include <duneuro/driver/feature_manager.hh>
 #include <duneuro/common/flags.hh>
 
@@ -70,6 +71,17 @@ namespace duneuro
                                                    Vector>>(solver.volumeConductor(),
                                                             solver.functionSpace().getGFS(),
                                                             solver.elementSearch(), config);
+      } else if (type == "localized_subtraction") {
+        return std::make_shared<LocalizedSubtractionSourceModel<
+          typename Solver::Traits::VolumeConductor,
+          typename Solver::Traits::FunctionSpace,
+          Vector,
+          ContinuityType::continuous>>(
+            solver.volumeConductor(),
+            Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(),
+            config,
+            solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
