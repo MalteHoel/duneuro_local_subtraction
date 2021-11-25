@@ -194,6 +194,8 @@ namespace duneuro
       BaseT::bind(dipole, dataTree);
       timer.lap("bind_base");
 
+      patchAssembler_.bind(dipole.position(), dataTree);
+    
       // select elements for the local subtraction space
       auto elementPatch = make_element_patch(volumeConductor_, elementNeighborhoodMap_,
                                              this->elementSearch(), dipole.position(), config_);
@@ -312,55 +314,6 @@ namespace duneuro
         hostcache.update();
         for (unsigned int i = 0; i < hostcache.size(); ++i) {
           vector[hostcache.containerIndex(i)] = (*r_)[subcache.containerIndex(i)];
-        }
-      }
-    }
-
-    template<typename LOP>
-    void assemblePatchBoundaryTerm(VectorType& vector, const LOP& lop) const
-    {
-      using FESwitch =
-          Dune::FiniteElementInterfaceSwitch<typename HostLFS::Traits::FiniteElementType>;
-      using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
-      using RF = typename BasisSwitch::RangeField;
-
-      HostLFS hostlfs_inside(functionSpace_->getGFS());
-      HostLFSCache hostcache_inside(hostlfs_inside);
-      HostLFS hostlfs_outside(functionSpace_->getGFS());
-      HostLFSCache hostcache_outside(hostlfs_outside);
-
-      Dune::PDELab::LocalVector<RF> v_inside;
-      Dune::PDELab::LocalVector<RF> v_outside;
-
-      for (const auto& is : patchBoundaryIntersections_) {
-        // retrieve and bind inside
-        hostlfs_inside.bind(is.inside());
-        hostcache_inside.update();
-
-        // retrieve and bind outside
-        hostlfs_outside.bind(is.outside());
-        hostcache_outside.update();
-
-        // resize local vectors
-        v_inside.resize(hostcache_inside.size());
-        v_outside.resize(hostcache_outside.size());
-
-        // create geometry wrapper
-        Dune::PDELab::IntersectionGeometry<typename HostGridView::Intersection> ig(is, 0);
-
-        // call local operator
-        auto view_inside = v_inside.weightedAccumulationView(1.0);
-        auto view_outside = v_outside.weightedAccumulationView(1.0);
-        lop.lambda_patch_boundary(ig, hostlfs_inside, hostlfs_outside, view_inside, view_outside);
-
-        // copy back to main vector
-        for (unsigned int i = 0; i < hostcache_inside.size(); i++) {
-          auto index = hostcache_inside.containerIndex(i);
-          vector[index] += v_inside(hostlfs_inside,i);
-        }
-        for (unsigned int i = 0; i < hostcache_outside.size(); i++) {
-          auto index = hostcache_outside.containerIndex(i);
-          vector[index] += v_outside(hostlfs_outside,i);
         }
       }
     }
