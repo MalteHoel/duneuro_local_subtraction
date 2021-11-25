@@ -12,6 +12,7 @@
 #include <duneuro/common/edge_norm_provider.hh>
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/common/entityset_volume_conductor.hh>
+#include <duneuro/common/element_patch_assembler.hh>
 #include <duneuro/common/logged_timer.hh>
 #include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/sub_function_space.hh>
@@ -177,8 +178,7 @@ namespace duneuro
         , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
               volumeConductor_->gridView()))
         , config_(config)
-        , scheme_(
-              ConvectionDiffusion_DG_Scheme::fromString(solverConfig.get<std::string>("scheme")))
+        , patchAssembler_(volumeConductor_,functionSpace_,search,config_)
         // parameters for LOP
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
         , weighting_(solverConfig.get<std::string>("weights"))
@@ -242,7 +242,7 @@ namespace duneuro
       assembleLocalDefaultSubtraction(vector);
       using LOP = LocalizedSubtractionLocalOperator<HostProblem, EdgeNormProvider, PenaltyFluxWeighting>;
       LOP lop2(*hostProblem_, edgeNormProvider_, weighting_, penalty_, intorderadd_lb_);
-      assemblePatchBoundaryTerm(vector, lop2);
+      patchAssembler_.assemblePatchBoundary(vector, lop2);
     }
 
     virtual void postProcessSolution(VectorType& vector) const override
@@ -287,8 +287,8 @@ namespace duneuro
     std::shared_ptr<DOF> x_;
     std::shared_ptr<DOF> r_;
     Dune::ParameterTree config_;
+    ElementPatchAssembler<VC, FS> patchAssembler_;
     std::vector<typename HostGridView::Intersection> patchBoundaryIntersections_;
-    ConvectionDiffusion_DG_Scheme::Type scheme_;
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;
     unsigned int intorderadd_lb_;
