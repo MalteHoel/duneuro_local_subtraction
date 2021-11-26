@@ -170,6 +170,8 @@ namespace duneuro
         using LOP = LocalizedSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>;
         LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_, intorderadd_lb_);
         patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
+        patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
+        patchAssembler_.assembleTransitionVolume(vector, cg_local_operator);
       }
     }
 

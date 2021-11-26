@@ -47,7 +47,7 @@ namespace duneuro
     }
 
     typename Traits::RangeFieldType j(const typename Traits::IntersectionType& e,
-                                      const typename Traits::IntersectionDomainType& x)
+                                      const typename Traits::IntersectionDomainType& x) const
     {
       /* map position on the intersection x(2D coordinates) to global position global_x in
        * the grid(3D coordinates) for evaluation of graduinfty.
