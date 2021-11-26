@@ -1,13 +1,11 @@
 ---
 
-variables:
-  DUNECI_CMAKE_FLAGS: -DTPMC_PREFIX=/duneci/.local/lib/python3.7/site-packages/tpmc/
-
 before_script:
   - pip -v install git+https://github.com/tpmc/tpmc.git
-  - ls -d /duneci/.local/lib/python*/site-packages/tpmc/
-  - python --version
   - duneci-install-module https://gitlab.dune-project.org/extensions/dune-tpmc.git
+  - export DUNECI_CMAKE_FLAGS="-DTPMC_PREFIX=$(pip show tpmc | grep ^Location | sed -e 's/^Location. //')"
+  - echo "TPMC flags"; env | grep DUNECI_CMAKE_FLAGS
+  - find $(pip show tpmc | grep ^Location | sed -e 's/^Location. //')
   - duneci-install-module https://gitlab.dune-project.org/pdelab/dune-pdelab.git
   - duneci-install-module "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.dune-project.org/cutcell/dune-udg.git"
 
