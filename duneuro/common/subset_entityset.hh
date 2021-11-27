@@ -262,6 +262,18 @@ namespace duneuro
       }
     }
 
+    // the gridfunctionspace can avoid unnecessary updates, if two entitysets stay the same.
+    // we consider them always as different, as it might become tricky to actually check euqality.
+    bool operator!=(const SubSetEntitySet& other)
+    {
+      return true;
+    }
+
+    bool operator==(const SubSetEntitySet& other)
+    {
+      return false;
+    }
+
   private:
     std::shared_ptr<IndexSet> _index_set;
     std::vector<Element> _elements;
