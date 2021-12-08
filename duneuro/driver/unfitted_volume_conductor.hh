@@ -289,7 +289,7 @@ public:
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
     return this->template applyMEGTransfer_impl<Traits>(
-        transferMatrix, dipoles, config, dataTree, config_, solver_);
+        transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
@@ -343,6 +343,8 @@ private:
                                 Traits::GridView::dimension>>
       projectedGlobalElectrodes_;
   std::vector<double> conductivities_;
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
+  std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
 };
 
 } // namespace duneuro

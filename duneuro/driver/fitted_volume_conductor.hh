@@ -123,6 +123,7 @@ public:
     this->solveEEGForward_impl(dipole, solution, config, config_,
                                eegForwardSolver_, *solver_, solverBackend_,
                                dataTree);
+    sourceModelPtr_ = eegForwardSolver_.sourceModel();
     if (config.get<bool>("subtract_mean")) {
       subtract_mean(*solver_,
                     solution.cast<typename Traits::DomainDOFVector>());
@@ -153,6 +154,15 @@ public:
         dataTree.set(name.str() + ".time_solve", time_solve);
       }
     }
+    
+    if(config.get<bool>("post_process_meg")) {
+      if(!sourceModelPtr_) {
+        DUNE_THROW(Dune::Exception, "source model not set, but is needed for MEG post processing");
+      }
+
+      sourceModelPtr_->postProcessMEG(coils_, projections_, output);
+    }
+    
     return output;
   }
 
@@ -195,6 +205,8 @@ public:
       DUNE_THROW(Dune::Exception, "no meg solver created");
     }
     megSolver_->bind(coils, projections);
+    coils_ = coils;
+    projections_ = projections;
   }
 
   virtual std::vector<double>
@@ -341,7 +353,7 @@ public:
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
     return this->template applyMEGTransfer_impl<Traits>(
-        transferMatrix, dipoles, config, dataTree, config_, solver_);
+        transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
@@ -390,6 +402,9 @@ private:
   std::vector<typename duneuro::ElectrodeProjectionInterface<
       typename Traits::VC::GridView>::GlobalCoordinate>
       projectedGlobalElectrodes_;
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
+  std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
+  std::shared_ptr<SourceModelInterface<double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
 };
 
 } // namespace duneuro

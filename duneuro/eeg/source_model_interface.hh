@@ -21,6 +21,10 @@ namespace duneuro
 
     virtual void postProcessSolution(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
                                      std::vector<typename V::field_type>& vector) const = 0;
+                                     
+    virtual void postProcessMEG(const std::vector<Dune::FieldVector<ctype, dim>>& coils,
+                                const std::vector<std::vector<Dune::FieldVector<ctype, dim>>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const = 0;
 
     virtual ~SourceModelInterface()
     {
@@ -57,6 +61,13 @@ namespace duneuro
                                      std::vector<typename V::field_type>& vector) const override
     {
       // as a default: no post processing
+    }
+
+    virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
+                                const std::vector<std::vector<CoordinateType>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const override
+    {
+      std::cout << " Noop postprocess\n";
     }
 
     const SearchType& elementSearch() const

@@ -96,9 +96,6 @@ namespace duneuro
       hostProblem_->bind(this->dipoleElement(), this->localDipolePosition(),
                          this->dipole().moment());
 
-
-      dataTree.set("elements", patchAssembler_.patchElements().size());
-
       if constexpr(continuityType == ContinuityType::discontinuous)
       {
         SubEntitySet subEntitySet(volumeConductor_->gridView(), patchAssembler_.patchElements());

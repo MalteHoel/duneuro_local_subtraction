@@ -78,6 +78,18 @@ namespace duneuro
       }
     }
 
+    void postProcessMEG(const std::vector<typename Traits::Coordinate>& coils,
+                        const std::vector<std::vector<typename Traits::Coordinate>>& projections,
+                        std::vector<typename Traits::DomainField>& fluxes)
+    {
+      if(density_ == VectorDensity::sparse) {
+        sparseSourceModel_->postProcessMEG(coils, projections, fluxes);
+      }
+      else {
+        denseSourceModel_->postProcessMEG(coils, projections, fluxes);
+      }
+    }
+
     template <class M>
     std::vector<typename Traits::DomainField> solve(const M& transferMatrix,
                                                     DataTree dataTree = DataTree()) const

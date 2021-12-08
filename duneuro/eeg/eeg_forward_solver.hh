@@ -46,6 +46,12 @@ namespace duneuro
           *solver_, config, solverConfig);
     }
 
+    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+                                         typename Traits::RangeDOFVector>> sourceModel() const
+    {
+      return denseSourceModel_;
+    }
+
     template <class SolverBackend>
     void solve(SolverBackend& solverBackend, typename Traits::DomainDOFVector& solution,
                const Dune::ParameterTree& config, DataTree dataTree = DataTree())

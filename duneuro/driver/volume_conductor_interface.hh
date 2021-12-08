@@ -273,13 +273,15 @@ protected:
     return result;
   }
 
-  template <class Traits>
+  template <class Traits, class CoordinateType>
   std::vector<std::vector<double>>
   applyMEGTransfer_impl(const DenseMatrix<double> &transferMatrix,
                         const std::vector<DipoleType> &dipoles,
                         Dune::ParameterTree cfg, DataTree dataTree,
                         const Dune::ParameterTree &config_complete,
-                        std::shared_ptr<typename Traits::Solver> solver) {
+                        std::shared_ptr<typename Traits::Solver> solver,
+                        const std::vector<CoordinateType>& coils,
+                        const std::vector<std::vector<CoordinateType>>& projections) {
     this->featureManager_->check_feature(cfg);
     const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
@@ -302,7 +304,11 @@ protected:
                ++index) {
             auto dt = dataTree.sub("dipole_" + std::to_string(index));
             myUser.bind(dipoles[index], dt);
-            result[index] = myUser.solve(transferMatrix, dt);
+            auto current = myUser.solve(transferMatrix, dt);
+            if(config.get<bool>("post_process_meg")) {
+              myUser.postProcessMEG(coils, projections, current);
+            }
+            result[index] = current;
           }
         });
 #else
@@ -312,7 +318,11 @@ protected:
     for (std::size_t index = 0; index < dipoles.size(); ++index) {
       auto dt = dataTree.sub("dipole_" + std::to_string(index));
       myUser.bind(dipoles[index], dt);
-      result[index] = myUser.solve(transferMatrix, dt);
+      auto current = myUser.solve(transferMatrix, dt);
+      if(config.get<bool>("post_process_meg")) {
+        myUser.postProcessMEG(coils, projections, current);
+      }
+      result[index] = current;
     }
 #endif
     return result;

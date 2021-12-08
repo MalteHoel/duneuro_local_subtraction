@@ -56,9 +56,9 @@ namespace duneuro
       patchBoundaryIntersections_ = elementPatch->extractBoundaryIntersections();
       dataTree.set("intersections", patchBoundaryIntersections_.size());
       
-      // if we use a conforming discretization, we have to extend the patch by an other layer
+      // if we use a conforming discretization, we have to extend the patch by another layer
       transitionElements_ = elementPatch->transitionElements();
-      dataTree.set("transitionElements", patchElements_.size());
+      dataTree.set("transitionElements", transitionElements_.size());
     }
 
     template<typename Vector, typename LOP>
