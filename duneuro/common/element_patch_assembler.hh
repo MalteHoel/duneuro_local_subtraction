@@ -115,15 +115,15 @@ namespace duneuro
         });
     }
     
-    const std::vector<Element>& patchElements() {
+    const std::vector<Element>& patchElements() const {
       return patchElements_;
     }
     
-    const std::vector<Intersection>& intersections() {
+    const std::vector<Intersection>& intersections() const {
       return patchBoundaryIntersections_;
     }
     
-    const std::vector<Element>& transitionElements() {
+    const std::vector<Element>& transitionElements() const {
       return transitionElements_;
     }
     

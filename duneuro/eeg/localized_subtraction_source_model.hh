@@ -8,7 +8,7 @@
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
 #include <dune/pdelab/function/discretegridviewfunction.hh>             // include for the DiscreteGridViewFunction class
-
+#include <dune/pdelab/common/crossproduct.hh>				                    // include for cross product
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
@@ -36,6 +36,7 @@ namespace duneuro
     using BaseT = SourceModelBase<typename FS::GFS::Traits::GridViewType, V>;
     enum { dim = VC::dim };
     using ElementType = typename BaseT::ElementType;
+    using CoordinateField = typename ElementType::Geometry::ctype;
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
@@ -57,6 +58,11 @@ namespace duneuro
     using HostProblem = SubtractionDGDefaultParameter<HostGridView, typename V::field_type, VC>;
     using DOFVector = Dune::PDELab::Backend::Vector<typename FS::GFS, typename FS::NT>;
     using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename FS::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename DiscreteGridFunction::GridFunctionSpace, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using Tensor = typename HostProblem::Traits::PermTensorType;
 
     LocalizedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
                                     std::shared_ptr<const FS> fs,
@@ -74,7 +80,9 @@ namespace duneuro
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
         , weighting_(solverConfig.get<std::string>("weights"))
         , intorderadd_(config.get<unsigned int>("intorderadd"))
+        , intordermeg_(config.get<unsigned int>("intorderadd_meg", intorderadd_ + 2)) // 2 = 2 * order(P1)
         , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
+        , intordermeg_lb_(config.get<unsigned int>("intorderaddmeg_lb", intorderadd_lb_ + 2))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
     {
@@ -198,7 +206,7 @@ namespace duneuro
       {
         //TODO
       }
-    }
+    } // end postProcessSolution
 
     virtual void
     postProcessSolution(const std::vector<CoordinateType>& electrodes,
@@ -206,6 +214,25 @@ namespace duneuro
     {
       // note: need to check if electrode is within the patch
       // currently assume that the patch does not touch the boundary
+    }
+
+    virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
+                                const std::vector<std::vector<CoordinateType>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const
+    {
+      if constexpr(continuityType == ContinuityType::continuous) {
+        size_t counter = 0;
+        for(size_t i = 0; i < coils.size(); ++i) {
+          for(size_t j = 0; j < projections[i].size(); ++j) {
+            fluxes[counter] += fluxFromTransition(coils[i], projections[i][j]);
+            fluxes[counter] += fluxFromPatchBoundary(coils[i], projections[i][j]);
+            ++counter;
+          }
+        }
+      }
+      else {
+        std::cout << " Noop postprocess\n";
+      }
     }
 
   private:
@@ -225,7 +252,9 @@ namespace duneuro
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;
     unsigned int intorderadd_;
+    unsigned int intordermeg_;
     unsigned int intorderadd_lb_;
+    unsigned int intordermeg_lb_;
     double penalty_;
     std::shared_ptr<DOFVector> chiBasisCoefficientsPtr_;
     std::shared_ptr<DiscreteGridFunction> chiFunctionPtr_;
@@ -251,6 +280,116 @@ namespace duneuro
         }
       }
     }
+
+    //////////////////////////////////////////////////
+    // compute integral (sigma grad(chi * u_infinity)) x (x - y) / |x - y|^3 dy over transition region
+    //////////////////////////////////////////////////
+    typename V::field_type fluxFromTransition(const CoordinateType& coil, const CoordinateType& projection) const
+    {
+      using GradientType = typename InfinityPotentialGradient<typename VC::GridView, CoordinateField>::RangeType;
+
+      LocalFunction chi_local = localFunction(*chiFunctionPtr_);
+      LocalDerivativeFunction grad_chi_local = localFunction(derivative(*chiFunctionPtr_));
+
+      CoordinateField flux = 0.0;
+
+      for(const auto& element : patchAssembler_.transitionElements()) {
+        Tensor sigma = volumeConductor_->tensor(element);
+
+        chi_local.bind(element);
+        grad_chi_local.bind(element);
+
+        const auto& elem_geo = element.geometry();
+        auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
+        auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
+
+        // choose quadrature rule
+        Dune::GeometryType geo_type = elem_geo.type();
+        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intordermeg_);
+
+        // perform the integration
+        for(const auto& quad_point : quad_rule) {
+          auto integration_factor = jacobian_determinant * quad_point.weight();
+          auto local_position = quad_point.position();
+          auto global_position = elem_geo.global(local_position);
+
+          // compute u_infinity * grad_chi
+          GradientType u_infinity_grad_chi = grad_chi_local(local_position)[0];
+          u_infinity_grad_chi *= hostProblem_->get_u_infty(global_position);
+
+          // compute chi * grad_u_infinity
+          GradientType chi_grad_u_infinity = hostProblem_->get_grad_u_infty(global_position);
+          chi_grad_u_infinity *= chi_local(local_position);
+
+          // compute LHS of cross product
+          u_infinity_grad_chi += chi_grad_u_infinity;
+          GradientType lhs;
+          sigma.mv(u_infinity_grad_chi, lhs);
+
+          // compute RHS of cross product
+          CoordinateType rhs = coil - global_position;
+          auto diff_norm = rhs.two_norm();
+          auto norm_cubed = diff_norm * diff_norm * diff_norm;
+          rhs /= norm_cubed;
+
+          // compute cross product
+          GradientType crossProduct;
+          Dune::PDELab::CrossProduct<dim, dim>(crossProduct, lhs, rhs);
+
+          flux += (crossProduct * projection) * integration_factor;
+        } // end loop over quadrature points
+      } // end loop over transition elements
+
+      return flux;
+    } // end fluxFromTransition
+
+
+    //////////////////////////////////////////////////
+    // compute integral sigma_infinity u_infinity (eta x (x - y)/ |x - y|^3) ds
+    //////////////////////////////////////////////////
+    typename V::field_type fluxFromPatchBoundary(const CoordinateType& coil, const CoordinateType& projection) const
+    {
+      CoordinateField flux = 0.0;
+
+      // iterate over all boundary patch boundary intersections
+      for(const auto& intersection : patchAssembler_.intersections()) {
+        // get intersection geometry
+        const auto& intersection_geo = intersection.geometry();
+        auto local_coords_dummy = referenceElement(intersection_geo).position(0, 0);
+        auto gramian = intersection_geo.integrationElement(local_coords_dummy);
+        CoordinateType unitOuterNormal = intersection.centerUnitOuterNormal();
+
+        Tensor sigma_infinity = hostProblem_->get_sigma_infty();
+
+        // choose quadrature rule
+        Dune::GeometryType geo_type = intersection_geo.type();
+        const Dune::QuadratureRule<CoordinateField, dim - 1>& quad_rule = Dune::QuadratureRules<CoordinateField, dim - 1>::rule(geo_type, intordermeg_lb_);
+
+        // perform the integration
+        for(const auto& quad_point : quad_rule) {
+          auto integration_factor = gramian * quad_point.weight();
+          auto local_position = quad_point.position();
+          auto global_position = intersection_geo.global(local_position);
+
+          // compute sigma_infinity_u_infinity
+          // NOTE : assumes isotropic sigma_infinity
+          auto sigma_infinity_u_infinity = sigma_infinity[0][0] * hostProblem_->get_u_infty(global_position);
+
+          // compute cross product
+          CoordinateType rhs = coil - global_position;
+          auto diff_norm = rhs.two_norm();
+          auto norm_cubed = diff_norm * diff_norm * diff_norm;
+          rhs /= norm_cubed;
+          CoordinateType crossProduct;
+          Dune::PDELab::CrossProduct<dim, dim>(crossProduct, unitOuterNormal, rhs);
+
+          flux += sigma_infinity_u_infinity * (crossProduct * projection) * integration_factor;
+        } // end loop over quadrature points
+      } // end loop over intersections
+
+      return flux;
+    } // end fluxFromPatchBoundary
+
   };
 }
 
