@@ -221,14 +221,11 @@ namespace duneuro
                                 std::vector<typename V::field_type>& fluxes) const
     {
       if constexpr(continuityType == ContinuityType::continuous) {
-        size_t counter = 0;
-        for(size_t i = 0; i < coils.size(); ++i) {
-          for(size_t j = 0; j < projections[i].size(); ++j) {
-            fluxes[counter] += fluxFromTransition(coils[i], projections[i][j]);
-            fluxes[counter] += fluxFromPatchBoundary(coils[i], projections[i][j]);
-            ++counter;
-          }
-        }
+        std::cout << " Assembling transition part\n";
+        fluxFromTransition(coils, projections, fluxes);
+        std::cout << " Assembling boundary part\n";
+        fluxFromPatchBoundary(coils, projections, fluxes);
+        std::cout << " Assembling finished\n";
       }
       else {
         std::cout << " Noop postprocess\n";
@@ -284,14 +281,14 @@ namespace duneuro
     //////////////////////////////////////////////////
     // compute integral (sigma grad(chi * u_infinity)) x (x - y) / |x - y|^3 dy over transition region
     //////////////////////////////////////////////////
-    typename V::field_type fluxFromTransition(const CoordinateType& coil, const CoordinateType& projection) const
+    void fluxFromTransition(const std::vector<CoordinateType>& coils,
+                            const std::vector<std::vector<CoordinateType>>& projections,
+                            std::vector<typename V::field_type>& fluxes) const
     {
       using GradientType = typename InfinityPotentialGradient<typename VC::GridView, CoordinateField>::RangeType;
 
       LocalFunction chi_local = localFunction(*chiFunctionPtr_);
       LocalDerivativeFunction grad_chi_local = localFunction(derivative(*chiFunctionPtr_));
-
-      CoordinateField flux = 0.0;
 
       for(const auto& element : patchAssembler_.transitionElements()) {
         Tensor sigma = volumeConductor_->tensor(element);
@@ -325,32 +322,38 @@ namespace duneuro
           u_infinity_grad_chi += chi_grad_u_infinity;
           GradientType lhs;
           sigma.mv(u_infinity_grad_chi, lhs);
+          lhs *= integration_factor;
 
-          // compute RHS of cross product
-          CoordinateType rhs = coil - global_position;
-          auto diff_norm = rhs.two_norm();
-          auto norm_cubed = diff_norm * diff_norm * diff_norm;
-          rhs /= norm_cubed;
+          // loop over all coils and projections
+          size_t counter = 0;
+          for(size_t i = 0; i < coils.size(); ++i) {
+            for(size_t j = 0; j < projections[i].size(); ++j) {
+              // compute RHS
+              CoordinateType rhs = coils[i] - global_position;
+              auto diff_norm = rhs.two_norm();
+              auto norm_cubed = diff_norm * diff_norm * diff_norm;
+              rhs /= norm_cubed;
 
-          // compute cross product
-          GradientType crossProduct;
-          Dune::PDELab::CrossProduct<dim, dim>(crossProduct, lhs, rhs);
+              // compute cross product
+              GradientType crossProduct;
+              Dune::PDELab::CrossProduct<dim, dim>(crossProduct, lhs, rhs);
 
-          flux += (crossProduct * projection) * integration_factor;
+              fluxes[counter] += (crossProduct * projections[i][j]);
+              ++counter;
+            } // end loop over projections
+          } // end loop over coils
         } // end loop over quadrature points
       } // end loop over transition elements
-
-      return flux;
     } // end fluxFromTransition
 
 
     //////////////////////////////////////////////////
     // compute integral sigma_infinity u_infinity (eta x (x - y)/ |x - y|^3) ds
     //////////////////////////////////////////////////
-    typename V::field_type fluxFromPatchBoundary(const CoordinateType& coil, const CoordinateType& projection) const
+    void fluxFromPatchBoundary(const std::vector<CoordinateType>& coils, 
+                               const std::vector<std::vector<CoordinateType>>& projections,
+                               std::vector<typename V::field_type>& fluxes) const
     {
-      CoordinateField flux = 0.0;
-
       // iterate over all boundary patch boundary intersections
       for(const auto& intersection : patchAssembler_.intersections()) {
         // get intersection geometry
@@ -374,20 +377,26 @@ namespace duneuro
           // compute sigma_infinity_u_infinity
           // NOTE : assumes isotropic sigma_infinity
           auto sigma_infinity_u_infinity = sigma_infinity[0][0] * hostProblem_->get_u_infty(global_position);
+          sigma_infinity_u_infinity *= integration_factor;
 
-          // compute cross product
-          CoordinateType rhs = coil - global_position;
-          auto diff_norm = rhs.two_norm();
-          auto norm_cubed = diff_norm * diff_norm * diff_norm;
-          rhs /= norm_cubed;
-          CoordinateType crossProduct;
-          Dune::PDELab::CrossProduct<dim, dim>(crossProduct, unitOuterNormal, rhs);
+          // loop over coils and projections
+          size_t counter = 0;
+          for(size_t i = 0; i < coils.size(); ++i) {
+            for(size_t j = 0; j < projections[i].size(); ++j) {
+              // compute cross product
+              CoordinateType rhs = coils[i] - global_position;
+              auto diff_norm = rhs.two_norm();
+              auto norm_cubed = diff_norm * diff_norm * diff_norm;
+              rhs /= norm_cubed;
+              CoordinateType crossProduct;
+              Dune::PDELab::CrossProduct<dim, dim>(crossProduct, unitOuterNormal, rhs);
 
-          flux += sigma_infinity_u_infinity * (crossProduct * projection) * integration_factor;
+              fluxes[counter] += sigma_infinity_u_infinity * (crossProduct * projections[i][j]);
+              ++counter;
+            } // end loop over projections
+          } // end loop over coils
         } // end loop over quadrature points
       } // end loop over intersections
-
-      return flux;
     } // end fluxFromPatchBoundary
 
   };
