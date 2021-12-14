@@ -193,6 +193,8 @@ protected:
                             DataTree dataTree = DataTree()) {
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     featureManager_->check_feature(config);
+    std::string meg_postprocessing = config.get<std::string>("post_process_meg", "false");
+    config["source_model.post_process_meg"] = meg_postprocessing;
     eegForwardSolver.setSourceModel(config.sub("source_model"),
                                     config_complete.sub("solver"), dataTree);
     eegForwardSolver.bind(dipole, dataTree);
@@ -283,6 +285,9 @@ protected:
                         const std::vector<CoordinateType>& coils,
                         const std::vector<std::vector<CoordinateType>>& projections) {
     this->featureManager_->check_feature(cfg);
+    // set source model config for MEG prostprocessing
+    std::string meg_postprocessing = cfg.get<std::string>("post_process_meg", "false");
+    cfg["source_model.post_process_meg"] = meg_postprocessing;
     const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 

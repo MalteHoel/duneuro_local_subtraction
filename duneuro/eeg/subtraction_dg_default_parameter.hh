@@ -95,7 +95,7 @@ namespace duneuro
       return sigma_infty_inv;
     }
 
-    typename Traits::GridViewType& get_gridview()
+    const typename Traits::GridViewType& get_gridview() const
     {
       return gv;
     }

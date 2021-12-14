@@ -127,6 +127,10 @@ namespace duneuro
       return transitionElements_;
     }
     
+    size_t numberOfNonPatchElements() const {
+      return volumeConductor_->gridView().size(0) - patchElements_.size();
+    }
+
   private:
     using FESwitch =
       Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;

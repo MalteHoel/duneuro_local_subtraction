@@ -72,8 +72,6 @@ namespace duneuro
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , functionSpace_(fs)
-        , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
-              volumeConductor_->gridView()))
         , config_(config)
         , patchAssembler_(volumeConductor_,functionSpace_,search,config_)
         // parameters for LOP
@@ -221,11 +219,8 @@ namespace duneuro
                                 std::vector<typename V::field_type>& fluxes) const
     {
       if constexpr(continuityType == ContinuityType::continuous) {
-        std::cout << " Assembling transition part\n";
-        fluxFromTransition(coils, projections, fluxes);
-        std::cout << " Assembling boundary part\n";
         fluxFromPatchBoundary(coils, projections, fluxes);
-        std::cout << " Assembling finished\n";
+        fluxFromTransition(coils, projections, fluxes);
       }
       else {
         std::cout << " Noop postprocess\n";
@@ -235,7 +230,6 @@ namespace duneuro
   private:
     std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<const FS> functionSpace_;
-    std::shared_ptr<ElementNeighborhoodMap<typename VC::GridView>> elementNeighborhoodMap_;
     std::shared_ptr<SubVolumeConductor> subVolumeConductor_;
     std::shared_ptr<Problem> problem_;
     std::shared_ptr<HostProblem> hostProblem_;
@@ -350,7 +344,7 @@ namespace duneuro
     //////////////////////////////////////////////////
     // compute integral sigma_infinity u_infinity (eta x (x - y)/ |x - y|^3) ds
     //////////////////////////////////////////////////
-    void fluxFromPatchBoundary(const std::vector<CoordinateType>& coils, 
+    void fluxFromPatchBoundary(const std::vector<CoordinateType>& coils,
                                const std::vector<std::vector<CoordinateType>>& projections,
                                std::vector<typename V::field_type>& fluxes) const
     {
