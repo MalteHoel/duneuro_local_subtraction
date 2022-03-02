@@ -53,14 +53,23 @@ namespace duneuro
         : gfs_(gfs), volumeConductor_(volumeConductor), current_(current), search_(gfs_.gridView())
     {
     }
-    Dune::FieldVector<typename Traits::Real, GV::dimension>
+    
+    virtual std::vector<Dune::FieldVector<typename Traits::Real, GV::dimension>>
     operator()(const typename Traits::Element& element,
                const typename Traits::LocalCoordinate localPos,
-               const typename Traits::RangeDOFVector& coeffs) const
+               const DenseMatrix<double>& EvaluationMatrix) const
     {
-      Dune::FieldVector<typename Traits::Real, GV::dimension> result;
+     
+      std::vector<Dune::FieldVector<typename Traits::Real, GV::dimension>> result;
+      result.resize(EvaluationMatrix.rows());
       auto global = element.geometry().global(localPos);
+      typename Traits::RangeDOFVector coeffs(gfs_, 0.0);
+
       using DGFG = Dune::PDELab::DiscreteGridFunctionGradient<GFS, typename Traits::RangeDOFVector>;
+      for (unsigned int nrElec = 0; nrElec < EvaluationMatrix.rows(); ++nrElec) {
+        coeffs = 0.0;
+        extract_matrix_row(EvaluationMatrix, nrElec, Dune::PDELab::Backend::native(coeffs));
+
       DGFG dgfg(gfs_, coeffs);
 
       // evaluate discrete grid function
@@ -70,13 +79,14 @@ namespace duneuro
         const auto& conductivity = volumeConductor_.tensor(element);
         for (unsigned int i = 0; i < GV::dimension; ++i) {
           for (unsigned int j = 0; j < GV::dimension; ++j) {
-            result[i] -= conductivity[i][j] * y[j];
+            result[nrElec][i] -= conductivity[i][j] * y[j];
           }
         }
       } else {
         for (unsigned int i = 0; i < GV::dimension; ++i) {
-          result[i] -= y[i];
+          result[nrElec][i] -= y[i];
         }
+      }
       }
       return result;
     }
@@ -100,30 +110,56 @@ namespace duneuro
         : gfs_(gfs), subTriangulation_(subTriangulation), current_(current)
     {
     }
-    Dune::FieldVector<typename Traits::Real, GV::dimension>
+    virtual std::vector<Dune::FieldVector<typename Traits::Real, GV::dimension>>
     operator()(const typename Traits::Element& element,
                const typename Traits::LocalCoordinate localPos,
-               const typename Traits::RangeDOFVector& coeffs) const
+               const DenseMatrix<double>& EvaluationMatrix) const
     {
+      std::vector<Dune::FieldVector<typename Traits::Real, GV::dimension>> output;
+      output.resize(EvaluationMatrix.rows());
+      // check which domain the position belongs to by comparing it to the level set functions
+      // first return to the global coordinate
+      auto global = element.geometry().global(localPos);
+      // access to the level set functions is given via the domainConfiguration
+      const auto& dConf = subTriangulation_.domainConfiguration();
+      // fill intRelPos with the info whether the point is in or outside the respective level set
+      using InterfaceRelativePosition = Dune::UDG::InterfaceRelativePosition;
+      std::vector<InterfaceRelativePosition> intRelPos;
+      for (const auto& interface : subTriangulation_.domainConfiguration().interfaces() ){
+        const auto& func = interface.function();
+        auto val = func(global);
+        if (val >0)
+          intRelPos.push_back(InterfaceRelativePosition::exterior);
+        else if (val<=0)
+          intRelPos.push_back(InterfaceRelativePosition::interior);
+        else
+          intRelPos.push_back(InterfaceRelativePosition::any); // treat boundaries as "any"
+      }
+      // find the domain index that corresponds to intRelPos
+      std::size_t index = 10000;
+      for (const auto& domain : subTriangulation_.domainConfiguration().domains() ) {
+        if (domain.contains(intRelPos)){
+            index = domain.index();
+            break;
+        }
+      }
+      // if the point is outside all domains, return zeros
+      if (index == 10000) {
+        for (unsigned int nrElec = 0; nrElec< EvaluationMatrix.rows(); nrElec++){
+         output[nrElec] = 0;  }
+         return output;
+      }
       typename Traits::ULFS ulfs(gfs_);
       typename Traits::UCache ucache(ulfs);
       typename Traits::UST ust(subTriangulation_.gridView(), subTriangulation_);
-      Dune::FieldVector<typename Traits::Real, GV::dimension> result;
-      auto global = element.geometry().global(localPos);
-      int comp = 0;
-
+      auto result = Dune::FieldVector<typename Traits::Real, GV::dimension>(0) ;
       Dune::FieldVector<typename Traits::Real, GV::dimension> y;
       std::vector<typename Traits::RangeType> phi; // storage for Ansatzfunction values
 
       ust.create(element); // Subtriangulate Element
       for (const auto& ep : ust) {
-        const auto& geo = ep.geometry();
-        const auto local = geo.local(global);
-        const auto& refElement =
-            Dune::ReferenceElements<typename GV::ctype, GV::dimension>::general(geo.type());
-        if (!refElement.checkInside(local)) {
+        if (ep.domainIndex() != index)
           continue;
-        }
         typename Traits::ChildLFS& childLfs(ulfs.child(
             ep.domainIndex())); // chooses the correct Ansatzfunctionspace and binds it to the El.
         ulfs.bind(ep.subEntity(), true);
@@ -138,21 +174,29 @@ namespace duneuro
         Traits::FESwitch::basis(childLfs.finiteElement())
             .evaluateJacobian(localPos, J); // Gradients
         Dune::FieldVector<typename Traits::Real, GV::dimension> gradphi;
-        Dune::FieldVector<typename Traits::Real, GV::dimension> y;
-        y = 0;
-        for (unsigned int i = 0; i < ucache.size(); ++i) {
-          gradphi = 0;
-          JgeoIT.umv(J[i][0], gradphi);
-          // compute global gradient of shape function i (chain rule)
-          const double& coeff = coeffs[ucache.containerIndex(childLfs.localIndex(i))];
-          // sum up global gradients, weighting them with the appropriate coeff
-          y.axpy(coeff, gradphi);
-        }
-        result = y;
+        //Dune::FieldVector<typename Traits::Real, GV::dimension> y;
+        //y = 0;
+        // EvaluationMatrix can no longer be accessed like a DOFVector using Multi-indices so we need flat indices
+        using DOFVector = typename Traits::RangeDOFVector;
+        using NativeVectorType = Dune::PDELab::Backend::Native<DOFVector>;
+        // get the dof vector's block size 
+        static constexpr int blockSize = NativeVectorType::block_type::dimension;
+        for (unsigned int nrElec = 0; nrElec< EvaluationMatrix.rows(); nrElec++){
+          output[nrElec] = 0;
+          for (unsigned int i = 0; i < ucache.size(); ++i) {
+            gradphi = 0;
+            JgeoIT.umv(J[i][0], gradphi);
+            // compute global gradient of shape function i (chain rule)
+            auto CI = ucache.containerIndex(childLfs.localIndex(i));
+            std::size_t coeffInd = CI[0]*blockSize + CI[1];
+            const double& coeff = EvaluationMatrix(nrElec, coeffInd);
+            // sum up global gradients, weighting them with the appropriate coeff
 
-        break;
+            output[nrElec].axpy(coeff, gradphi);
+          }
+        }
+        return output;
       }
-      return result;
     }
 
   private:
@@ -180,25 +224,24 @@ namespace duneuro
              const std::vector<typename Traits::LocalCoordinate>& localPositions,
              const DenseMatrix<double>& EvaluationMatrix) const override
     {
-      typename Traits::RangeDOFVector tmp(gfs_, 0.0);
-      auto output = Dune::Std::make_unique<DenseMatrix<double>>(EvaluationMatrix.rows(),
+      std::size_t index = 0;
+      auto output = std::make_unique<DenseMatrix<double>>(EvaluationMatrix.rows(),
                                                                 3 * localPositions.size());
-      for (unsigned int elec = 0; elec < EvaluationMatrix.rows(); ++elec) {
-        tmp = 0.0;
-        extract_matrix_row(EvaluationMatrix, elec, Dune::PDELab::Backend::native(tmp));
-        std::size_t index = 0;
-        std::vector<double> tmpVals(3 * localPositions.size());
         for (const auto& element : elements) {
           auto pot = gradientEvaluator_(elements[index], localPositions[index],
-                                        tmp); // compute the gradient/current density
-          for (unsigned int i = 0; i < GV::dimension; ++i) {
-            tmpVals[3 * index + i] = (pot[i]);
+                                        EvaluationMatrix); // compute the gradient/current density
+
+          for (unsigned int i = 0; i<EvaluationMatrix.rows(); i++){
+            (*output)(i,3*index)     = pot[i][0];
+            (*output)(i,3*index + 1) = pot[i][1];
+            (*output)(i,3*index + 2) = pot[i][2];
           }
-          index += 1;
-        }
-        set_matrix_row(*output, elec, tmpVals);
+          index++;
       }
+      
+
       return output;
+
     }
 
   private:
