@@ -368,7 +368,7 @@ public:
         }
       }
       auto elementStatistics =
-          Dune::Std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
+          std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
       std::size_t index = 0;
       for (const auto& element : Dune::elements(fundamentalGridView_)) {
         if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain

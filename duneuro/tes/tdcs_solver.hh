@@ -54,7 +54,7 @@ namespace duneuro
         const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
       using GV = typename S::Traits::FunctionSpace::GFS::Traits::GridViewType;
-      auto tdcsMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto tdcsMatrix = std::make_unique<DenseMatrix<double>>(
           projectedElectrodes.size(),
           solver_->functionSpace().getGFS().ordering().size()); // setup Matrix
       auto solver_config = config.sub("solver");
@@ -80,7 +80,7 @@ namespace duneuro
             projectedElectrodes,
         const Dune::ParameterTree& config, DataTree dataTree = DataTree())
     {
-      auto tdcsMatrix = Dune::Std::make_unique<DenseMatrix<double>>(
+      auto tdcsMatrix = std::make_unique<DenseMatrix<double>>(
           projectedElectrodes.size(),
           solver_->functionSpace().getGFS().ordering().size()); // setup Matrix
       auto solver_config = config.sub("solver");

@@ -391,7 +391,7 @@ public:
     }
   virtual std::unique_ptr<duneuro::DenseMatrix<double>> elementStatistics()
   {
-  auto elementStatistics = Dune::Std::make_unique<DenseMatrix<double>>(
+  auto elementStatistics = std::make_unique<DenseMatrix<double>>(
      solver_->volumeConductor()->gridView().size(0),Traits::VC::GridView::dimension + 2);
   std::size_t offset = 0;
   for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
