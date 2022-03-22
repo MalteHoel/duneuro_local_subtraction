@@ -78,9 +78,10 @@ namespace duneuro
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
         , weighting_(solverConfig.get<std::string>("weights"))
         , intorderadd_(config.get<unsigned int>("intorderadd"))
-        , intordermeg_(config.get<unsigned int>("intorderadd_meg", intorderadd_ + 2)) // 2 = 2 * order(P1)
         , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
-        , intordermeg_lb_(config.get<unsigned int>("intorderaddmeg_lb", intorderadd_lb_ + 2))
+        , intorder_meg_patch_(config.get<unsigned int>("intorder_meg_patch"))
+        , intorder_meg_boundary_(config.get<unsigned int>("intorder_meg_boundary"))
+        , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition"))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
     {
@@ -219,6 +220,7 @@ namespace duneuro
                                 std::vector<typename V::field_type>& fluxes) const
     {
       if constexpr(continuityType == ContinuityType::continuous) {
+        fluxFromPatch(coils, projections, fluxes);
         fluxFromPatchBoundary(coils, projections, fluxes);
         fluxFromTransition(coils, projections, fluxes);
       }
@@ -243,9 +245,10 @@ namespace duneuro
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;
     unsigned int intorderadd_;
-    unsigned int intordermeg_;
     unsigned int intorderadd_lb_;
-    unsigned int intordermeg_lb_;
+    unsigned int intorder_meg_patch_;
+    unsigned int intorder_meg_boundary_;
+    unsigned int intorder_meg_transition_;
     double penalty_;
     std::shared_ptr<DOFVector> chiBasisCoefficientsPtr_;
     std::shared_ptr<DiscreteGridFunction> chiFunctionPtr_;
@@ -273,6 +276,71 @@ namespace duneuro
     }
 
     //////////////////////////////////////////////////
+    // compute integral (sigma_corr grad(u_infinity)) x (x - y) / |x - y|^3 dy over patch region
+    //////////////////////////////////////////////////
+    void fluxFromPatch(const std::vector<CoordinateType>& coils,
+                       const std::vector<std::vector<CoordinateType>>& projections,
+                       std::vector<typename V::field_type>& fluxes) const
+    {
+      using GradientType = typename InfinityPotentialGradient<typename VC::GridView, CoordinateField>::RangeType;
+      Tensor sigma_infinity = hostProblem_->get_sigma_infty();
+
+      // loop over all patch elements and assemble local integrals
+      for(const auto& element : patchAssembler_.patchElements()) {
+        Tensor sigma = volumeConductor_->tensor(element);
+        std::cout << " Entry : " << sigma[0, 0] << "\n"; // FIXME : DEBUG_OUTPUT
+        // elements with sigma_corr == 0 can be skipped
+        if(sigma == sigma_infinity) {
+          std::cout << " Element skipped\n"; // FIXME
+          continue;
+        }
+        std::cout << " Element not skipped\n"; //FIXME
+        Tensor sigma_corr = sigma;
+        sigma_corr -= sigma_infinity;
+
+        const auto& elem_geo = element.geometry();
+        auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
+        auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
+
+        // choose quadrature rule
+        Dune::GeometryType geo_type = elem_geo.type();
+        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intorder_meg_patch_);
+
+        // perform the integration
+        for(const auto& quad_point : quad_rule) {
+          auto integration_factor = jacobian_determinant * quad_point.weight();
+          auto local_position = quad_point.position();
+          auto global_position = elem_geo.global(local_position);
+
+          // compute sigma_corr grad(u_infinity) * weight
+          GradientType grad_u_infinity = hostProblem_->get_grad_u_infty(global_position);
+          GradientType sigma_corr_grad_u_infinity;
+          sigma_corr.mv(grad_u_infinity, sigma_corr_grad_u_infinity);
+          sigma_corr_grad_u_infinity *= integration_factor;
+
+          // loop over all coils and projections
+          size_t counter = 0;
+          for(size_t i = 0; i < coils.size(); ++i) {
+            // compute (x - y) / |x - y|^3
+            CoordinateType rhs = coils[i];
+            rhs -= global_position;
+            auto diff_norm = rhs.two_norm();
+            auto norm_cubed = diff_norm * diff_norm * diff_norm;
+            rhs /= norm_cubed;
+
+            // compute cross product
+            CoordinateType cross_product;
+            Dune::PDELab::CrossProduct<dim, dim>(cross_product, sigma_corr_grad_u_infinity, rhs);
+            for(size_t j = 0; j < projections[i].size(); ++j) {
+              fluxes[counter] += cross_product * projections[i][j];
+              ++counter;
+            } // end loop over projections
+          } // end loop over coils
+        } // end loop over quadrature points
+      } // end loop over patch elements
+    } // end fluxFromPatch
+
+    //////////////////////////////////////////////////
     // compute integral (sigma grad(chi * u_infinity)) x (x - y) / |x - y|^3 dy over transition region
     //////////////////////////////////////////////////
     void fluxFromTransition(const std::vector<CoordinateType>& coils,
@@ -296,7 +364,7 @@ namespace duneuro
 
         // choose quadrature rule
         Dune::GeometryType geo_type = elem_geo.type();
-        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intordermeg_);
+        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intorder_meg_transition_);
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
@@ -360,7 +428,7 @@ namespace duneuro
 
         // choose quadrature rule
         Dune::GeometryType geo_type = intersection_geo.type();
-        const Dune::QuadratureRule<CoordinateField, dim - 1>& quad_rule = Dune::QuadratureRules<CoordinateField, dim - 1>::rule(geo_type, intordermeg_lb_);
+        const Dune::QuadratureRule<CoordinateField, dim - 1>& quad_rule = Dune::QuadratureRules<CoordinateField, dim - 1>::rule(geo_type, intorder_meg_boundary_);
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
