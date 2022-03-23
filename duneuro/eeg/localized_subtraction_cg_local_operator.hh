@@ -18,13 +18,15 @@ namespace duneuro {
     LocalizedSubtractionCGLocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
                                         std::shared_ptr<GridFunction> gridFunctionPtr,
                                         const ProblemParameters& problemParameters,
-                                        unsigned int intorderadd,
-                                        unsigned int intorderadd_lb)
+                                        unsigned int intorderadd_eeg_patch,
+                                        unsigned int intorderadd_eeg_boundary,
+                                        unsigned int intorderadd_eeg_transition)
       : volumeConductorPtr_(volumeConductorPtr)
       , gridFunctionPtr_(gridFunctionPtr)
       , problemParameters_(problemParameters)
-      , intorderadd_(intorderadd)
-      , intorderadd_lb_(intorderadd_lb)
+      , intorderadd_eeg_patch_(intorderadd_eeg_patch)
+      , intorderadd_eeg_boundary_(intorderadd_eeg_boundary)
+      , intorderadd_eeg_transition_(intorderadd_eeg_transition)
     {
     }
     
@@ -65,7 +67,7 @@ namespace duneuro {
       
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs.finiteElement()).order();
-      int intorder = intorderadd_ + 2 * FEOrder;
+      int intorder = intorderadd_eeg_patch_ + 2 * FEOrder;
       Dune::GeometryType geo_type = elem_geo.type();
       const Dune::QuadratureRule<DF, dim>& quad_rule = Dune::QuadratureRules<DF, dim>::rule(geo_type, intorder);
       
@@ -125,7 +127,7 @@ namespace duneuro {
 
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs_inside.finiteElement()).order();
-      int intorder = intorderadd_lb_ + 2 * FEOrder;
+      int intorder = intorderadd_eeg_boundary_ + 2 * FEOrder;
       Dune::GeometryType geo_type = intersection_geo.type();
       const Dune::QuadratureRule<DF, dim - 1>& quad_rule = Dune::QuadratureRules<DF, dim - 1>::rule(geo_type, intorder);
 
@@ -189,7 +191,7 @@ namespace duneuro {
 
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs.finiteElement()).order();
-      int intorder = intorderadd_ + 2 * FEOrder;
+      int intorder = intorderadd_eeg_transition_ + 2 * FEOrder;
       Dune::GeometryType geo_type = elem_geo.type();
       const Dune::QuadratureRule<DF, dim>& quad_rule = Dune::QuadratureRules<DF, dim>::rule(geo_type, intorder);
 
@@ -228,8 +230,9 @@ namespace duneuro {
     std::shared_ptr<const VolumeConductor> volumeConductorPtr_;
     std::shared_ptr<GridFunction> gridFunctionPtr_;
     const ProblemParameters& problemParameters_;
-    unsigned int intorderadd_;
-    unsigned int intorderadd_lb_;
+    unsigned int intorderadd_eeg_patch_;
+    unsigned int intorderadd_eeg_boundary_;
+    unsigned int intorderadd_eeg_transition_;
   };
 
 } // namespace duneuro

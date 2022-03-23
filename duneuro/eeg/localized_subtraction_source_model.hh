@@ -77,8 +77,9 @@ namespace duneuro
         // parameters for LOP
         , edgeNormProvider_(solverConfig.get<std::string>("edge_norm_type"), 1.0)
         , weighting_(solverConfig.get<std::string>("weights"))
-        , intorderadd_(config.get<unsigned int>("intorderadd"))
-        , intorderadd_lb_(config.get<unsigned int>("intorderadd_lb"))
+        , intorderadd_eeg_patch_(config.get<unsigned int>("intorderadd_eeg_patch"))
+        , intorderadd_eeg_boundary_(config.get<unsigned int>("intorderadd_eeg_boundary"))
+        , intorderadd_eeg_transition_(config.get<unsigned int>("intorderadd_eeg_transition"))
         , intorder_meg_patch_(config.get<unsigned int>("intorder_meg_patch"))
         , intorder_meg_boundary_(config.get<unsigned int>("intorder_meg_boundary"))
         , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition"))
@@ -123,8 +124,8 @@ namespace duneuro
 
         problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
         problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
-        lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd"),
-                                     config_.get<unsigned int>("intorderadd_lb"));
+        lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd_eeg_patch"),
+                                     config_.get<unsigned int>("intorderadd_eeg_boundary"));
         subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
         dataTree.set("sub_dofs", subFS_->getGFS().size());
         x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
@@ -166,13 +167,13 @@ namespace duneuro
       {
         assembleLocalDefaultSubtraction(vector);
         using LOP = LocalizedSubtractionDGLocalOperator<HostProblem, EdgeNormProvider, PenaltyFluxWeighting>;
-        LOP lop2(*hostProblem_, edgeNormProvider_, weighting_, penalty_, intorderadd_lb_);
+        LOP lop2(*hostProblem_, edgeNormProvider_, weighting_, penalty_, intorderadd_eeg_boundary_);
         patchAssembler_.assemblePatchBoundary(vector, lop2);
       }
       else if(continuityType == ContinuityType::continuous)
       {
         using LOP = LocalizedSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>;
-        LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_, intorderadd_lb_);
+        LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
         patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
         patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
         patchAssembler_.assembleTransitionVolume(vector, cg_local_operator);
@@ -244,8 +245,9 @@ namespace duneuro
     ElementPatchAssembler<VC, FS> patchAssembler_;
     EdgeNormProvider edgeNormProvider_;
     PenaltyFluxWeighting weighting_;
-    unsigned int intorderadd_;
-    unsigned int intorderadd_lb_;
+    unsigned int intorderadd_eeg_patch_;
+    unsigned int intorderadd_eeg_boundary_;
+    unsigned int intorderadd_eeg_transition_;
     unsigned int intorder_meg_patch_;
     unsigned int intorder_meg_boundary_;
     unsigned int intorder_meg_transition_;
@@ -288,13 +290,10 @@ namespace duneuro
       // loop over all patch elements and assemble local integrals
       for(const auto& element : patchAssembler_.patchElements()) {
         Tensor sigma = volumeConductor_->tensor(element);
-        std::cout << " Entry : " << sigma[0, 0] << "\n"; // FIXME : DEBUG_OUTPUT
         // elements with sigma_corr == 0 can be skipped
         if(sigma == sigma_infinity) {
-          std::cout << " Element skipped\n"; // FIXME
           continue;
         }
-        std::cout << " Element not skipped\n"; //FIXME
         Tensor sigma_corr = sigma;
         sigma_corr -= sigma_infinity;
 
