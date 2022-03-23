@@ -53,17 +53,23 @@ namespace duneuro {
       const auto& elem = eg.entity();
       const auto& elem_geo = eg.geometry();
       auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
-      
+
+      // compute sigma_corr
+      Tensor sigma_corr = volumeConductorPtr_->tensor(elem); // contains sigma at this point
+      Tensor sigma_infinity = problemParameters_.get_sigma_infty();
+
+      // if the tensor in this element is identical to sigma infinity, the integral over this element is zero and we can return early
+      if(sigma_corr == sigma_infinity) return;
+
+      // else sigma_corr != 0
+      sigma_corr -= sigma_infinity;
+
       // create container for basis gradients
       size_t local_number_of_dofs = lfs.size();
       std::vector<BasisGradientType> basis_gradients(local_number_of_dofs);
       
       // get integration element
       auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
-      
-      // compute sigma_corr
-      Tensor sigma_corr = volumeConductorPtr_->tensor(elem);
-      sigma_corr -= problemParameters_.get_sigma_infty();
       
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs.finiteElement()).order();
