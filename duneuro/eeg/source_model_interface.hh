@@ -67,7 +67,7 @@ namespace duneuro
                                 const std::vector<std::vector<CoordinateType>>& projections,
                                 std::vector<typename V::field_type>& fluxes) const override
     {
-      std::cout << " Noop postprocess\n";
+      // as a default: no post processing
     }
 
     const SearchType& elementSearch() const
