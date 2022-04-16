@@ -112,6 +112,9 @@ namespace duneuro
 
       auto global = element.geometry().global(localDipolePosition);
 
+			dipole_position_ = global;
+			dipole_moment_ = dipoleMoment;
+
       /** set the values for the analytic grid function u_infty and its gradient **/
       u_infty.set_parameters(dipoleMoment, global, sigma_infty, sigma_infty_inv);
       grad_u_infty.set_parameters(dipoleMoment, global, sigma_infty, sigma_infty_inv);
@@ -122,6 +125,16 @@ namespace duneuro
     {
       return u_infty;
     }
+
+		const typename InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType>::DomainType&
+		get_dipole_position() const {
+			return dipole_position_;
+		}
+		
+		const typename InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType>::DomainType&
+		get_dipole_moment() const {
+			return dipole_moment_;
+		}
 
   private:
     /*** gridview ***/
@@ -135,6 +148,10 @@ namespace duneuro
     InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType> u_infty;
     InfinityPotentialGradient<typename Traits::GridViewType, typename Traits::RangeFieldType>
         grad_u_infty;
+        
+    // dipole position and moment
+    typename InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType>::DomainType dipole_position_;
+    typename InfinityPotential<typename Traits::GridViewType, typename Traits::RangeFieldType>::DomainType dipole_moment_;
   };
 }
 
