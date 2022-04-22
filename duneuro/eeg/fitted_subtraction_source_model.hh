@@ -1,6 +1,8 @@
 #ifndef DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
 #define DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
 
+#include <algorithm>
+#include <cmath>
 #include <dune/common/parametertree.hh>
 
 #include <dune/pdelab/backend/interface.hh>
@@ -112,6 +114,7 @@ namespace duneuro
       interp_ = 0.0;
       Dune::PDELab::interpolate(problem_.get_u_infty(), assembler_->trialGridFunctionSpace(),
                                 interp_);
+      std::replace_if(interp_.begin(), interp_.end(), [](double val) -> bool {return std::isnan(val);}, 0.0);
       vector += interp_;
     }
 
@@ -136,7 +139,7 @@ namespace duneuro
         fluxFromNonPatchVolume(coils, projections, fluxes);
       }
       else {
-        std::cout << " Noop postprocess\n";
+        DUNE_THROW(Dune::NotImplemented, "MEG postprocessing for dg localized subtraction source model is not yet implemented");
       }
     }
 
