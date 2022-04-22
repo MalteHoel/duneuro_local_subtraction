@@ -30,7 +30,7 @@ namespace duneuro
                                                   typename V::field_type, VC>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
+    using LOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting, continuityType>;
     using DOF = typename FS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<FS, LOP, Dune::SolverCategory::sequential>;
     using ElementType = typename BaseT::ElementType;

@@ -48,7 +48,7 @@ namespace duneuro
         SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting>;
+    using LOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting>;
     using DOF = typename SUBFS::DOF;
     using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
     using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
