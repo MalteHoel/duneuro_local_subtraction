@@ -87,7 +87,6 @@ namespace duneuro
         // compute surface integrals
         duneuro::AnalyticTriangle<Scalar> triangle(corners[0], corners[1], corners[2], ig.intersection().centerUnitOuterNormal());
         triangle.bind(dipole_position, dipole_moment);
-        triangle.assembleValuesForIntegration();
         Coordinate surface_integrals = triangle.surfaceIntegral();
 
         for(size_t i = 0; i < number_of_corners; ++i) {
@@ -139,12 +138,14 @@ namespace duneuro
 
       const auto gt = geometry.type();
       auto sigma_corr = param.A(eg, Dune::ReferenceElements<DF, dim>::general(gt).position(0, 0));
+      auto sigma_infinity = param.get_sigma_infty();
 
-      if(sigma_corr == param.get_sigma_infty()) {
+      // if sigma == sigma_infinity the integral over this element vanishes and we can return early
+      if(sigma_corr == sigma_infinity) {
         return;
       }
 
-      sigma_corr -= param.get_sigma_infty();
+      sigma_corr -= sigma_infinity;
 
       std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfsv.size());
 
@@ -171,7 +172,7 @@ namespace duneuro
         // compute matrix factor
         lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
         lhs_matrix.leftmultiply(sigma_corr);
-        lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi() * param.get_sigma_infty()[0][0]);
+        lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi() * sigma_infinity[0][0]);
 
         Coordinate rhs(0.0);
 
@@ -181,7 +182,8 @@ namespace duneuro
           corners[i] = geometry.corner(i);
         }
 
-        // compute factors of faces
+        // compute factors of facets
+        // we associate each facet with the corner of the tetrahedron opposite to it
         for(int i = 0; i < lfsv_size; ++i) {
           std::vector<Coordinate> current_corners(3);
           for(int j = 1; j <= 3; ++j) {
@@ -197,7 +199,6 @@ namespace duneuro
 
           duneuro::AnalyticTriangle<Scalar> triangle(current_corners[0], current_corners[1], current_corners[2], outer_normal);
           triangle.bind(dipole_position, dipole_moment);
-          triangle.assembleValuesForIntegration();
           Scalar factor = triangle.volumeFactor();
 
           rhs += factor * outer_normal;
@@ -209,7 +210,7 @@ namespace duneuro
         for(size_t i = 0; i < lfsv_size; ++i) {
           r.accumulate(lfsv, i, integrals[i]);
         }
-      } // end P1FEM case
+      } // end case for simplicial lagrange FEM of order 1
       else
       {
 

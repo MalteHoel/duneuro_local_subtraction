@@ -58,20 +58,20 @@ namespace duneuro {
       
       // check orientation of triangle
       orientation_flipped = (orientation * w) < 0;
-    }
+    } // end constructor
     
     void bind(const duneuro::Dipole<Scalar, dim>& dipole) 
     {
       bind(dipole.position(), dipole.moment());
     }
     
+    // compute a number of values describing the geometry of the dipole position
+    // with respect to the triangle
     void bind(const Coordinate& dipole_position, const Coordinate& dipole_moment)
     {
       dipole_position_ = dipole_position;
       dipole_moment_ = dipole_moment;
-    }
-    
-    void assembleValuesForIntegration() {
+
       Coordinate diff = dipole_position_ - corners[0];
       u_0 = u * diff; 
 	    v_0 = v * diff;
@@ -81,9 +81,6 @@ namespace duneuro {
 	    t[0] = (v_0 * (u_3 - edge_lengths[2]) + v_3 * (edge_lengths[2] - u_0)) / edge_lengths[0];
 	    t[1] = (u_0 * v_3 - v_0 * u_3) / edge_lengths[1];
     	t[2] = v_0;
-    	
-    	std::array<Scalar, number_of_edges> gamma_minus; // Defining condition : rho + t[i] * m[i] + gamma_minus[i] * normed_differences[i] = corners[(i + 1)%3]
-      std::array<Scalar, number_of_edges> gamma_plus; // Defining condition : rho + t[i] * m[i] + gamma_minus[i] * normed_differences[i] = corners[(i + 2)%3]
     	
     	gamma_minus[0] = - ((edge_lengths[2] - u_0) * (edge_lengths[2] - u_3) + v_0 * v_3) / edge_lengths[0];
     	gamma_plus[0] = ((u_3 - u_0) * (u_3 - edge_lengths[2]) + v_3 * (v_3 - v_0)) / edge_lengths[0];
@@ -105,9 +102,13 @@ namespace duneuro {
       R_plus[0] = R_minus[1];
       R_plus[1] = R_minus[2];
       R_plus[2] = R_minus[0];
-      
+    } // end bind
+
+    // compute constants needed for the computation of the surface integral
+    void assembleValuesForSurfaceIntegration()
+    {
       for(size_t i = 0; i < number_of_edges; ++i) {
-        if(gamma_minus[i] > 0 && gamma_plus[i] > 0) {
+        if(gamma_minus[i] > 0) {
           f[i] = std::log((R_plus[i] + gamma_plus[i]) / (R_minus[i] + gamma_minus[i]));
         }
         else {
@@ -122,11 +123,13 @@ namespace duneuro {
       ansatzfunction_transformation[0] = {1.0, 0.0, 0.0};
       ansatzfunction_transformation[1] = {-1.0/edge_lengths[2], 1.0/edge_lengths[2], 0.0};
       ansatzfunction_transformation[2] = {(u_3 / edge_lengths[2] - 1) / v_3, -u_3 / (edge_lengths[2] * v_3), 1.0/v_3};
-    }
+    } // end assembleValuesForSurfaceIntegration
     
     // compute integral <sigma_infinity * u_infinity, eta> * phi dS over the triangle for all local DOFs
     Coordinate surfaceIntegral() 
     {
+      assembleValuesForSurfaceIntegration();
+
       // compute I_0
       Coordinate rhs(0.0);
       for(size_t i = 0; i < number_of_edges; ++i) {
@@ -172,14 +175,42 @@ namespace duneuro {
       if(orientation_flipped) surface_integral *= -1;
       
       return surface_integral;
-    }
+    } // end surfaceIntegral
+
+    // compute constants needed for the computation of the volume factors
+    void assembleValuesForVolumeIntegration(bool assembleBeta) {
+      for(size_t i = 0; i < number_of_edges; ++i) {
+        if(gamma_minus[i] > 0) {
+          f[i] = std::log((R_plus[i] + gamma_plus[i]) / (R_minus[i] + gamma_minus[i]));
+        }
+        else {
+          f[i] = std::log((R_minus[i] - gamma_minus[i]) / (R_plus[i] - gamma_plus[i]));
+        }
+      }
+
+      if(assembleBeta) {
+        for(size_t i = 0; i < number_of_edges; ++i) {
+          beta[i] = std::atan((t[i] * gamma_plus[i]) / (R_0[i] * R_0[i] + std::abs(w_0) * R_plus[i]))
+                  - std::atan((t[i] * gamma_minus[i]) / (R_0[i] * R_0[i] + std::abs(w_0) * R_minus[i]));
+        }
+      }
+    } // end assembleValuesForVolumeIntegration
     
     // compute <M, sign(w_0) * beta * w - sum_j f_j * m_j>
+    // This is the factor arising when trying to integrate <sigma_corr grad_u_infinity, grad_phi> for all local basis functions phi over a tetrahedron
+    // In the case of a simplicial P1 Lagrange FEM grad_u_infinity is constant, and since sigma_corr is constant on every element we thus only need
+    // to integrate grad_u_infinity. By Gausses Theorem this can be transformed to an integral over the boundaries of the tetrahedron. Then we can
+    // move the triangle to the x-y-plane inside the R^3. This splits the integral into two parts, one of which can be computed in R^2 by again
+    // applying Gausses Theorem, while the other is an integral over 1/R^3 over a triangle, which was already computed for the surface integrals.
     Scalar volumeFactor() 
     {
+      // we only need to compute the beta factor if the projection onto the triangle plane is different from the original dipole position
+      bool assembleBeta = std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon();
+      assembleValuesForVolumeIntegration(assembleBeta);
+
       Coordinate rhs(0.0);
       
-      if(std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon()) {
+      if(assembleBeta) {
         rhs += sign_w_0 * (beta[0] + beta[1] + beta[2]) * w;
       }
       
@@ -188,7 +219,7 @@ namespace duneuro {
       }
       
       return dipole_moment_ * rhs;
-    }
+    } // end volumeFactor
     
   private:
     
@@ -224,6 +255,9 @@ namespace duneuro {
     std::array<Scalar, number_of_edges> t; // Let rho be the projection of the dipole position onto the plane defined by the triangle.
                                            // Then t[i] is defined by the condition rho + t[i] * m[i] in aff(corners[(i + 1)%3], corners[(i + 2)%3])
     
+    std::array<Scalar, number_of_edges> gamma_minus; // Defining condition : rho + t[i] * m[i] + gamma_minus[i] * normed_differences[i] = corners[(i + 1)%3]
+    std::array<Scalar, number_of_edges> gamma_plus;  // Defining condition : rho + t[i] * m[i] + gamma_minus[i] * normed_differences[i] = corners[(i + 2)%3]
+
     std::array<Scalar, number_of_edges> R_0; // Distance from dipole position to the line defined by corner[(i+1)%3] and corner[(i + 2]%3]
     std::array<Scalar, number_of_edges> R_minus; // Distance from dipole position to corner[(i+1)%3]
     std::array<Scalar, number_of_edges> R_plus; // Distance from dipole position to corner[(i+2)%3]. This is slightly redundant, but makes the formulas later on cleaner.
@@ -234,7 +268,6 @@ namespace duneuro {
     std::array<Scalar, number_of_edges> beta;   // Values arising by integrating  1 /(sqrt(x^2 + a)*(x^2 + b))      with respect to x
     
     std::array<Coordinate, number_of_edges> ansatzfunction_transformation; // Describes the nodal basis on the triangle after transformation by x -> O^T(x - corner_1)
-	};
-
+	}; // end class AnalyticTriangle
 } // end namespace duneuro
 #endif // DUNEURO_EEG_ANALYTIC_UTILITIES_HH
