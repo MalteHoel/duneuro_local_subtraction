@@ -34,13 +34,6 @@
 
 namespace duneuro
 {
-  // helper struct to decide if analytical formulas should be used
-  template<class... >
-  struct isP1FEM : std::false_type {};
-
-  template<class GridType, class ctype, class BCType>
-  struct isP1FEM<Dune::PDELab::CGSpace<GridType, ctype, 1, BCType, Dune::GeometryType::simplex, Dune::PDELab::MeshType::conforming, Dune::SolverCategory::sequential>> : std::true_type {};
-
   template <class FunctionSpace, class PROBLEMDATA, class PenaltyFluxWeighting>
   class SubtractionDGLambda
   {

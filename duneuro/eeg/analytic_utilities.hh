@@ -5,11 +5,20 @@
 #include <cmath>
 #include <limits>
 #include <dune/common/fvector.hh>
+#include <dune/common/fmatrix.hh>
 #include <dune/common/math.hh>
 #include <dune/pdelab/common/crossproduct.hh>
 #include <duneuro/common/dipole.hh>
 
 namespace duneuro {
+	
+	// helper struct to decide if analytical formulas should be used
+  template<class... >
+  struct isP1FEM : std::false_type {};
+
+  template<class GridType, class ctype, class BCType>
+  struct isP1FEM<Dune::PDELab::CGSpace<GridType, ctype, 1, BCType, Dune::GeometryType::simplex, Dune::PDELab::MeshType::conforming, Dune::SolverCategory::sequential>> : std::true_type {};
+	
 	
 	/*
 	  this class is supposed to aid in the computation of potential integrals over triangles in 3D space
@@ -220,6 +229,88 @@ namespace duneuro {
       
       return dipole_moment_ * rhs;
     } // end volumeFactor
+    
+    
+    Scalar transitionFactor(const std::vector<bool>& part_of_patch) 
+    {
+      assembleValuesForSurfaceIntegration();
+      
+      ///////////////////////////////////
+      // compute integral matrix
+      ///////////////////////////////////
+      
+      Dune::FieldMatrix<Scalar, 3, 3> integral_matrix(0.0);
+      
+      Coordinate vector_helper(0.0);
+      
+      Scalar beta_total = beta[0] + beta[1] + beta[2];
+      
+      // compute first vector
+      if(std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon()) {
+        vector_helper += sign_w_0 * beta_total * w;
+      }
+      
+      for(size_t i = 0; i < 3; ++i) {
+        vector_helper -= f[i] * m[i];
+      }
+      
+      for(size_t i = 0; i < 3; ++i) {
+        integral_matrix[i][0] = vector_helper[i];
+      }
+      
+      // compute second and third vector
+      vector_helper = 0.0;
+      Coordinate vector_u(0.0);
+      Coordinate vector_v(0.0);
+      
+      for(size_t i = 0; i < 3; ++i) {
+        vector_helper = f[i] * t[i] * normed_differences[i] - (R_plus[i] - R_minus[i]) * m[i];
+        vector_u += (u * normed_differences[i]) * vector_helper;
+        vector_v += (v * normed_differences[i]) * vector_helper;
+      }
+      
+      if(std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon()) {
+        vector_u -= std::abs(w_0) * beta_total * u;
+        vector_v -= std::abs(w_0) * beta_total * v;
+      }
+      
+      Scalar factor_u(0.0);
+      Scalar factor_v(0.0);
+      
+      for(size_t i = 0; i < 3; ++i) {
+        factor_u += (u * m[i]) * f[i];
+        factor_v += (v * m[i]) * f[i];
+      }
+      
+      vector_u -= factor_u * w_0 * w;
+      vector_v -= factor_v * w_0 * w;
+      
+      for(size_t i = 0; i < 3; ++i) {
+        integral_matrix[i][1] = vector_u[i];
+        integral_matrix[i][2] = vector_v[i];
+      }
+      
+      ///////////////////////////////////
+      // compute rhs factor
+      ///////////////////////////////////
+      Coordinate part_of_patch_vector(0.0);
+      for(size_t i = 0; i < 3; ++i) {
+        if(part_of_patch[i]) {
+          part_of_patch_vector[i] = 1.0;
+        }
+      }
+      
+      Coordinate rhs(0.0);
+      Coordinate nodal_basis_at_dipole =  ansatzfunction_transformation[0] + ansatzfunction_transformation[1] * u_0 + ansatzfunction_transformation[2] * v_0;
+      rhs[0] = nodal_basis_at_dipole * part_of_patch_vector;
+      rhs[1] = ansatzfunction_transformation[1] * part_of_patch_vector;
+      rhs[2] = ansatzfunction_transformation[2] * part_of_patch_vector;
+      
+      Coordinate integral_vector(0.0);
+      integral_matrix.mv(rhs, integral_vector);
+      
+      return dipole_moment_ * integral_vector;
+    }
     
   private:
     

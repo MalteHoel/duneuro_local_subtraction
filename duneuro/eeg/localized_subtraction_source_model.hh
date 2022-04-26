@@ -1,6 +1,8 @@
 #ifndef DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
 #define DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
 
+#include <type_traits>
+
 #include <dune/common/parametertree.hh>
 
 #include <dune/grid/common/rangegenerators.hh>
@@ -24,6 +26,8 @@
 #include <duneuro/eeg/subtraction_dg_operator.hh>
 #include <duneuro/eeg/localized_subtraction_dg_local_operator.hh>
 #include <duneuro/eeg/localized_subtraction_cg_local_operator.hh>
+#include <duneuro/eeg/analytic_utilities.hh>
+#include <duneuro/eeg/localized_subtraction_cg_p1_local_operator.hh>
 #include <duneuro/common/flags.hh>
 
 namespace duneuro
@@ -85,6 +89,7 @@ namespace duneuro
         , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition"))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
+        , useAnalyticRHS_(config.get<bool>("useAnalyticRHS", false))
     {
     }
 
@@ -172,7 +177,9 @@ namespace duneuro
       }
       else if(continuityType == ContinuityType::continuous)
       {
-        using LOP = LocalizedSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>;
+        using LOP = typename std::conditional<isP1FEM<FS>::value && dim == 3,
+                                              LocalizedSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, HostProblem>,
+                                              LocalizedSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>>::type;
         LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
         patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
         patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
@@ -254,6 +261,8 @@ namespace duneuro
     double penalty_;
     std::shared_ptr<DOFVector> chiBasisCoefficientsPtr_;
     std::shared_ptr<DiscreteGridFunction> chiFunctionPtr_;
+    
+    bool useAnalyticRHS_;
 
     void assembleLocalDefaultSubtraction(VectorType& vector) const
     {
