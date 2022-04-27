@@ -16,10 +16,12 @@ namespace duneuro {
     using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename GridFunction::GridFunctionSpace, typename GridFunction::Vector, diffOrder>;
     using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
     
-    using TriangleScalar = double;
-    using Coordinate = Dune::FieldVector<TriangleScalar, dim>;
+    using Scalar = typename ProblemParameters::Traits::RangeFieldType;
+    using Coordinate = Dune::FieldVector<Scalar, dim>;
     enum {lfs_size = 4};
     enum {triangle_corners = 3};
+    enum {facet_codim = 1};
+    enum {vertex_codim = 3};
   
     LocalizedSubtractionCGP1LocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
                                           std::shared_ptr<GridFunction> gridFunctionPtr,
@@ -36,7 +38,6 @@ namespace duneuro {
       , dipole_position_(problemParameters_.get_dipole_position())
       , dipole_moment_(problemParameters_.get_dipole_moment())
     {
-      std::cout << "Constructing local operator for CG P1 FEM\n";
     }
     
     
@@ -48,12 +49,6 @@ namespace duneuro {
     template<class EG, class LFS, class LV>
     void lambda_patch_volume(const EG& eg, const LFS& lfs, LV& lv) const
     {
-      using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
-      using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
-      using DF = typename BasisSwitch::DomainField;
-      using RF = typename BasisSwitch::RangeField;
-      using RangeType = typename BasisSwitch::Range;
-
       const auto& geometry = eg.geometry();
       auto local_coords_dummy = referenceElement(geometry).position(0, 0);
       auto sigma_corr = problemParameters_.A(eg, local_coords_dummy);
@@ -65,8 +60,8 @@ namespace duneuro {
       sigma_corr -= sigma_infinity;
 
       // get gradients of local basis functions
-      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfs_size);
-      Dune::FieldMatrix<RF, dim, lfs_size> lhs_matrix;
+      std::vector<Dune::FieldMatrix<Scalar, 1, dim>> gradphi(lfs_size);
+      Dune::FieldMatrix<Scalar, dim, lfs_size> lhs_matrix;
       lfs.finiteElement().localBasis().evaluateJacobian(local_coords_dummy, gradphi);
       for(size_t i = 0; i < dim; ++i) {
         for(size_t j = 0; j < lfs_size; ++j) {
@@ -77,18 +72,18 @@ namespace duneuro {
       // compute matrix factor
       lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
       lhs_matrix.leftmultiply(sigma_corr);
-      lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<TriangleScalar>::pi() * sigma_infinity[0][0]);
+      lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi() * sigma_infinity[0][0]);
 
       // iterate over all facets of the tetrahedron and compute facet factors
       Coordinate rhs(0.0);
       for(const auto& intersection : Dune::intersections(volumeConductorPtr_->gridView(), eg.entity())) {
         Coordinate outerNormal = intersection.centerUnitOuterNormal();
-        duneuro::AnalyticTriangle<TriangleScalar> triangle(intersection.geometry().corner(0), intersection.geometry().corner(1), intersection.geometry().corner(2), outerNormal);
+        duneuro::AnalyticTriangle<Scalar> triangle(intersection.geometry().corner(0), intersection.geometry().corner(1), intersection.geometry().corner(2));
         triangle.bind(dipole_position_, dipole_moment_);
-        rhs += triangle.volumeFactor() * outerNormal;
+        rhs += triangle.patchFactor() * outerNormal;
       }
 
-      Dune::FieldVector<TriangleScalar, lfs_size> integrals(0.0);
+      Dune::FieldVector<Scalar, lfs_size> integrals(0.0);
       lhs_matrix.umtv(rhs, integrals);
 
       for(size_t i = 0; i < lfs_size; ++i) {
@@ -110,7 +105,7 @@ namespace duneuro {
       int facet_index = ig.indexInInside();
       const auto& inside_geometry = ig.inside().geometry();
       int number_of_corners = ig.geometry().corners();
-      auto corner_index_iterator = Dune::referenceElement(inside_geometry).subEntities(facet_index, 1, 3);
+      auto corner_index_iterator = Dune::referenceElement(inside_geometry).subEntities(facet_index, facet_codim, vertex_codim);
       std::vector<Coordinate> corners(number_of_corners);
       std::transform(corner_index_iterator.begin(), corner_index_iterator.end(), corners.begin(), [&inside_geometry](int index) -> Coordinate {return inside_geometry.corner(index);});
 
@@ -124,9 +119,9 @@ namespace duneuro {
         [&dof_to_vertex_index](int index) -> int {return std::distance(dof_to_vertex_index.begin(), std::find(dof_to_vertex_index.begin(), dof_to_vertex_index.end(), index));});
 
       // compute surface integrals
-      duneuro::AnalyticTriangle<TriangleScalar> triangle(corners[0], corners[1], corners[2], ig.intersection().centerUnitOuterNormal());
+      duneuro::AnalyticTriangle<Scalar> triangle(corners[0], corners[1], corners[2]);
       triangle.bind(dipole_position_, dipole_moment_);
-      Coordinate surface_integrals = triangle.surfaceIntegral();
+      Coordinate surface_integrals = triangle.surfaceIntegral(ig.intersection().centerUnitOuterNormal());
 
       for(size_t i = 0; i < number_of_corners; ++i) {
         v_inside.accumulate(lfs_inside, vertex_to_dof_index[i], -surface_integrals[i]);
@@ -137,26 +132,22 @@ namespace duneuro {
     //////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////
     // assemble the integral of <sigma (u_infinity * grad_chi + chi * grad_u_infinity), grad_phi> over the transition region, where phi runs over all FE basis functions
+    // we assume chi to be an P1 on this element, but otherwise no restrictions apply
     //////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////
     template<class EG, class LFS, class LV>
     void lambda_transition_volume(const EG& eg, const LFS& lfs, LV& lv) const
     {
-      using FESwitch = Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
-      using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
-      using DF = typename BasisSwitch::DomainField;
-      using RF = typename BasisSwitch::RangeField;
-      using RangeType = typename BasisSwitch::Range;
-    
       // compute matrix factor
       const auto& geometry = eg.geometry();
-      auto local_coords_dummy = referenceElement(geometry).position(0, 0);
+      const auto& ref_element = referenceElement(geometry);
+      auto local_coords_dummy = ref_element.position(0, 0);
       auto sigma = problemParameters_.A(eg, local_coords_dummy);
       auto sigma_infinity = problemParameters_.get_sigma_infty();
       
       // get gradients of local basis functions
-      std::vector<Dune::FieldMatrix<RF, 1, dim>> gradphi(lfs_size);
-      Dune::FieldMatrix<RF, dim, lfs_size> lhs_matrix;
+      std::vector<Dune::FieldMatrix<Scalar, 1, dim>> gradphi(lfs_size);
+      Dune::FieldMatrix<Scalar, dim, lfs_size> lhs_matrix;
       lfs.finiteElement().localBasis().evaluateJacobian(local_coords_dummy, gradphi);
       for(size_t i = 0; i < dim; ++i) {
         for(size_t j = 0; j < lfs_size; ++j) {
@@ -167,29 +158,29 @@ namespace duneuro {
       // compute matrix factor
       lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
       lhs_matrix.leftmultiply(sigma);
-      lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<TriangleScalar>::pi() * sigma_infinity[0][0]);
+      lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi() * sigma_infinity[0][0]);
       
+      // get local description of chi
+      LocalFunction chi_local = localFunction(*gridFunctionPtr_);
+      chi_local.bind(eg.entity());
+      std::vector<Scalar> chi_local_expansion(lfs_size);
+      std::generate(chi_local_expansion.begin(), chi_local_expansion.end(), [&ref_element, &chi_local, i = 0] () mutable {return chi_local(ref_element.position(i++, vertex_codim));});
+      
+      // get corners
+      std::vector<Coordinate> corners_tetrahedron(lfs_size);
+      std::generate(corners_tetrahedron.begin(), corners_tetrahedron.end(), [&geometry, i = 0] () mutable {return geometry.corner(i++);});
       
       // iterate over all facets and compute transition factors
       Coordinate rhs(0.0);
       for(const auto& intersection : Dune::intersections(volumeConductorPtr_->gridView(), eg.entity())) {
-        // get local description of chi
-        LocalFunction chi_local = localFunction(*gridFunctionPtr_);
-        chi_local.bind(eg.entity());
-        std::vector<Coordinate> corners(triangle_corners);
-        const auto& intersection_geo = intersection.geometry();
-        std::generate(corners.begin(), corners.end(), [i = 0, &intersection_geo] () mutable {return intersection_geo.corner(i++);});
-        std::vector<bool> part_of_patch(triangle_corners);
-        std::transform(corners.begin(), corners.end(), part_of_patch.begin(), [&chi_local, &geometry] (const Coordinate& coord) -> bool {return chi_local(geometry.local(coord)) > 0.5;});
-
-        // compute integral
         Coordinate outerNormal = intersection.centerUnitOuterNormal();
-        duneuro::AnalyticTriangle<TriangleScalar> triangle(corners[0], corners[1], corners[2], outerNormal);
+        auto corner_index_iterator = ref_element.subEntities(intersection.indexInInside(), facet_codim, vertex_codim);
+        duneuro::AnalyticTriangle<Scalar> triangle(corners_tetrahedron, corner_index_iterator);
         triangle.bind(dipole_position_, dipole_moment_);
-        rhs += triangle.transitionFactor(part_of_patch) * outerNormal;
+        rhs += triangle.transitionFactor(chi_local_expansion, corner_index_iterator) * outerNormal;
       }
 
-      Dune::FieldVector<TriangleScalar, lfs_size> integrals(0.0);
+      Dune::FieldVector<Scalar, lfs_size> integrals(0.0);
       lhs_matrix.umtv(rhs, integrals);
 
       for(size_t i = 0; i < lfs_size; ++i) {

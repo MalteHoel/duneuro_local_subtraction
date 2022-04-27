@@ -78,9 +78,9 @@ namespace duneuro
         Coordinate dipole_moment = param.get_dipole_moment();
 
         // compute surface integrals
-        duneuro::AnalyticTriangle<Scalar> triangle(corners[0], corners[1], corners[2], ig.intersection().centerUnitOuterNormal());
+        duneuro::AnalyticTriangle<Scalar> triangle(corners[0], corners[1], corners[2]);
         triangle.bind(dipole_position, dipole_moment);
-        Coordinate surface_integrals = triangle.surfaceIntegral();
+        Coordinate surface_integrals = triangle.surfaceIntegral(ig.intersection().centerUnitOuterNormal());
 
         for(size_t i = 0; i < number_of_corners; ++i) {
           r.accumulate(lfsv, vertex_to_dof_index[i], surface_integrals[i]);
@@ -190,9 +190,9 @@ namespace duneuro
           }
           outer_normal /= outer_normal.two_norm();
 
-          duneuro::AnalyticTriangle<Scalar> triangle(current_corners[0], current_corners[1], current_corners[2], outer_normal);
+          duneuro::AnalyticTriangle<Scalar> triangle(current_corners[0], current_corners[1], current_corners[2]);
           triangle.bind(dipole_position, dipole_moment);
-          Scalar factor = triangle.volumeFactor();
+          Scalar factor = triangle.patchFactor();
 
           rhs += factor * outer_normal;
         }
