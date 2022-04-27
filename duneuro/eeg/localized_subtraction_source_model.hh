@@ -89,7 +89,6 @@ namespace duneuro
         , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition"))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
-        , useAnalyticRHS_(config.get<bool>("useAnalyticRHS", false))
     {
     }
 
