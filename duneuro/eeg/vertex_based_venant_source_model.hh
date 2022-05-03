@@ -39,8 +39,7 @@ namespace duneuro
                                  const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
-        , elementNeighborhoodMap_(
-              std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
+        , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
         , gfs_(gfs)
         , venantImp_(params)
         , config_(params)

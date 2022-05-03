@@ -33,8 +33,7 @@ namespace duneuro
         : search_(search)
         , volumeConductor_(volumeConductor)
         , functionSpace_(fs)
-        , elementNeighborhoodMap_(std::make_shared<ElementNeighborhoodMap<typename VC::GridView>>(
-              volumeConductor_->gridView()))
+        , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
         , config_(config)
         , lfs_inside(functionSpace_->getGFS())
         , cache_inside(lfs_inside)

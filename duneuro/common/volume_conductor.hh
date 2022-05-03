@@ -10,6 +10,7 @@
 
 #include <dune/grid/common/scsgmapper.hh>
 #include <dune/grid/utility/hierarchicsearch.hh>
+#include <duneuro/common/element_neighborhood_map.hh>
 
 namespace duneuro
 {
@@ -31,6 +32,8 @@ namespace duneuro
         , tensors_(tensors)
         , gridView_(grid_->leafGridView())
         , elementMapper_(gridView_)
+        , elementNeighborhoodMapPtr_(nullptr)
+        , elementNeighborhoodMapComputed_(false)
     {
       // check if we are given one label for each element
       if (labels.size() != elementMapper_.size()) {
@@ -79,12 +82,30 @@ namespace duneuro
       return grid_.release();
     }
 
+    void computeElementNeighborhoodMap()
+    {
+      elementNeighborhoodMapPtr_ = std::make_shared<ElementNeighborhoodMap<GridView>>(gridView_);
+      elementNeighborhoodMapComputed_ = true;
+    }
+
+    std::shared_ptr<ElementNeighborhoodMap<GridView>> elementNeighborhoodMap() const
+    {
+      if(elementNeighborhoodMapComputed_) {
+        return elementNeighborhoodMapPtr_;
+      }
+      else {
+        DUNE_THROW(Dune::Exception, "Element neighborhood map needed, but not computed");
+      }
+    }
+
   private:
     std::unique_ptr<G> grid_;
     const std::vector<std::size_t> labels_;
     const std::vector<TensorType> tensors_;
     GridView gridView_;
     Dune::SingleCodimSingleGeomTypeMapper<GridView, 0> elementMapper_;
+    std::shared_ptr<ElementNeighborhoodMap<GridView>> elementNeighborhoodMapPtr_;
+    bool elementNeighborhoodMapComputed_;
   };
 }
 

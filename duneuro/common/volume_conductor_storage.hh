@@ -11,6 +11,8 @@
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 
+#include <dune/common/timer.hh>
+
 namespace duneuro
 {
   template <int d, ElementType elementType, bool geometryAdaption>
@@ -28,6 +30,13 @@ namespace duneuro
         : volumeConductor_(
               VolumeConductorReader<typename Type::GridType>::read(data, config, dataTree))
     {
+      if(config.get<bool>("computeElementNeighborhoodMap", true)) {
+        Dune::Timer timer(false);
+        timer.start();
+        volumeConductor_->computeElementNeighborhoodMap();
+        timer.stop();
+        std::cout << "time_element_neighborhood_map " << timer.lastElapsed() << " s\n";
+      }
     }
 
     std::shared_ptr<Type> get() const

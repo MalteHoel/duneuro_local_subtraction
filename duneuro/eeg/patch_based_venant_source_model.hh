@@ -40,8 +40,7 @@ namespace duneuro
                                 const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
-        , elementNeighborhoodMap_(
-              std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
+        , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
         , gfs_(gfs)
         , monopolarVenant_(params)
         , quadratureRuleOrder_(params.get<unsigned int>("quadratureRuleOrder"))
