@@ -84,9 +84,9 @@ namespace duneuro
         , intorderadd_eeg_patch_(config.get<unsigned int>("intorderadd_eeg_patch"))
         , intorderadd_eeg_boundary_(config.get<unsigned int>("intorderadd_eeg_boundary"))
         , intorderadd_eeg_transition_(config.get<unsigned int>("intorderadd_eeg_transition"))
-        , intorder_meg_patch_(config.get<unsigned int>("intorder_meg_patch"))
-        , intorder_meg_boundary_(config.get<unsigned int>("intorder_meg_boundary"))
-        , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition"))
+        , intorder_meg_patch_(config.get<unsigned int>("intorder_meg_patch", 0))
+        , intorder_meg_boundary_(config.get<unsigned int>("intorder_meg_boundary", 6))
+        , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition", 5))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
     {
@@ -285,6 +285,41 @@ namespace duneuro
       }
     }
 
+    // For the patch integrals we cannot assume the ratio of dipole distance and the edge length to be comfortably bounded below.
+    // For low resolution meshes and highly eccentric sources this ratio might get very small. To compute the corresponding integrals
+    // accurately we need appropriately high quadrature rules. The following function uses the largest edge length of an element to
+    // choose such an order. The values should suffice under the following constraints:
+    //    - the edge lengths of the elements do not exceed 6mm
+    //    - the sources are at least 1mm from a conductivity jump
+    // Note however that the integration orders were chosen using very conservative estimates, so you are probably fine even if your sources
+    // are a little closer than 1mm to the conductivity jump, or the edge length exceeds 6mm by a little
+    size_t intorderFromGeometry(const typename ElementType::Geometry& element_geometry) const
+    {
+      CoordinateField max_edge_length = -1.0;
+      for(size_t i = 0; i < element_geometry.corners(); ++i) {
+        for(size_t j = i + 1; j < element_geometry.corners(); ++j) {
+          CoordinateField edge_length = (element_geometry.corner(i) - element_geometry.corner(j)).two_norm();
+          if(edge_length > max_edge_length) max_edge_length = edge_length;
+        }
+      }
+
+      if(max_edge_length <= 2.0) {
+        return 8;
+      }
+      else if (max_edge_length <= 2.5) {
+        return 9;
+      }
+      else if (max_edge_length <= 3) {
+        return 11;
+      }
+      else if (max_edge_length <= 4) {
+        return 13;
+      }
+      else {
+        return 20;
+      }
+    }
+
     //////////////////////////////////////////////////
     // compute integral (sigma_corr grad(u_infinity)) x (x - y) / |x - y|^3 dy over patch region
     //////////////////////////////////////////////////
@@ -310,8 +345,9 @@ namespace duneuro
         auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
 
         // choose quadrature rule
+        size_t intorder = (intorder_meg_patch_ == 0) ? intorderFromGeometry(elem_geo) : intorder_meg_patch_;
         Dune::GeometryType geo_type = elem_geo.type();
-        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intorder_meg_patch_);
+        const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intorder);
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
