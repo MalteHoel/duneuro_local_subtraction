@@ -2,10 +2,13 @@
 #define DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
 
 #include <type_traits>
+#include <unordered_set>
 
 #include <dune/common/parametertree.hh>
 
 #include <dune/grid/common/rangegenerators.hh>
+
+#include <dune/functions/gridfunctions/gridviewfunction.hh>             // include for makeGridViewFunction
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/boilerplate/pdelab.hh>
@@ -186,6 +189,14 @@ namespace duneuro
       }
     }
 
+    // NOTE : If you get weird results when enabling postprocessing for the localized subtraction source model,
+    //        this might be a consequence of enabling the "subtract_mean" flag. If the dipole happens to lie exactly on
+    //        or very close to a vertex, this value becomes NaN, or something very large. While the first directly
+    //        shows you that something went wrong, the second can be more insideous, as adding a very large value simply deletes
+    //        information in the smaller summand. Hence if your results do not match your expections, you might try to
+    //        disable this flag and see if that helps. Note that this only applies to the direct forward solution and not
+    //        to the transfer matrix approach. Hence if you use a direct approach I recommend doing rereferencing yourself
+    //        after reducing to the electrode potentials, or whatever potentials you are interested in.
     virtual void postProcessSolution(VectorType& vector) const override
     {
       if constexpr(continuityType == ContinuityType::discontinuous)
@@ -210,7 +221,30 @@ namespace duneuro
       }
       else if(continuityType == ContinuityType::continuous)
       {
-        //TODO
+        HostLFS lfs(functionSpace_->getGFS());
+        HostLFSCache indexMapper(lfs);
+
+        // wrap u infinity in GridViewFunction, enabling local interpolation
+        auto u_inf = [this] (const CoordinateType& globalCoord) -> CoordinateField {return hostProblem_->get_u_infty(globalCoord);};
+        auto gridFunctionUInfinity = Dune::Functions::makeGridViewFunction(u_inf, volumeConductor_->gridView());
+        auto localUInfinity = localFunction(gridFunctionUInfinity);
+
+        std::unordered_set<typename HostLFSCache::ContainerIndex> visited_dofs;
+        for(const auto& element : patchAssembler_.patchElements()) {
+          localUInfinity.bind(element);
+          lfs.bind(element);
+          indexMapper.update();
+          std::vector<CoordinateField> u_infinity_interpolation(indexMapper.size());
+          lfs.finiteElement().localInterpolation().interpolate(localUInfinity, u_infinity_interpolation);
+
+          for(size_t i = 0; i < indexMapper.size(); ++i) {
+            auto container_index = indexMapper.containerIndex(i);
+            if(visited_dofs.count(container_index) == 0) {
+              visited_dofs.insert(container_index);
+              vector[container_index] += u_infinity_interpolation[i];
+            }
+          }
+        } // end loop over patch elements
       }
     } // end postProcessSolution
 

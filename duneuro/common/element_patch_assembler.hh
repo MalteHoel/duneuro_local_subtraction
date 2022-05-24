@@ -78,8 +78,10 @@ namespace duneuro
         cache_inside.update();
 
         // retrieve and bind outside
-        lfs_outside.bind(is.outside());
-        cache_outside.update();
+        if(!is.boundary()) {
+          lfs_outside.bind(is.outside());
+          cache_outside.update();
+        }
 
         // resize local vectors
         v_inside.assign(cache_inside.size(), 0.0);
