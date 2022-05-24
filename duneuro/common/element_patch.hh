@@ -132,7 +132,7 @@ namespace duneuro
     {
       for (const auto& element : elements_) {
         for (const auto& is : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
-          if (is.neighbor() && !contains(is.outside())) {
+          if (!is.neighbor() || !contains(is.outside())) {
             *out++ = is;
           }
         }
