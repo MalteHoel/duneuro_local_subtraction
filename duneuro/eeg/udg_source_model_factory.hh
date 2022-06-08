@@ -16,7 +16,7 @@ namespace duneuro
 {
   struct UDGSourceModelFactory {
     template <class Vector, class Solver>
-    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
@@ -45,7 +45,7 @@ namespace duneuro
     }
 
     template <class Vector, class Solver>
-    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)

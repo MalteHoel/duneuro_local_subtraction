@@ -83,13 +83,13 @@ namespace duneuro
     }
 
     virtual void
-    postProcessSolution(const std::vector<CoordinateType>& electrodes,
+    postProcessSolution(const std::vector<ProjectedElectrode<GV>>& electrodes,
                         std::vector<typename VectorType::field_type>& vector) const override
     {
       assert(electrodes.size() == vector.size());
       Dune::FieldVector<typename Problem::Traits::RangeFieldType, 1> result;
       for (unsigned int i = 0; i < electrodes.size(); ++i) {
-        problem_.get_u_infty().evaluateGlobal(electrodes[i], result);
+        problem_.get_u_infty().evaluateGlobal(electrodes[i].element.geometry().global(electrodes[i].localPosition), result);
         vector[i] += result;
       }
     }

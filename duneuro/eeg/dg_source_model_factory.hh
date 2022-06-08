@@ -15,7 +15,7 @@ namespace duneuro
 {
   struct DGSourceModelFactory {
     template <class V, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::VolumeConductor::ctype,
                                                 Solver::Traits::VolumeConductor::dim, V>>
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
@@ -52,7 +52,7 @@ namespace duneuro
     }
 
     template <class V, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::VolumeConductor::ctype,
                                                 Solver::Traits::VolumeConductor::dim, V>>
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)

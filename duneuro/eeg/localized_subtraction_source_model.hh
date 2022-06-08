@@ -241,11 +241,20 @@ namespace duneuro
     } // end postProcessSolution
 
     virtual void
-    postProcessSolution(const std::vector<CoordinateType>& electrodes,
+    postProcessSolution(const std::vector<ProjectedElectrode<HostGridView>>& electrodes,
                         std::vector<typename VectorType::field_type>& vector) const override
     {
-      // note: need to check if electrode is within the patch
-      // currently assume that the patch does not touch the boundary
+      if constexpr(continuityType == ContinuityType::continuous) {
+        LocalFunction chi_local = localFunction(*chiFunctionPtr_);
+        for(size_t i = 0; i < electrodes.size(); ++i) {
+          chi_local.bind(electrodes[i].element);
+          vector[i] += chi_local(electrodes[i].localPosition) * hostProblem_->get_u_infty(electrodes[i].element.geometry().global(electrodes[i].localPosition));
+        }
+      }
+      else {
+        // assume patch does not intersect the boundary
+        // TODO
+      }
     }
 
     virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
