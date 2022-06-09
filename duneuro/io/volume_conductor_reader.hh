@@ -148,13 +148,33 @@ namespace duneuro
         Dune::GmshReader<G>::read(factory, gridFilename, boundaryIdToPhysicalEntity,
                                   elementIndexToPhysicalEntity);
         std::unique_ptr<G> grid(factory.createGrid());
-        grid->globalRefine(refinements);
+        //grid->globalRefine(refinements);
         typedef Dune::SingleCodimSingleGeomTypeMapper<GV, 0> Mapper;
         GV gv = grid->leafGridView();
-        Mapper mapper(gv);
+        //Mapper mapper(gv);
         timer.stop();
         dataTree.set("time_reading_gmsh", timer.lastElapsed());
         timer.start();
+        
+        std::cout << " Refining skin compartment\n";
+        // first mark all skin elements
+        for(const auto& element : Dune::elements(gv)) {
+          if(elementIndexToPhysicalEntity[factory.insertionIndex(element)] == 0) {
+            grid->mark(1, element);
+          }
+          else {
+            grid->mark(0, element);
+          }
+        }
+        grid->preAdapt();
+        grid->adapt();
+        grid->postAdapt();
+        std::cout << " Skin compartment refined\n";
+        std::cout << " Number of vertices after refinement : " << grid->size(dim) << "\n";
+        std::cout << " Number of elements after refinement : " << grid->size(0) << "\n";
+        
+        gv = grid->leafGridView();
+        Mapper mapper(gv);
         std::vector<TensorType> tensors;
         GmshTensorReader<G>::read(tensorFilename, tensors);
         timer.stop();
