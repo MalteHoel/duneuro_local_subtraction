@@ -6,6 +6,7 @@
 
 #include <dune/common/parametertree.hh>
 #include <duneuro/common/element_patch.hh>
+#include <duneuro/io/entity_vtu_writer.hh>
 
 namespace duneuro
 {
@@ -58,6 +59,11 @@ namespace duneuro
       // if we use a conforming discretization, we have to extend the patch by another layer
       transitionElements_ = elementPatch->transitionElements();
       dataTree.set("transitionElements", transitionElements_.size());
+
+      if(config_.get<bool>("write_vtu", false)) {
+        vtu_write_mesh_from_entities(config_.get<std::string>("patch_filename"), patchElements_, volumeConductor_);
+        vtu_write_mesh_from_entities(config_.get<std::string>("transition_filename"), transitionElements_, volumeConductor_);
+      }
     }
 
     template<typename Vector, typename LOP>

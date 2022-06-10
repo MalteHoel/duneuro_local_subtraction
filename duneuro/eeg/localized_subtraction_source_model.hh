@@ -168,6 +168,25 @@ namespace duneuro
       } // end if
     } // end bind
 
+    template<class Index>
+    void print_entry(const std::pair<const Index, double>& index_value_pair, size_t& counter, double& current_max) const {
+      double current_val = index_value_pair.second;
+      if(std::abs(current_max) < std::abs(current_val)) {
+        current_max = current_val;
+      }
+      std::cout << "val " << counter << " : \t" << index_value_pair.second << "\n";
+      ++counter;
+    }
+    void print_entry(const double& value, size_t& counter, double& current_max) const {
+      if(std::abs(current_max) < std::abs(value)) {
+        current_max = value;
+      }
+      if(value != 0.0) {
+        std::cout << "val " << counter << " : \t" << value << "\n";
+      }
+      ++counter;
+    }
+
     virtual void assembleRightHandSide(VectorType& vector) const override
     {
       if constexpr(continuityType == ContinuityType::discontinuous)
@@ -186,6 +205,16 @@ namespace duneuro
         patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
         patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
         patchAssembler_.assembleTransitionVolume(vector, cg_local_operator);
+
+        /*
+        std::cout << " Entries of vector : \n";
+        size_t counter = 0;
+        double current_max = -1.0;
+        for(const auto& entry : Dune::PDELab::Backend::native(vector)) {
+          print_entry(entry, counter, current_max);
+        }
+        std::cout << " Largest value : \t" << current_max << "\n";
+        */
       }
     }
 
@@ -241,6 +270,11 @@ namespace duneuro
             auto container_index = indexMapper.containerIndex(i);
             if(visited_dofs.count(container_index) == 0) {
               visited_dofs.insert(container_index);
+              /*
+              std::cout << "\n U_corr val : \t" << vector[container_index] << "\n";
+              std::cout << " U_inf val : \t" << u_infinity_interpolation[i] << "\n";
+              std::cout << " Sum : \t" <<  vector[container_index] + u_infinity_interpolation[i] << "\n\n";
+              */
               vector[container_index] += u_infinity_interpolation[i];
             }
           }
