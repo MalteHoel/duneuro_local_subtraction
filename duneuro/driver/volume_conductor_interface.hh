@@ -126,6 +126,55 @@ public:
   virtual void write(const Dune::ParameterTree &config,
                      DataTree dataTree = DataTree()) const = 0;
 
+  /*
+   * \brief add vertex data by supplying a DOF vector
+   */
+  virtual void writer_add_vertex_data(const Function& function, std::string dataName)
+  {
+    DUNE_THROW(Dune::Exception, "adding vertex data not implemented for this volume conductor type");
+  }
+
+  /*
+   * \brief add cell data by supplying a DOF vector. This functions prints the gradients of the corresponding DOF-function at the element centers
+   */
+  virtual void writer_add_cell_data(const Function& function, std::string dataName)
+  {
+    DUNE_THROW(Dune::Exception, "adding cell data not implemented for this volume conductor type");
+  }
+
+  /*
+   * \brief Optionally supply projection. If this is set, vectors are projected onto a 2-dimensional plane. For details, look at entity_vtu_writer.hh
+   */
+  virtual void writer_set_projection(const Dune::FieldVector<double, dim>& projection)
+  {
+    DUNE_THROW(Dune::Exception, "adding projection not implemented for this volume conductor type");
+  }
+
+  virtual std::unique_ptr<Function> compareFunctions(const Function& function, const Function& refFunction)
+  {
+    DUNE_THROW(Dune::Exception, "comparison not implemented for this volume conductor type");
+    return std::make_unique<Function>(std::move(std::unique_ptr<int>(nullptr)));
+  }
+
+  /**
+   * \brief write the head model and a potential function without potential subsampling. This can reduce the file size.
+   */
+  virtual void write_memory_optimized(const Function& solution,
+                                      const Dune::ParameterTree& config,
+                                      DataTree dataTree = DataTree()) const
+  {
+    DUNE_THROW(Dune::Exception, "memory optimized writing not implemented for this volume conductor type");
+  }
+
+  /**
+   * \brief write the head model without potential subsampling. This can reduce the file size.
+   */
+  virtual void write_memory_optimized(const Dune::ParameterTree& config,
+                                    DataTree dataTree = DataTree()) const
+  {
+    DUNE_THROW(Dune::Exception, "memory optimized writing not implemented for this volume conductor type");
+  }
+
   /**
    * \brief compute the EEG transfer matrix
    *

@@ -31,6 +31,7 @@
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 #include <duneuro/io/vtk_writer.hh>
+#include <duneuro/io/entity_vtu_writer.hh>
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
@@ -114,7 +115,8 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
-        eegForwardSolver_(solver_) {}
+        eegForwardSolver_(solver_),
+        writer_(volumeConductorStorage_.get(), solver_) {}
 
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -316,6 +318,55 @@ public:
     }
   }
 
+  virtual void writer_add_vertex_data(const Function& function, std::string dataName)
+  {
+    writer_.addVertexData(function.cast<typename Traits::DomainDOFVector>(), dataName);
+  }
+
+  virtual void writer_add_cell_data(const Function& function, std::string dataName)
+  {
+    writer_.addCellData(function.cast<typename Traits::DomainDOFVector>(), dataName);
+  }
+
+  virtual void writer_set_projection(const Dune::FieldVector<double, dim>& projection)
+  {
+    writer_.setProjection(projection);
+  }
+
+  virtual std::unique_ptr<Function> compareFunctions(const Function& function, const Function& refFunction)
+  {
+    using DOFVector = typename Traits::DomainDOFVector;
+    DOFVector dofVec = function.cast<DOFVector>();
+    DOFVector refVec = refFunction.cast<DOFVector>();
+    std::unique_ptr<DOFVector> diff_ptr = std::make_unique<DOFVector>(dofVec);
+    (*diff_ptr) -= refVec;
+    std::cout << " Relative error in DOF vectors : \t";
+    std::cout << diff_ptr->two_norm() / refVec.two_norm() << "\n";
+
+    auto& diff_impl = Dune::PDELab::Backend::native(*diff_ptr);
+    auto& ref_impl = Dune::PDELab::Backend::native(refVec);
+
+    for(size_t i = 0; i < diff_impl.N(); ++i) {
+      diff_impl[i] = std::abs(diff_impl[i][0] / ref_impl[i][0]);
+    }
+
+    return std::make_unique<Function>(std::move(diff_ptr));
+  }
+
+  virtual void write_memory_optimized(const Dune::ParameterTree& config,
+                                      DataTree dataTree = DataTree()) const
+  {
+    writer_.write(config.get<std::string>("filename"));
+  }
+
+  virtual void write_memory_optimized(const Function &function,
+                                      const Dune::ParameterTree& config,
+                                      DataTree dataTree = DataTree())
+  {
+    writer_.addVertexData(function.cast<typename Traits::DomainDOFVector>(), "localized_subtraction_solution");
+    writer_.write(config.get<std::string>("filename"));
+  }
+
   virtual std::unique_ptr<DenseMatrix<double>>
   computeEEGTransferMatrix(const Dune::ParameterTree &config,
                            DataTree dataTree = DataTree()) override {
@@ -405,6 +456,7 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
+  VolumeConductorVtuWriter<typename Traits::VC, typename Traits::Solver> writer_;
 };
 
 } // namespace duneuro

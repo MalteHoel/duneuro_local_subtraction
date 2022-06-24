@@ -134,6 +134,54 @@ public:
     volumeConductor_->write(config, dataTree);
   }
 
+  /*
+   * \brief add vertex data by supplying a DOF vector
+   */
+  void writer_add_vertex_data(const Function& function, std::string dataName = "vertexData")
+  {
+    volumeConductor_->writer_add_vertex_data(function, dataName);
+  }
+
+  /*
+   * \brief add cell data by supplying a DOF vector. This functions prints the gradients of the corresponding DOF-function at the element centers
+   */
+  void writer_add_cell_data(const Function& function, std::string dataName = "cellData")
+  {
+    volumeConductor_->writer_add_cell_data(function, dataName);
+  }
+
+  /*
+   * \brief Optionally supply projection. If this is set, vectors are projected onto a 2-dimensional plane. For details, look at entity_vtu_writer.hh
+   */
+  void writer_set_projection(const Dune::FieldVector<double, dim>& projection)
+  {
+    volumeConductor_->writer_set_projection(projection);
+  }
+
+  std::unique_ptr<Function> compareFunctions(const Function& function, const Function& refFunction)
+  {
+    return volumeConductor_->compareFunctions(function, refFunction);
+  }
+
+  /**
+   * \brief write the head model and a potential function without potential subsampling. This can reduce the file size.
+   */
+  void write_memory_optimized(const Function& solution,
+                                      const Dune::ParameterTree& config,
+                                      DataTree dataTree = DataTree()) const
+  {
+    volumeConductor_->write_memory_optimized(solution, config, dataTree);
+  }
+
+  /**
+   * \brief write the head model without potential subsampling. This can reduce the file size.
+   */
+   void write_memory_optimized(const Dune::ParameterTree& config,
+                               DataTree dataTree = DataTree()) const
+   {
+    volumeConductor_->write_memory_optimized(config, dataTree);
+   }
+
   /**
    * \brief compute the EEG transfer matrix
    *
