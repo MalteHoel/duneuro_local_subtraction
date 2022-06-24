@@ -52,7 +52,6 @@ namespace duneuro {
       // get entity and geometry of element, and define some dummy point inside the reference element
       const auto& elem = eg.entity();
       const auto& elem_geo = eg.geometry();
-      auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
 
       // compute sigma_corr
       Tensor sigma_corr = volumeConductorPtr_->tensor(elem); // contains sigma at this point
@@ -68,9 +67,6 @@ namespace duneuro {
       size_t local_number_of_dofs = lfs.size();
       std::vector<BasisGradientType> basis_gradients(local_number_of_dofs);
       
-      // get integration element
-      auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
-      
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs.finiteElement()).order();
       int intorder = intorderadd_eeg_patch_ + 2 * FEOrder;
@@ -79,8 +75,8 @@ namespace duneuro {
       
       // perform the integration
       for(const auto& quad_point : quad_rule) {
-        auto integration_factor = jacobian_determinant * quad_point.weight();
         auto qp_position = quad_point.position();
+        auto integration_factor = elem_geo.integrationElement(qp_position) * quad_point.weight();
         
         // compute sigma_corr_grad_u_infinity
         auto global_evaluation_point = elem_geo.global(qp_position);
@@ -127,10 +123,6 @@ namespace duneuro {
       size_t local_number_of_dofs = lfs_inside.size();
       std::vector<RangeType> basis_values(local_number_of_dofs);
 
-      // get integration element
-      auto local_coords_dummy = referenceElement(intersection_geo).position(0, 0);
-      auto gramian = intersection_geo.integrationElement(local_coords_dummy);
-
       // choose quadrature rule
       int FEOrder = FESwitch::basis(lfs_inside.finiteElement()).order();
       int intorder = intorderadd_eeg_boundary_ + 2 * FEOrder;
@@ -139,8 +131,8 @@ namespace duneuro {
 
       // perform the integration
       for(const auto& quad_point : quad_rule) {
-        auto integration_factor = gramian* quad_point.weight();
         auto local_position_quad_point = quad_point.position();
+        auto integration_factor = intersection_geo.integrationElement(local_position_quad_point) * quad_point.weight();
 
         // compute <sigma_infinity_grad_u_infinity, eta>
         auto sigma_infinity_grad_u_infinity_dot_eta = problemParameters_.j(ig.intersection(), local_position_quad_point);
@@ -178,7 +170,6 @@ namespace duneuro {
       size_t local_number_of_dofs = lfs.size();
       const auto& elem = eg.entity();
       const auto& elem_geo = eg.geometry();
-      auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
 
       // create local functions for chi and its derivative
       LocalFunction chi_local = localFunction(*gridFunctionPtr_);
@@ -188,9 +179,6 @@ namespace duneuro {
 
       // create container for basis gradients
       std::vector<BasisGradientType> basis_gradients(local_number_of_dofs);
-
-      // get integration element
-      auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
 
       // get sigma
       Tensor sigma = volumeConductorPtr_->tensor(elem);
@@ -203,7 +191,7 @@ namespace duneuro {
 
       // perform the integration
       for(const auto& quad_point : quad_rule) {
-        auto integration_factor = jacobian_determinant * quad_point.weight();
+        auto integration_factor = elem_geo.integrationElement(quad_point.position()) * quad_point.weight();
         auto global_evaluation_point = elem_geo.global(quad_point.position());
 
         // compute sigma_u_infinity_grad_chi
