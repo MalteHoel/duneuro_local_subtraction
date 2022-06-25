@@ -262,16 +262,17 @@ namespace duneuro
       }
     }
 
-    // the gridfunctionspace can avoid unnecessary updates, if two entitysets stay the same.
-    // we consider them always as different, as it might become tricky to actually check euqality.
-    bool operator!=(const SubSetEntitySet& other)
+    /*
+      we assume that SubEntitySet might change so rapidly that they are only the same iif they are the same object
+    */
+    bool operator != (const SubSetEntitySet& other) const
     {
-      return true;
+      return &other != this;
     }
 
-    bool operator==(const SubSetEntitySet& other)
+    bool operator == (const SubSetEntitySet& other) const
     {
-      return false;
+      return &other == this;
     }
 
   private:
