@@ -37,7 +37,9 @@ namespace duneuro
       } else {
         return read(config.get<std::string>("grid.filename"),
                     config.get<std::string>("tensors.filename"), dataTree,
-                    config.get<unsigned int>("tensors.offset", 0), refinements);
+                    config.get<unsigned int>("tensors.offset", 0), refinements,
+                    config.get<bool>("refine_skin"),
+                    config.get<bool>("refine_brain"));
       }
     }
 
@@ -135,7 +137,7 @@ namespace duneuro
 
     static std::shared_ptr<VolumeConductor<G>>
     read(const std::string& gridFilename, const std::string& tensorFilename,
-         DataTree dataTree = DataTree(), unsigned int offset = 0, unsigned int refinements = 0)
+         DataTree dataTree = DataTree(), unsigned int offset = 0, unsigned int refinements = 0, bool refine_skin = false, bool refine_brain = false)
     {
       Dune::Timer timer(false);
       std::string extension = gridFilename.substr(gridFilename.find_last_of(".") + 1);
@@ -156,10 +158,20 @@ namespace duneuro
         dataTree.set("time_reading_gmsh", timer.lastElapsed());
         timer.start();
         
-        std::cout << " Refining skin compartment\n";
-        // first mark all skin elements
+        if(refine_skin) {
+          std::cout << " Refining skin compartment\n";
+        }
+        if(refine_brain) {
+          std::cout << " Refining brain compartment\n";
+        }
+        
+        // first mark all elements that are supposed to be refined
         for(const auto& element : Dune::elements(gv)) {
-          if(elementIndexToPhysicalEntity[factory.insertionIndex(element)] == 0) {
+        
+          if(refine_skin && elementIndexToPhysicalEntity[factory.insertionIndex(element)] == 0) {
+            grid->mark(1, element);
+          }
+          else if(refine_brain && elementIndexToPhysicalEntity[factory.insertionIndex(element)] == 3) {
             grid->mark(1, element);
           }
           else {
@@ -169,12 +181,16 @@ namespace duneuro
         grid->preAdapt();
         grid->adapt();
         grid->postAdapt();
-        std::cout << " Skin compartment refined\n";
-        std::cout << " Number of vertices after refinement : " << grid->size(dim) << "\n";
-        std::cout << " Number of elements after refinement : " << grid->size(0) << "\n";
+
+        if(refine_skin || refine_brain) {
+          std::cout << " Mesh refined\n";
+          std::cout << " Number of vertices after refinement : " << grid->size(dim) << "\n";
+          std::cout << " Number of elements after refinement : " << grid->size(0) << "\n";
+        }
         
         gv = grid->leafGridView();
         Mapper mapper(gv);
+        
         std::vector<TensorType> tensors;
         GmshTensorReader<G>::read(tensorFilename, tensors);
         timer.stop();
