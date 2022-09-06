@@ -180,6 +180,14 @@ public:
     return volumeConductor_->applyMEGTransfer(transferMatrix, dipole, config,
                                               dataTree);
   }
+  /**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<std::vector<FieldType>> 
+  createSourceSpace(const Dune::ParameterTree& config) {
+    return volumeConductor_->createSourceSpace(config);
+  }
+
     /**
      * \brief compute the tDCS evaluation matrix
      */

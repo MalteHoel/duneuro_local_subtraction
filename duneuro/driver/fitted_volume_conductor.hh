@@ -35,6 +35,7 @@
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
 #include <duneuro/tes/tdcs_solver.hh>
+#include <duneuro/eeg/source_space_factory.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 namespace duneuro {
@@ -348,7 +349,10 @@ public:
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_);
   }
-
+  virtual std::vector<std::vector<double>> createSourceSpace(const Dune::ParameterTree& config){
+    sourceSpaceFactory ssf;
+    return ssf.createFitted(config);
+  }
 
   virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
       const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override

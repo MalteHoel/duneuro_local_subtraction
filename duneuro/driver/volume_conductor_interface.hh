@@ -162,7 +162,14 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
+                   
+/**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<std::vector<FieldType>> 
+  createSourceSpace(const Dune::ParameterTree& config) = 0;
 
+ 
   /**
    * \brief compute the tDCS evaluation matrix
    */

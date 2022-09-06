@@ -34,6 +34,7 @@
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
 #include <duneuro/tes/tdcs_solver.hh>
+#include <duneuro/eeg/source_space_factory.hh>
 
 namespace duneuro {
 template <int dim> struct SubTriangulationTraits {
@@ -296,7 +297,11 @@ public:
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_);
   }
-
+  virtual std::vector<std::vector<double>> createSourceSpace(const Dune::ParameterTree& config){
+    sourceSpaceFactory ssf;
+    return ssf.createUnfitted(solver_->functionSpace().getGFS(), *subTriangulation_, config);
+  }
+  
     virtual std::unique_ptr<DenseMatrix<double>>
     computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
                                 DataTree dataTree = DataTree()) override
