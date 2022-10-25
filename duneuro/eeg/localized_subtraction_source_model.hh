@@ -376,8 +376,6 @@ namespace duneuro
         sigma_corr -= sigma_infinity;
 
         const auto& elem_geo = element.geometry();
-        auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
-        auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
 
         // choose quadrature rule
         size_t intorder = (intorder_meg_patch_ == 0) ? intorderFromGeometry(elem_geo) : intorder_meg_patch_;
@@ -386,9 +384,9 @@ namespace duneuro
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
-          auto integration_factor = jacobian_determinant * quad_point.weight();
           auto local_position = quad_point.position();
           auto global_position = elem_geo.global(local_position);
+          auto integration_factor = elem_geo.integrationElement(local_position) * quad_point.weight();
 
           // compute sigma_corr grad(u_infinity) * weight
           GradientType grad_u_infinity = hostProblem_->get_grad_u_infty(global_position);
@@ -437,8 +435,6 @@ namespace duneuro
         grad_chi_local.bind(element);
 
         const auto& elem_geo = element.geometry();
-        auto local_coords_dummy = referenceElement(elem_geo).position(0, 0);
-        auto jacobian_determinant = elem_geo.integrationElement(local_coords_dummy);
 
         // choose quadrature rule
         Dune::GeometryType geo_type = elem_geo.type();
@@ -446,9 +442,9 @@ namespace duneuro
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
-          auto integration_factor = jacobian_determinant * quad_point.weight();
           auto local_position = quad_point.position();
           auto global_position = elem_geo.global(local_position);
+          auto integration_factor = elem_geo.integrationElement(local_position) * quad_point.weight();
 
           // compute u_infinity * grad_chi
           GradientType u_infinity_grad_chi = grad_chi_local(local_position)[0];
@@ -498,9 +494,6 @@ namespace duneuro
       for(const auto& intersection : patchAssembler_.intersections()) {
         // get intersection geometry
         const auto& intersection_geo = intersection.geometry();
-        auto local_coords_dummy = referenceElement(intersection_geo).position(0, 0);
-        auto gramian = intersection_geo.integrationElement(local_coords_dummy);
-        CoordinateType unitOuterNormal = intersection.centerUnitOuterNormal();
 
         Tensor sigma_infinity = hostProblem_->get_sigma_infty();
 
@@ -510,9 +503,10 @@ namespace duneuro
 
         // perform the integration
         for(const auto& quad_point : quad_rule) {
-          auto integration_factor = gramian * quad_point.weight();
           auto local_position = quad_point.position();
           auto global_position = intersection_geo.global(local_position);
+          auto integration_factor = intersection_geo.integrationElement(local_position) * quad_point.weight();
+          auto unitOuterNormal = intersection.unitOuterNormal(local_position);
 
           // compute sigma_infinity_u_infinity
           // NOTE : assumes isotropic sigma_infinity
