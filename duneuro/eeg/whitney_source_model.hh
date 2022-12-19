@@ -6,9 +6,18 @@
 #include <Eigen/SVD>
 #include <array>
 #include <vector>
+#include <queue>
+#include <functional>
+#include <utility>
+#include <set>
+#include <cmath>
+#include <limits>
+#include <algorithm>
 
 #include <dune/common/fvector.hh>
 #include <dune/common/parametertree.hh>
+
+#include <dune/grid/common/mcmgmapper.hh>
 
 #include <dune/pdelab/backend/interface.hh>
 #include <dune/pdelab/gridfunctionspace/entityindexcache.hh>
@@ -30,8 +39,14 @@
 // via H(div) Finite Element Sources With Focal Interpolation",      //
 // published in Physic in Medicine and Biology, vol 61, no. 24,      //
 // pp. 8502-8520, 11 2016                                            //
+// and                                                               //
+// Miinalainen, T., Rezaei, A., Us, D., Nuessing, A., Engwer,        //
+// C., Wolters, C., Pursiainen, S. "A realistic, accurate and fast   //
+// source modeling approach for the EEG forward problem", published  //
+// in Neuroimage, vol 184, pp. 56-67, 01 2019                        //
 //                                                                   //
 ///////////////////////////////////////////////////////////////////////
+
 
 // Required parameters:
 // std::shared_ptr<VC> volumeConductor   - Volume Conductor
@@ -55,420 +70,572 @@
 
 namespace duneuro {
 
-enum class WhitneyFaceBased { all, none };
-inline WhitneyFaceBased whitneyFaceBasedFromString(const std::string &value) {
-  if (value == "all")
-    return WhitneyFaceBased::all;
-  else if (value == "none")
-    return WhitneyFaceBased::none;
-  else
-    DUNE_THROW(Dune::Exception, "invalid whitney face type");
-}
-
-enum class WhitneyEdgeBased { all, internal, none };
-inline WhitneyEdgeBased whitneyEdgeBasedFromString(const std::string &value) {
-  if (value == "all")
-    return WhitneyEdgeBased::all;
-  else if (value == "internal")
-    return WhitneyEdgeBased::internal;
-  else if (value == "none")
-    return WhitneyEdgeBased::none;
-  else
-    DUNE_THROW(Dune::Exception, "invalid whitney edge type");
-}
-
-template <class VC, class GFS, class V>
-class WhitneySourceModel
-    : public SourceModelBase<typename GFS::Traits::GridViewType, V> {
+// the central idea in the Whitney approach consists in approximating a given dipole
+// M \delta_{x_0} in the form M \delta_{x_0} \approx \sum_{l = 1}^k c_l w_l, where
+// w_1, ..., w_k Elements of H(div). On then uses the sum on the right hand side for
+// the finite element discretization. In the interpolation and assembly methods we want
+// to use duck typing for the functions w_1, ..., w_k. The following describes the
+// interface we expect an implementation to adhere to.
+/*
+class HdivFunction {
 public:
-  using BaseT = SourceModelBase<typename GFS::Traits::GridView, V>;
-  using DipoleType = typename BaseT::DipoleType;
-  using CoordinateType = typename BaseT::CoordinateType;
-  using VectorType = typename BaseT::VectorType;
-  using ElementType = typename BaseT::ElementType;
-  using GV = typename GFS::Traits::GridViewType;
-  enum { dim = GV::dimension };
-  using Real = typename GV::ctype;
-  using Vertex = typename GV::template Codim<dim>::Entity;
-  using SearchType = typename BaseT::SearchType;
-  using Vector = Eigen::VectorXd;
 
-  WhitneySourceModel(std::shared_ptr<const VC> volumeConductor, const GFS &gfs,
-                     Real referenceLength, bool restricted,
-                     WhitneyFaceBased faceSources, WhitneyEdgeBased edgeSources,
-                     std::string interpolation,
-                     std::shared_ptr<const SearchType> search)
-      : BaseT(search), volumeConductor_(volumeConductor), gfs_(gfs),
-        referenceLength_(referenceLength), restricted_(restricted),
-        faceSources_(faceSources), edgeSources_(edgeSources),
-        interpolation_(interpolation) {
-    if ((faceSources == WhitneyFaceBased::none) &&
-        (edgeSources == WhitneyEdgeBased::none))
-      DUNE_THROW(Dune::Exception, "please select at least some dipoles");
+  // Static information exported by this class
+  using DipoleType = ...;
+  using Scalar = ...;
+  enum {dim = ...};
+
+  // the interpolation methods described in the papers cited above rely on associating
+  // a synthetic dipole to each given H(div) basis functions. More concretely, they interpolate
+  // a given dipole by finding a "similar" linear combination of the synthetic dipoles, where
+  // similar depends on the interpolation approach
+  DipoleType syntheticDipole() const;
+
+  // Once we have an approximation M \delta_{x_0} = \sum_{l = 1}^k c_l w_l, we have to compute
+  // \int_{\Omega} \sum_{l = 1} c_l w_l \psi_i dV for every test function \psi_i. If w is the
+  // function described by an instance of this class, this method is supposed to perform
+  // vector[i] += \int_{\Omega} coefficient * w * \psi_i
+  // for every test function \psi_i.
+  template<class DOFVector>
+  void accumulate(DOFVector& output, const Scalar coefficient) const;
+}; // class HdivFunction
+*/
+
+
+// In the papers cited above so called "face intersecting" (FI) and "edgewise" (EW) divergence
+// conforming functions are used. It turns out that all necessary informations for both the FI
+// and the EW functions can be deduced from specifying two vertices in the grid. For the FI
+// functions these are the two nodes opposite to the given triangular face, while for the EW
+// functions these are the nodes making up the edge
+template<class GridFunctionSpace>
+class TwoVerticesHdivFunction
+{
+public:
+  using GridView = typename GridFunctionSpace::Traits::GridViewType;
+  enum {dim = GridView::dimension};
+  using Scalar = typename GridView::ctype;
+  using Coordinate = Dune::FieldVector<Scalar, dim>;
+  using DipoleType = Dipole<Scalar, dim>;
+  using VertexEntity = typename GridView::template Codim<dim>::Entity;
+  using VertexSeed = typename GridView::Grid::template Codim<dim>::EntitySeed;
+  using Cache = typename Dune::PDELab::EntityIndexCache<GridFunctionSpace>;
+
+  TwoVerticesHdivFunction(const GridFunctionSpace& gfs, const VertexEntity& vertex_entity_0, const VertexEntity& vertex_entity_1)
+    : gfs_(gfs), vertex_seeds_({vertex_entity_0.seed(), vertex_entity_1.seed()})
+    , vertex_0_(vertex_entity_0.geometry().center())
+    , vertex_1_(vertex_entity_1.geometry().center())
+    , normed_diff_(vertex_1_ - vertex_0_)
+    , distance_(normed_diff_.two_norm())
+  {
+    normed_diff_ /= distance_;
   }
 
-  WhitneySourceModel(std::shared_ptr<const VC> volumeConductor, const GFS &gfs,
+  DipoleType syntheticDipole() const {
+    return Dipole(0.5 * (vertex_0_ + vertex_1_), normed_diff_);
+  }
+
+  template <class DOFVector>
+  void accumulate(DOFVector& vec, const Scalar coefficient) const
+  {
+    Cache cache(gfs_);
+
+    const auto& grid = gfs_.gridView().grid();
+    auto vertex_entity_0 = grid.entity(vertex_seeds_[0]);
+    auto vertex_entity_1 = grid.entity(vertex_seeds_[1]);
+
+    Scalar update = coefficient / distance_;
+
+    cache.update(vertex_entity_0);
+    vec[cache.containerIndex(0)] -= update;
+
+    cache.update(vertex_entity_1);
+    vec[cache.containerIndex(0)] += update;
+  }
+
+private:
+  std::array<VertexSeed, 2> vertex_seeds_;
+  const GridFunctionSpace& gfs_;
+  Coordinate vertex_0_;
+  Coordinate vertex_1_;
+  Coordinate normed_diff_;
+  Scalar distance_;
+}; // class TwoVerticesHdivFunction
+
+template<class BasisFunction>
+class SourceConfigurationBuilderInterface
+{
+public:
+
+  virtual std::vector<BasisFunction> build(const typename BasisFunction::GridView::template Codim<0>::Entity& initialElement,
+                                           const typename BasisFunction::DipoleType& dipole) const = 0;
+
+  virtual ~SourceConfigurationBuilderInterface() {}
+}; // SourceConfigurationBuilderInterface
+
+template<class VolumeConductor, class GridFunctionSpace>
+class FixedSourceConfigurationBuilder
+  : public SourceConfigurationBuilderInterface<TwoVerticesHdivFunction<GridFunctionSpace>>
+{
+public:
+  using BasisFunction =  TwoVerticesHdivFunction<GridFunctionSpace>;
+  using DipoleType = typename BasisFunction::DipoleType;
+  using ElementType = typename GridFunctionSpace::Traits::GridView::template Codim<0>::Entity;
+  enum {dim = GridFunctionSpace::Traits::GridViewType::dimension};
+  enum class WhitneyEdges {none, internal, all};
+  enum {NUMBER_OF_EDGES = 6};
+  enum {NUMBER_OF_EDGES_WITH_NEIGHBORS = 18};
+  enum {NUMBER_OF_FACES = 4};
+
+  FixedSourceConfigurationBuilder(std::shared_ptr<const VolumeConductor> volumeConductor,
+                                  const GridFunctionSpace& gfs,
+                                  const Dune::ParameterTree& config)
+    : volumeConductor_(volumeConductor)
+    , gfs_(gfs)
+    , restricted_(config.get<bool>("restricted"))
+    , whitneyFaces_(config.get<bool>("faceSources"))
+    , whitneyEdges_(WhitneyEdgesFromString(config.get<std::string>("edgeSources")))
+    , basisSizeEstimate_(0)
+  {
+    if (whitneyFaces_) {
+      basisSizeEstimate_ += NUMBER_OF_FACES;
+    }
+    if (whitneyEdges_ == WhitneyEdges::internal) {
+      basisSizeEstimate_ += NUMBER_OF_EDGES;
+    }
+    else if (whitneyEdges_ == WhitneyEdges::all) {
+      basisSizeEstimate_ += NUMBER_OF_EDGES_WITH_NEIGHBORS;
+    }
+  }
+
+  // The dipole argument is not used, but is needed to adhere to the interface
+  std::vector<BasisFunction> build(const ElementType& initialElement, const DipoleType& dipole) const override
+  {
+    std::vector<BasisFunction> basisFunctions;
+    basisFunctions.reserve(basisSizeEstimate_);
+
+    auto ref = referenceElement(initialElement.geometry());
+
+    // first add internal edges, if required
+    if(whitneyEdges_ == WhitneyEdges::internal || whitneyEdges_ == WhitneyEdges::all) {
+      for(int edge_index = 0; edge_index < ref.size(dim - 1); ++edge_index) {
+        auto vertexIndexRange = ref.subEntities(edge_index, dim - 1, dim);
+        auto vertexIndexIterator = vertexIndexRange.begin();
+        auto index_1 = *(vertexIndexIterator++);
+        auto index_2 = *(vertexIndexIterator);
+        basisFunctions.emplace_back(gfs_, initialElement.template subEntity<dim>(index_1), initialElement.template subEntity<dim>(index_2));
+      }
+    }
+
+    // now potentially add basis functions from adjacent elements
+    if(whitneyFaces_ || whitneyEdges_ == WhitneyEdges::all) {
+      auto initialConductivity = volumeConductor_->tensor(initialElement);
+      for(const auto& intersection : intersections(gfs_.gridView(), initialElement)) {
+        if(!intersection.neighbor()) continue;
+
+        auto outsideEntity = intersection.outside();
+        if(restricted_ && volumeConductor_->tensor(outsideEntity) != initialConductivity) continue;
+
+        // the following assumes tetrahedral elements. It just so happens that the element numberings
+        // of the Dune tetrahedra have the property that if i is the local index of a vertex
+        // and j is the local index of the face opposite to this vertex, we have i + j = 3.
+        auto outsideVertexIndex = dim - intersection.indexInOutside();
+
+        if(whitneyFaces_) {
+          auto insideVertexIndex = dim - intersection.indexInInside();
+          basisFunctions.emplace_back(gfs_, initialElement.template subEntity<dim>(insideVertexIndex), outsideEntity.template subEntity<dim>(outsideVertexIndex));
+        }
+
+        if(whitneyEdges_ == WhitneyEdges::all) {
+          for(const auto& vertexIndex : ref.subEntities(intersection.indexInOutside(), 1, dim)) {
+            basisFunctions.emplace_back(gfs_, outsideEntity.template subEntity<dim>(vertexIndex), outsideEntity.template subEntity<dim>(outsideVertexIndex));
+          }
+        }
+      }
+    } // potentialled added basis functions from adjacent elements
+
+    return basisFunctions;
+  }
+
+private:
+  WhitneyEdges WhitneyEdgesFromString(const std::string& value)
+  {
+    if(value == "none")
+      return WhitneyEdges::none;
+    else if (value == "internal")
+      return WhitneyEdges::internal;
+    else if (value == "all")
+      return WhitneyEdges::all;
+    else
+      DUNE_THROW(Dune::Exception, "edgeSources has invalid value " << value << ", please choose one from {none, internal, all}");
+  }
+
+  std::shared_ptr<const VolumeConductor> volumeConductor_;
+  const GridFunctionSpace& gfs_;
+  bool restricted_;
+  bool whitneyFaces_;
+  WhitneyEdges whitneyEdges_;
+  size_t basisSizeEstimate_;
+}; // FixedSourceConfigurationBuilder
+
+// The new idea in Miinalainen et. al., 2018 is to dynamically construct the source configuration.
+// The idea is as follows: One supplies an additional parameter, called n_elems. We now start from the element
+// containing the dipole, add all internal edge sources. This is the first element. We then iteratively perform the
+// following steps.
+// Assume we have a patch consisting of k elements. We then use some heuristic to choose an element which shares at
+// least one face with one of the k face elements. We then add this element to the patch, and include all Whitney basis
+// functions corresponding to
+//    1) an edge of the new element or
+//    2) to a face of the new element with one of the k given patch elements
+// into the source configuration, given they are not already contained. We repeat this until we have reached n_elems patch elements.
+// Now we need to describe an heuristic for choosing the next patch element.
+// In the paper, Miinalainen et. al. are quite vague about this. Looking at the description on top of page 4 of that paper,
+// and at figures 1 and 2 in the paper, one gets the impression that all facial neighbors of the dipole elmement are choosen,
+// as long as they are in the same compartment as the source. As far as I can tell, it is not described how one should proceed if
+// one cannot reach the desired amount of elements this way.
+// In Tuulis implementation on the other hand, another approach is taken. After the initial element, only elements such that the element itself
+// and all of its facial neighbors are inside the same compartment as the dipole are added. This is first tested for all facial neighbors of
+// the initial element, and these are added if this condition is fulfilled. If the desired number of elements is not reached after this step,
+// Tuulis implementation then loops over all facial neighbors of the current patch and computes their number of facial neighbors inside the
+// given patch and the distance of their centers to the dipole position. Then the element with the most facial neighbors with patch elements is added.
+// If multiple elements share the same number of facial neighbors in the patch, the one with the closest distance to the dipole is taken.
+// I find this implementation quite unintuitive. The criterion to exclude all elements that have a facial neighbor outside gray matter seems
+// somewhat arbitrary, and is contrary to the description in the paper and is contrary to how we handle the restriction in the Venant case.
+// Furthermore, it seems quite arbitrary to choose a different approach for the first patch extension to the facial neighboors of the dipole
+// element than for the later extensions. Furthermore, I find it unintuitive to prefer the number of facial neighbors in the set over the
+// distance to the dipole. I think it might be better to keep the source configuration as focal as possible, in contrast to potentially
+// adding a few more functions to the source configuration.
+// Since the paper description and the implementation thus seem to diverge, I took the creative freedom to implement a custom heuristic for
+// dynamic source configuration construction. The implemented heuristic works as follows.
+// We first add the dipole element to create an initial patch. Then we iteratively apply the following algorithm.
+// Let C be the candidate set, consisting of all elements that
+//  1) share a face with the current patch,
+//  2) are in the same compartment as the dipole, and
+//  3) are not contained in the current patch.
+// For each elements in this set, we compute the distance of the center of the element to the dipole. We then add the closest element
+// in the candidate set to the patch and update the candidate set. This is repeated until the desired number of elements is reached.
+template<class VolumeConductor, class GridFunctionSpace>
+class DynamicSourceConfigurationBuilder
+  : public SourceConfigurationBuilderInterface<TwoVerticesHdivFunction<GridFunctionSpace>>
+{
+public:
+  using BasisFunction = TwoVerticesHdivFunction<GridFunctionSpace>;
+  using DipoleType = typename BasisFunction::DipoleType;
+  using ElementType = typename GridFunctionSpace::Traits::GridView::template Codim<0>::Entity;
+  using GridView = typename GridFunctionSpace::Traits::GridViewType;
+  using Scalar = typename GridView::ctype;
+  enum {dim = GridFunctionSpace::Traits::GridViewType::dimension};
+  using Index = typename GridView::IndexSet::IndexType;
+  using ElementSeed = typename GridView::Grid::template Codim<0>::EntitySeed;
+  using RankedElement = std::pair<ElementSeed, Scalar>;
+  enum {EDGES_PER_ELEMENT = 6};
+  enum {ADDITIONAL_BASIS_FUNCTIONS_PER_ELEMENT_ESTIMATE = 4};
+
+  DynamicSourceConfigurationBuilder(std::shared_ptr<const VolumeConductor> volumeConductor,
+                                    const GridFunctionSpace& gfs,
+                                    const Dune::ParameterTree& config)
+    : volumeConductor_(volumeConductor)
+    , gfs_(gfs)
+    , edgeMapper_(volumeConductor_->gridView(), Dune::mcmgLayout(Dune::Dim<1>()))
+    , elementMapper_(volumeConductor_->gridView(), Dune::mcmgElementLayout())
+    , n_elems_(config.get<size_t>("n_elems"))
+    , basisSizeEstimate_(EDGES_PER_ELEMENT + (n_elems_ - 1) * ADDITIONAL_BASIS_FUNCTIONS_PER_ELEMENT_ESTIMATE)
+    , ensureFocalFluxes_(config.get<bool>("ensureFocalFluxes", true))
+  {
+    if(n_elems_ < 1) {
+      DUNE_THROW(Dune::Exception, "please set n_elems to a value >= 1");
+    }
+  }
+
+  std::vector<BasisFunction> build(const ElementType& initialElement, const DipoleType& dipole) const override
+  {
+    std::vector<BasisFunction> basisFunctions;
+    basisFunctions.reserve(basisSizeEstimate_);
+
+    auto ref = referenceElement(initialElement.geometry());
+    std::set<Index> usedEdges;
+    std::set<Index> patchElements;
+
+    // first add internal edges
+    patchElements.insert(elementMapper_.index(initialElement));
+    for(int edge_index = 0; edge_index < ref.size(dim - 1); ++edge_index) {
+      auto vertexIndexRange = ref.subEntities(edge_index, dim - 1, dim);
+      auto vertexIndexIterator = vertexIndexRange.begin();
+      auto index_1 = *(vertexIndexIterator++);
+      auto index_2 = *(vertexIndexIterator);
+      basisFunctions.emplace_back(gfs_, initialElement.template subEntity<dim>(index_1), initialElement.template subEntity<dim>(index_2));
+      usedEdges.insert(edgeMapper_.subIndex(initialElement, edge_index, dim - 1));
+    }
+
+    if(n_elems_ == 1) return basisFunctions;
+
+    // initialize candidate set
+    auto compareOnSecondEntry = [](const RankedElement& l, const RankedElement& r) {return l.second > r.second;};
+    std::priority_queue<RankedElement, std::vector<RankedElement>, decltype(compareOnSecondEntry)> candidates(compareOnSecondEntry);
+
+    const auto& grid = gfs_.gridView().grid();
+    auto dipolePosition = dipole.position();
+    auto initialConductivity = volumeConductor_->tensor(initialElement);
+    Scalar maxFacialNeighborDistance = 0.0;
+
+    for(const auto& intersection : intersections(volumeConductor_->gridView(), initialElement)) {
+      if(!intersection.neighbor()) continue;
+
+      auto outsideEntity = intersection.outside();
+      if(volumeConductor_->tensor(outsideEntity) != initialConductivity) continue;
+
+      auto distanceSquared = (outsideEntity.geometry().center() - dipolePosition).two_norm2();
+      if (distanceSquared > maxFacialNeighborDistance) maxFacialNeighborDistance = distanceSquared;
+      candidates.emplace(outsideEntity.seed(), distanceSquared);
+    }
+
+    // dynamically construct patch
+    size_t current_size = 1;
+    while(!candidates.empty()) {
+      auto nextElement = grid.entity(candidates.top().first);
+      candidates.pop();
+
+      // first add face basis functions
+      for(const auto& intersection : intersections(volumeConductor_->gridView(), nextElement)) {
+        if(!intersection.neighbor()) continue;
+        auto outsideEntity = intersection.outside();
+        if(patchElements.count(elementMapper_.index(outsideEntity))) {
+          auto insideVertexIndex = dim - intersection.indexInInside();
+          auto outsideVertexIndex = dim - intersection.indexInOutside();
+          basisFunctions.emplace_back(gfs_, nextElement.template subEntity<dim>(insideVertexIndex), outsideEntity.template subEntity<dim>(outsideVertexIndex));
+        }
+      }
+
+      // now add edge basis functions
+      auto nextRef = referenceElement(nextElement.geometry());
+      for(int edge_index = 0; edge_index < nextRef.size(dim - 1); ++edge_index) {
+        if(usedEdges.count(edgeMapper_.subIndex(nextElement, edge_index, dim - 1))) continue;
+        auto vertexIndexRange = nextRef.subEntities(edge_index, dim - 1, dim);
+        auto vertexIndexIterator = vertexIndexRange.begin();
+        auto index_1 = *(vertexIndexIterator++);
+        auto index_2 = *(vertexIndexIterator);
+        basisFunctions.emplace_back(gfs_, nextElement.template subEntity<dim>(index_1), nextElement.template subEntity<dim>(index_2));
+        usedEdges.insert(edgeMapper_.subIndex(nextElement, edge_index, dim - 1));
+      }
+
+      // now update candidate queue and patch
+      ++current_size;
+      if(current_size == n_elems_) break;
+
+      patchElements.insert(elementMapper_.index(nextElement));
+      for(const auto& intersection : intersections(volumeConductor_->gridView(), nextElement)) {
+        auto outsideEntity = intersection.outside();
+        if(!patchElements.count(elementMapper_.index(outsideEntity)) && volumeConductor_->tensor(outsideEntity) == initialConductivity) {
+          auto distanceSquared = (outsideEntity.geometry().center() - dipolePosition).two_norm2();
+          // during numerical experiments we saw that the inclusion of elements which are far removed from the source can degrade the accuracy
+          // of the forward simulation. If the corresponding flag is set we thus only include elements whose center is close to the dipole
+          // position, where the cutoff for "closeness" is defined by the maximal distance (squared) of the initial candidate set to the dipole position.
+          if(ensureFocalFluxes_ && distanceSquared > maxFacialNeighborDistance) continue; 
+          candidates.emplace(outsideEntity.seed(), distanceSquared);
+        }
+      }
+    }
+
+    return basisFunctions;
+  }
+
+private:
+  std::shared_ptr<const VolumeConductor> volumeConductor_;
+  const GridFunctionSpace& gfs_;
+  Dune::MultipleCodimMultipleGeomTypeMapper<GridView> edgeMapper_;
+  Dune::MultipleCodimMultipleGeomTypeMapper<GridView> elementMapper_;
+  const size_t n_elems_;
+  const size_t basisSizeEstimate_;
+  bool ensureFocalFluxes_;
+};
+
+template <class BasisFunction>
+std::vector<typename BasisFunction::Scalar> PBOInterpolation(const typename BasisFunction::DipoleType& dipole, const std::vector<BasisFunction>& basisFunctions)
+{
+  enum {dim = BasisFunction::dim};
+  using MappedArray = Eigen::Map<const Eigen::Matrix<typename BasisFunction::Scalar, dim, 1>>;
+  size_t numberBasisFunctions = basisFunctions.size();
+  const auto& dipolePosition = dipole.position();
+
+  // assemble lhsMatrix = [D, Q^t; Q, 0]. We refer to Pursiainen et. al., 2016 for details
+  Eigen::MatrixXd lhsMatrix(numberBasisFunctions + dim, numberBasisFunctions + dim);
+  lhsMatrix.topLeftCorner(numberBasisFunctions, numberBasisFunctions) = Eigen::MatrixXd::Zero(numberBasisFunctions, numberBasisFunctions);
+  lhsMatrix.bottomRightCorner<dim, dim>() = Eigen::MatrixXd::Zero(dim, dim);
+
+  for(size_t i = 0; i < numberBasisFunctions; ++i) {
+    auto syntheticDipole = basisFunctions[i].syntheticDipole();
+
+    // D portion
+    auto diff = syntheticDipole.position() - dipolePosition;
+    lhsMatrix(i, i) = diff.two_norm2();
+
+    // Q, Q^t portion
+    MappedArray syntheticMomentMap(syntheticDipole.moment().data());
+    lhsMatrix.col(i).tail<dim>() = syntheticMomentMap;
+    lhsMatrix.row(i).tail<dim>() = syntheticMomentMap.transpose();
+  }
+
+  // assamble rhs vector
+  Eigen::VectorXd rhs(numberBasisFunctions + dim);
+  rhs.head(numberBasisFunctions) = Eigen::VectorXd::Zero(numberBasisFunctions);
+  rhs.tail<dim>() = MappedArray(dipole.moment().data());
+
+  Eigen::VectorXd solution = lhsMatrix.colPivHouseholderQr().solve(rhs);
+
+  return std::vector<typename BasisFunction::Scalar>(solution.data(), solution.data() + numberBasisFunctions);
+} //PBOInterpolation
+
+template <class BasisFunction>
+std::vector<typename BasisFunction::Scalar> MPOInterpolation(const typename BasisFunction::DipoleType& dipole, const std::vector<BasisFunction>& basisFunctions, const typename BasisFunction::Scalar referenceLength, bool ensureSmallFluxes)
+{
+  enum {dim = BasisFunction::dim};
+  using MappedArray = Eigen::Map<const Eigen::Matrix<typename BasisFunction::Scalar, dim, 1>>;
+  // even though values of enumerations are implicitly convertible to integral types, using them in constructors of Eigen matrices does not compile for
+  // Eigen version <= 3.3.7. Once we are using a more recent Eigen version, this could also be replaced by an enum. See also
+  // https://gitlab.com/libeigen/eigen/-/commit/441b3511de7d0a6930dc7643943aa5c6082ab9e1
+  static constexpr size_t MPO_INTERPOLATION_CONDITIONS = dim * (dim + 1);
+  size_t numberBasisFunctions = basisFunctions.size();
+  const auto& dipolePosition = dipole.position();
+
+  // assemble Matrix M. We refer to Pursiainen et. al., 2016 for details
+  Eigen::MatrixXd lhsMatrix(MPO_INTERPOLATION_CONDITIONS, numberBasisFunctions);
+  for(size_t j = 0; j < numberBasisFunctions; ++j) {
+    auto syntheticDipole = basisFunctions[j].syntheticDipole();
+    auto scaledDiff = (syntheticDipole.position() - dipolePosition) / referenceLength;
+    MappedArray syntheticMomentMap(syntheticDipole.moment().data());
+    lhsMatrix.col(j).head<dim>() = syntheticMomentMap;
+    for(size_t k = 0; k < dim; ++k) {
+      lhsMatrix.col(j).segment<dim>((k + 1) * dim) = scaledDiff[k] * syntheticMomentMap;
+    }
+  }
+
+  // assemble right hand side
+  Eigen::VectorXd rhs(MPO_INTERPOLATION_CONDITIONS);
+  rhs.head<dim>() = MappedArray(dipole.moment().data());
+  rhs.tail<dim * dim>() = Eigen::VectorXd::Zero(dim * dim);
+
+  // compute interpolation coefficients as the minimum norm solution of lhsMatrix x = rhs
+  // NOTE : Passing the computation flags as function arguments is deprecated in Eigen 3.4.
+  // But since at the point of programming this function the Ubuntu package repository installs Eigen 3.3,
+  // which does not support passing these arguments as template parameters, it will stay for now.
+  Eigen::VectorXd solution = lhsMatrix.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(rhs);
+
+  // in our multilayer sphere experiments the lhs matrix seemed to always be rank deficient. The SVD then sometimes included very
+  // small singular values in the pseudoinverse, leading to what one would call "ghost sources" in the inverse problem. By this we mean
+  // very large currents which cancel out to produce small currents. Imagine writing (0, 1) = 100 * (1, 0.01) - 100 * (1, 0).
+  // especially if the currents are close to a conductivity jump this can massively degrade the forward modelling accuracy, and we thus want
+  // to exclude these interpolations. To this end we want to only allow interpolations where the dipole moment is additively build up from
+  // small fluxes, instead of arising by the cancellation of large fluxes. Our approach is to label fluxes as "small" as long as their synthetic
+  // dipole moment is not larger in norm than that of the dipole they aim to interpolate. This is quite strict and excludes some "valid" interpolations
+  // producing accurate results, but it also prevents certain cases where the interpolations completely fails. We are thus trading potential accuracy 
+  // for stability.
+  if(ensureSmallFluxes && solution.array().abs().maxCoeff() > dipole.moment().two_norm()) return PBOInterpolation(dipole, basisFunctions);
+
+  return std::vector<typename BasisFunction::Scalar>(solution.data(), solution.data() + numberBasisFunctions);
+} //MPOInterpolation
+
+/*
+ * Assembling the FEM right hand side using the Whitney source model consists of three steps.
+ *
+ * 1): Decide on a set of H(div) functions w_1, ..., w_k. We call such a selection a
+ *     source configuration
+ *
+ * 2): Interpolate a given dipole M \delta_{x_0} into the space spanned by w_1, ..., w_k, which
+ *     means computing coefficients c_1, ..., c_k so that
+ *     M \delta_{x_0} \approx \sum_{l = 1}^k c_l w_l
+ *
+ * 3): Assemble the FEM right hand side corresponding to the function \sum_{l = 1}^k c_l w_l
+ *
+ */
+template<class VolumeConductor, class GridFunctionSpace, class Vector>
+class WhitneySourceModel
+  : public SourceModelBase<typename GridFunctionSpace::Traits::GridViewType, Vector> {
+public:
+  using BaseType = SourceModelBase<typename GridFunctionSpace::Traits::GridViewType, Vector>;
+  using DipoleType = typename BaseType::DipoleType;
+  using GridView = typename GridFunctionSpace::Traits::GridViewType;
+  enum {dim = GridView::dimension};
+  using Scalar = typename GridView::ctype;
+  using SearchType = typename BaseType::SearchType;
+  using DOFVector = typename BaseType::VectorType;
+  enum class Interpolation {PBO, MPO, AUTO};
+  using BasisFunction = TwoVerticesHdivFunction<GridFunctionSpace>;
+
+  WhitneySourceModel(std::shared_ptr<const VolumeConductor> volumeConductor,
+                     const GridFunctionSpace& gfs,
                      std::shared_ptr<const SearchType> search,
-                     const Dune::ParameterTree &params)
-      : WhitneySourceModel(
-            volumeConductor, gfs, params.get<Real>("referenceLength"),
-            params.get<bool>("restricted"),
-            whitneyFaceBasedFromString(params.get<std::string>("faceSources")),
-            whitneyEdgeBasedFromString(params.get<std::string>("edgeSources")),
-            params.get<std::string>("interpolation"), search) {}
-
-  // Pseudoinverse - method for MPO - interpolation
-  Eigen::MatrixXd pinv(Eigen::MatrixXd pinvmat) const {
-    Eigen::JacobiSVD<Eigen::MatrixXd> svd(pinvmat, Eigen::ComputeThinU |
-                                                       Eigen::ComputeThinV);
-    double epsilon = std::numeric_limits<double>::epsilon();
-    // tolerance~=1.e-6; // choose your tolerance wisely!
-    double tolerance = epsilon * std::max(pinvmat.cols(), pinvmat.rows()) *
-                       svd.singularValues().array().abs()(0);
-
-    return (svd.matrixV() *
-            (svd.singularValues().array().abs() > tolerance)
-                .select(svd.singularValues().array().inverse(), 0)
-                .matrix()
-                .asDiagonal() *
-            svd.matrixU().transpose());
+                     const Dune::ParameterTree& config)
+    : BaseType(search)
+    , sourceConfigBuilder_(createSourceConfigurationBuilder(volumeConductor, gfs, config))
+    , interpolation_(interpolationFromString(config.get<std::string>("interpolation")))
+    , referenceLength_(interpolation_ == Interpolation::PBO ? 0.0 : config.get<Scalar>("referenceLength"))
+    , ensureSmallFluxes_(interpolation_ == Interpolation::PBO ? false : config.get<bool>("ensureSmallFluxes", true))
+  {
   }
 
-  // Mean Position / Orientation - Method
-  void MPOinterpolation(
-      const std::vector<Dune::FieldVector<Real, dim>> &source_positions,
-      const std::vector<Dune::FieldVector<Real, dim>> &source_moments,
-      const std::vector<Vertex> &vertices1,
-      const std::vector<Vertex> &vertices2,
-      const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
-      V &output) const {
+  void assembleRightHandSide(DOFVector& dofVector) const override
+  {
+    // assemble source configuration
+    auto basisFunctions = sourceConfigBuilder_->build(this->dipoleElement(), this->dipole());
 
-    if (vertices1.size() == 0) {
-      DUNE_THROW(Dune::Exception, "no source dipoles found,"
-                                  " check dipole fed in");
+    // interpolate dipole into source configuration
+    std::vector<Scalar> coefficients;
+    if(interpolation_ == Interpolation::PBO) {
+      coefficients = PBOInterpolation(this->dipole(), basisFunctions);
     }
-    // Initialize variables
-    using Matrix = Eigen::MatrixXd;
-    Matrix matrixM = Matrix::Zero(dim * (dim + 1), source_positions.size());
-    std::array<Matrix, dim> diagPs;
-    std::fill(diagPs.begin(), diagPs.end(),
-              Vector::Zero(source_positions.size()));
-    Vector b_vec = Vector::Zero(dim * (dim + 1));
-    Matrix coeffMat = Vector::Zero(source_positions.size());
-
-    std::vector<Dune::FieldVector<Real, dim>> differences;
-    Dune::PDELab::EntityIndexCache<GFS> cache1(gfs_);
-    Dune::PDELab::EntityIndexCache<GFS> cache2(gfs_);
-
-    // Position differences between source dipoles and given dipole
-    for (unsigned int i = 0; i < source_positions.size(); ++i) {
-      differences.push_back(source_positions[i] - dipole.position());
+    else if(interpolation_ == Interpolation::MPO) {
+      coefficients = MPOInterpolation(this->dipole(), basisFunctions, referenceLength_, ensureSmallFluxes_);
+    }
+    else {
+      // In the MPO approach, the number of constraints is <= the number of degrees of freedoms iff the condition below is fulfilled. In Pursiainen et. al., 2016,
+      // it is noted that in this not overdetermined setting the MPO interpolation approach seems favourable. We follow this suggestion.
+      coefficients = basisFunctions.size() >= dim * (dim + 1) ? MPOInterpolation(this->dipole(), basisFunctions, referenceLength_, ensureSmallFluxes_)
+                                                              : PBOInterpolation(this->dipole(), basisFunctions);
     }
 
-    // Create matrix P for all dimensions j = 1:3 and vector b
-    // P_j = 1 / referenceLenght *
-    // diag(differences_1 * e_j, differences_2*e_j
-    //..., differences_n_sources * e_j)
-    // b_vec = [dipole_moment; 0 ; ...; 0]
-    for (unsigned int d = 0; d < dim; ++d) {
-      for (unsigned int i = 0; i < source_positions.size(); ++i) {
-        diagPs[d](i) = differences[i][d];
-        matrixM(d, i) = source_moments[i][d];
-      }
-      diagPs[d] *= 1.0 / referenceLength_;
-      b_vec[d] = dipole.moment()[d];
-    }
-
-    // Formulate matrix M = [ Q ; Q*P_1; Q*P_2; Q*P_3]
-    for (unsigned int i = 0; i < source_positions.size(); ++i) {
-      unsigned int index = dim; // Index for matrixM rows
-      for (unsigned int d = 0; d < dim; ++d) {
-        for (unsigned int dd = 0; dd < dim; ++dd) {
-          matrixM(index, i) = diagPs[d](i) * source_moments[i][dd];
-          ++index;
-        }
-      }
-    }
-    // compute coefficients c = pinv(M)*b
-    coeffMat = pinv(matrixM) * b_vec;
-    // std::cout << "c:s are : " << coeffMat << std::endl;
-
-    // store output for each source dipole
-    // Right hand side = +- c_i / (r_a - r_b),
-    // r_a & r_b vertices sharing a face or an edge
-    for (unsigned int i = 0; i < vertices1.size(); ++i) {
-
-      cache1.update(vertices1[i]);
-      cache2.update(vertices2[i]);
-
-      output[cache1.containerIndex(0)] += -coeffMat(i) / distances[i];
-      output[cache2.containerIndex(0)] += coeffMat(i) / distances[i];
-    }
-  }
-  // Position Based Interpolation  - method
-  void PBOinterpolation(
-      const std::vector<Dune::FieldVector<Real, dim>> &source_positions,
-      const std::vector<Dune::FieldVector<Real, dim>> &source_moments,
-      const std::vector<Vertex> &vertices1,
-      const std::vector<Vertex> &vertices2,
-      const std::vector<double> &distances, const Dipole<Real, dim> &dipole,
-      V &output) const {
-
-    if (vertices1.size() == 0) {
-      DUNE_THROW(Dune::Exception, "no source dipoles found,"
-                                  " check dipole fed in");
-    }
-
-    // Initialize
-    const int n_sources = source_positions.size();
-    using Matrix = Eigen::MatrixXd;
-    Matrix matrixQ = Matrix::Zero(dim, n_sources);
-    Matrix matrixD = Matrix::Zero(n_sources, n_sources);
-    Matrix lhsMat = Matrix::Zero(n_sources + dim, n_sources + dim);
-    Vector rhsVec = Vector::Zero(n_sources + dim);
-    Matrix coeffMat = Vector::Zero(n_sources + dim);
-
-    std::vector<Dune::FieldVector<Real, dim>> differences;
-
-    Dune::PDELab::EntityIndexCache<GFS> cache1(gfs_);
-    Dune::PDELab::EntityIndexCache<GFS> cache2(gfs_);
-
-    // compute weighting coefficients
-    for (unsigned int i = 0; i < source_positions.size(); ++i) {
-      auto diff = source_positions[i] - dipole.position();
-      // Distance between source position and actual dipole position
-      double dist = diff.two_norm();
-      // Form matrix Q = [source_moment_1 source_moment_2 ...
-      // source_moment_L]
-      for (unsigned int d = 0; d < dim; ++d) {
-        matrixQ(d, i) = source_moments[i][d];
-      }
-      // D = diag(dist_1^2, dist_2^2 , ... , dist_L^2)
-      matrixD(i, i) = dist * dist;
-    }
-
-    // form right hand side vector = [ 0;...;0;dipole_moment]
-    for (unsigned int d = 0; d < dim; ++d) {
-      rhsVec[n_sources + d] = dipole.moment()[d];
-    }
-    // Set left hand side matrix
-    // lhsMat = [ D Q^T; Q 0]
-    lhsMat.block(0, 0, n_sources, n_sources) = matrixD;
-    lhsMat.block(n_sources, 0, dim, n_sources) = matrixQ;
-    lhsMat.block(0, n_sources, n_sources, dim) = matrixQ.transpose();
-
-    // Solve system lhsMat * coeffVec = rhsVec
-    Vector coeffVec = lhsMat.colPivHouseholderQr().solve(rhsVec);
-
-    // store output for each source dipole
-    // Right hand side, 'f' = +- c_i / (r_a - r_b),
-    // r_a & r_b vertices sharing a face or an edge
-
-    for (unsigned int i = 0; i < vertices1.size(); ++i) {
-
-      cache1.update(vertices1[i]);
-      cache2.update(vertices2[i]);
-
-      output[cache1.containerIndex(0)] += -coeffVec(i) / distances[i];
-      output[cache2.containerIndex(0)] += coeffVec(i) / distances[i];
-    }
-  }
-
-  virtual void assembleRightHandSide(VectorType &vector) const {
-    if (!this->dipoleElement().geometry().type().isTetrahedron()) {
-      DUNE_THROW(Dune::Exception, "currently, only tetrahedral meshes are "
-                                  "supported by the whitney source model");
-    }
-    // Initalize
-    auto global =
-        this->dipoleElement().geometry().global(this->localDipolePosition());
-    using Vertex = typename GV::template Codim<GV::dimension>::Entity;
-
-    // collect the conductivites in order to avoid
-    // taking the nodes that are in the wrong layer
-    auto dipoleTensor =
-        volumeConductor_->tensor(this->elementSearch().findEntity(global));
-
-    // lfs_.bind(this->dipoleElement());
-    std::vector<double> distances;
-    std::vector<Vertex> vertices1;
-    std::vector<Vertex> vertices2;
-
-    Dune::FieldVector<Real, dim> dip_pos;
-    Dune::FieldVector<Real, dim> dip_moment;
-
-    std::vector<Dune::FieldVector<Real, dim>> source_positions;
-    std::vector<Dune::FieldVector<Real, dim>> source_moments;
-
-    Dune::PDELab::EntityIndexCache<GFS> cache1(gfs_);
-    Dune::PDELab::EntityIndexCache<GFS> cache2(gfs_);
-
-    // Loop through shared faces for face intersecting dipoles
-    if (faceSources_ == WhitneyFaceBased::all) {
-      auto is = intersections(gfs_.gridView(), this->dipoleElement());
-      for (const auto &iss : is) {
-        // Check that intersection is not a boundary face
-        if (!iss.neighbor()) {
-          continue;
-        }
-
-        // check that outside element is not over gray matter
-        if (restricted_) {
-          auto tensor = volumeConductor_->tensor(iss.outside());
-          tensor -= dipoleTensor;
-          if (tensor.infinity_norm() > 1e-8) {
-            continue;
-          }
-        }
-
-        // Find nodes oppositing shared face
-
-        // local ix jj: node inside oppositing shared face
-        // (local numbering in dune grid is fixed)
-        unsigned int jj = dim - iss.indexInInside();
-        Vertex R_a = iss.inside().template subEntity<GV::dimension>(jj);
-
-        // outside ix kk: node outside that is opposite shared face
-        unsigned int kk = dim - iss.indexInOutside();
-        Vertex R_b = iss.outside().template subEntity<GV::dimension>(kk);
-        auto diff = R_b.geometry().center() - R_a.geometry().center();
-        double dist = diff.two_norm(); // distance between R_a and R_b
-
-        // Set source dipoles : dip_pos = 1/2 * (R_a + R_b)
-        // dip_moment = (R_b - R_a ) / ||R_b - R_a ||
-        for (unsigned int d = 0; d < dim; d++) {
-          dip_pos[d] = R_a.geometry().center()[d] + R_b.geometry().center()[d];
-          dip_moment[d] =
-              R_b.geometry().center()[d] - R_a.geometry().center()[d];
-        }
-        dip_pos *= 1 / 2.0;
-        dip_moment *= 1 / dist;
-
-        // Store vertices & distances of source dipoles for interpolation
-        vertices1.push_back(R_a);
-        vertices2.push_back(R_b);
-        distances.push_back(dist);
-        source_positions.push_back(dip_pos);
-        source_moments.push_back(dip_moment);
-      }
-    }
-
-    // Next edge-based dipoles
-
-    if ((edgeSources_ == WhitneyEdgeBased::internal) ||
-        (edgeSources_ == WhitneyEdgeBased::all)) {
-      // First the loop the edges inside the element
-      auto element = this->dipoleElement();
-      // Loop nodes 0,...,dim-1
-      for (int ii = 0; ii < dim; ii++) {
-        Vertex R_a = element.template subEntity<GV::dimension>(ii);
-        // find the other nodes that share an edge with R_a
-        for (unsigned int n = ii + 1; n < dim + 1; n++) {
-          Vertex R_b = element.template subEntity<GV::dimension>(n);
-          // Compute the distance between points
-          auto diff = R_b.geometry().center() - R_a.geometry().center();
-          double dist = diff.two_norm();
-          // Set edge based source dipoles
-          // dip_pos = 1/2 *(R_a + R_b)
-          // dip_moment = (R_b - R_a) / ||R_b-R_a||
-          for (unsigned int d = 0; d < dim; d++) {
-            dip_pos[d] =
-                R_a.geometry().center()[d] + R_b.geometry().center()[d];
-            dip_moment[d] =
-                R_b.geometry().center()[d] - R_a.geometry().center()[d];
-          }
-          dip_pos *= 1 / 2.0;
-          dip_moment *= 1 / dist;
-          // Store vertices & distances of source dipoles for interpolation
-          vertices1.push_back(R_a);
-          vertices2.push_back(R_b);
-          distances.push_back(dist);
-          source_positions.push_back(dip_pos);
-          source_moments.push_back(dip_moment);
-        }
-      }
-    }
-    // Loop over shared faces and find all the edge-based dipoles
-    // for outside elements
-    if (edgeSources_ == WhitneyEdgeBased::all) {
-      auto is2 = intersections(gfs_.gridView(), this->dipoleElement());
-      for (const auto &iss2 : is2) {
-        // Check if the intersection is a boundary face
-        if (!iss2.neighbor()) {
-          continue;
-        }
-        // check that we are not over gray matter
-        if (restricted_) {
-          auto tensor = volumeConductor_->tensor(iss2.outside());
-          tensor -= dipoleTensor;
-          if (tensor.infinity_norm() > 1e-8)
-            continue;
-        }
-        // Find the index kk2 for node outside oppositing the shared face
-        unsigned int kk2 = dim - iss2.indexInOutside();
-        Vertex R_b = iss2.outside().template subEntity<GV::dimension>(kk2);
-        // auto r_b = iss2.outside().geometry().corner(kk2);
-        // std::cout << "r_b is : " << r_b << std::endl;
-
-        // Loop over the edges connected to kk2:th vertex
-        // in outside tetrahedron
-        for (unsigned int k = 0; k < (dim + 1); k++) {
-          if (k != kk2) {
-
-            // node sharing an edge with R_b
-            Vertex R_a = iss2.outside().template subEntity<GV::dimension>(k);
-            auto diff = R_b.geometry().center() - R_a.geometry().center();
-            double dist = diff.two_norm();
-
-            // Set the source dipole position and moment
-            for (std::size_t d = 0; d < dim; d++) {
-              dip_pos[d] =
-                  R_a.geometry().center()[d] + R_b.geometry().center()[d];
-              dip_moment[d] =
-                  R_b.geometry().center()[d] - R_a.geometry().center()[d];
-            }
-            dip_pos *= 1 / 2.0;
-            dip_moment *= 1 / dist;
-
-            // insert vertices & dipoles to store
-            vertices1.push_back(R_a);
-            vertices2.push_back(R_b);
-            distances.push_back(dist);
-            source_positions.push_back(dip_pos);
-            source_moments.push_back(dip_moment);
-          }
-        }
-      }
-    }
-    assert(source_positions.size() > 0);
-
-    // Jump to interpolation -section
-
-    if (interpolation_.compare("MPO") == 0) {
-
-      MPOinterpolation(
-          source_positions, source_moments, vertices1, vertices2, distances,
-          Dipole<Real, dim>(global, this->dipole().moment()), vector);
-    } else if (interpolation_.compare("PBO") == 0) {
-
-      PBOinterpolation(
-          source_positions, source_moments, vertices1, vertices2, distances,
-          Dipole<Real, dim>(global, this->dipole().moment()), vector);
-    } else {
-      DUNE_THROW(Dune::Exception, "interpolation type \"" << interpolation_
-                                                          << "\" unknown");
+    // assemble right hand side of interpolated dipole
+    for(size_t i = 0; i < basisFunctions.size(); ++i) {
+      basisFunctions[i].accumulate(dofVector, coefficients[i]);
     }
   }
 
 private:
-  std::shared_ptr<const VC> volumeConductor_;
-  const GFS &gfs_;
-  const Real referenceLength_;
-  const bool restricted_;
-  const WhitneyFaceBased faceSources_;
-  const WhitneyEdgeBased edgeSources_;
-  const std::string interpolation_;
-};
-}
+  const std::unique_ptr<const SourceConfigurationBuilderInterface<BasisFunction>> sourceConfigBuilder_;
+  const Interpolation interpolation_;
+  const Scalar referenceLength_;
+  const bool ensureSmallFluxes_;
+
+  Interpolation interpolationFromString(const std::string& value) {
+    if(value == "PBO") {
+      return Interpolation::PBO;
+    }
+    else if(value == "MPO") {
+      return Interpolation::MPO;
+    }
+    else if(value == "auto") {
+      return Interpolation::AUTO;
+    }
+    else {
+      DUNE_THROW(Dune::Exception, "interpolation has invalid value " << value << ", please choose one from the list {PBO, MPO, auto}");
+    }
+  }
+
+  std::unique_ptr<SourceConfigurationBuilderInterface<BasisFunction>> createSourceConfigurationBuilder(std::shared_ptr<const VolumeConductor> volumeConductor,
+                                                                                                       const GridFunctionSpace& gfs,
+                                                                                                       const Dune::ParameterTree& config)
+  {
+    std::string value = config.get<std::string>("sourceConfiguration");
+    if(value == "fixed") {
+      return std::make_unique<FixedSourceConfigurationBuilder<VolumeConductor, GridFunctionSpace>>(volumeConductor, gfs, config);
+    }
+    else if(value == "dynamic") {
+      return std::make_unique<DynamicSourceConfigurationBuilder<VolumeConductor, GridFunctionSpace>>(volumeConductor, gfs, config);
+    }
+    else {
+      DUNE_THROW(Dune::Exception, "sourceConfiguration has invalid value " << value <<", please choose one from the list {fixed, dynamic}");
+    }
+  }
+}; // class WhitneySourceModel
+
+} // namespace duneuro
 
 #endif // DUNEURO_WHITNEY_SOURCE_MODEL_HH
