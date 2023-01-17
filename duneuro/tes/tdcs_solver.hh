@@ -12,7 +12,6 @@
 #include <duneuro/eeg/electrode_projection_interface.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/tes/tdcs_evaluation_factory.hh>
-#include <duneuro/tes/tdcs_patch_udg_parameter.hh>
 #include <duneuro/tes/tdcs_rhs_factory.hh>
 
 namespace duneuro

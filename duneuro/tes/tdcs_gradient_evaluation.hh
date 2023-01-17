@@ -212,7 +212,7 @@ namespace duneuro
     using Traits = TDCSGradientEvaluationTraits<GV, GFS>;
 
   public:
-    /**\brief constructor for the unfitted case
+    /**\brief constructor for the fitted case
      */
     explicit TDCSGradientEvaluation(const GFS& gfs, const VC& volumeConductor, const bool current)
         : gradientEvaluator_(gfs, volumeConductor, current), current_(current), gfs_(gfs)
