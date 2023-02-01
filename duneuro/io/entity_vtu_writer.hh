@@ -183,7 +183,13 @@ namespace duneuro {
       for(size_t j = 0; j < dim - 1; ++j) {
         outFileStream << corner[j] << " ";
       }
-      outFileStream << corner[dim - 1] << "\n";
+      outFileStream << corner[dim - 1];
+      
+      if(dim == 2) {
+        outFileStream << " 0";
+      }
+      
+      outFileStream << "\n";
     }    
     --indent;
 
@@ -235,10 +241,25 @@ namespace duneuro {
     for(size_t i = 0; i < number_of_cells; ++i) {
       outFileStream << indent;
       std::vector<size_t>& current_connectivity = connectivities[i];
-      for(size_t j = 0; j < current_connectivity.size() - 1; ++j) {
-        outFileStream << current_connectivity[j] << " ";
+      
+      // the vtu vertex numbering for quadrilaterals in 3d space and for hexahedrons is different from 
+      // the numbering Dune uses. In these cases we thus have to take care to write out the vertices in
+      // the correct order. The vtu code of a quadrilateral is 9, and the vtu code of a hexahedron in 12
+      if(types[i] == 9) {
+        outFileStream << current_connectivity[0] << " " << current_connectivity[1] << " " << current_connectivity[3] << " " << current_connectivity[2] << "\n";
       }
-      outFileStream << current_connectivity[current_connectivity.size() - 1] << "\n"; 
+      else if (types[i] == 12) {
+        outFileStream << current_connectivity[0] << " " << current_connectivity[1] << " "
+                      << current_connectivity[3] << " " << current_connectivity[2] << " "
+                      << current_connectivity[4] << " " << current_connectivity[5] << " "
+                      << current_connectivity[7] << " " << current_connectivity[6] << "\n";
+      }
+      else {
+        for(size_t j = 0; j < current_connectivity.size() - 1; ++j) {
+          outFileStream << current_connectivity[j] << " ";
+        }
+        outFileStream << current_connectivity[current_connectivity.size() - 1] << "\n"; 
+      }
     }
     --indent;
 
@@ -291,6 +312,7 @@ namespace duneuro {
     }
 
     if(dataWriterPtr && dataWriterPtr->containsVertexData()) {
+      std::cout << "Writing vertex data\n";
       outFileStream << "\n";
       dataWriterPtr->writeVertexData(outFileStream, indent, nodeMapper);
     }
@@ -354,6 +376,7 @@ namespace duneuro {
     Indentation indent;
 
     // write header
+    std::cout << "Writing header\n";
     outFileStream << indent << "<?xml version=\"1.0\"?>\n";
     outFileStream << indent << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"" << endianness() << "\">\n";
 
@@ -460,23 +483,33 @@ namespace duneuro {
         }
       } // mapping created
 
+      std::cout << "Mapping created\n";
+
       // we can now write out the data
       ++indent;
       outFileStream << indent << "<PointData Scalars=\"" << vertexDataNames_[0] << "\">\n";
       for(size_t i = 0; i < vertexData_.size(); ++i) {
+        std::cout << "Inside iteration\n";
         const auto& DOFVector = *(vertexData_[i]);
         ++indent;
+        std::cout << "Before accessing name\n";
         outFileStream << indent << "<DataArray type=\"Float32\" Name=\"" << vertexDataNames_[i] << "\" NumberOfComponents=\"1\" format=\"ascii\">\n";
         ++indent;
         for(size_t j = 0; j < nodeMapper.size(); ++j) {
-          outFileStream << indent << DOFVector[vtu2pdelab[j]] << "\n";
+          std::cout << "Before computing container index\n";
+          auto containerIndex = vtu2pdelab[j];
+          std::cout << "Before accessing DOFVector\n";
+          outFileStream << indent << DOFVector[containerIndex] << "\n";
         }
+        std::cout << "DOFVector written\n";
         --indent;
         outFileStream << indent << "</DataArray>\n";
         --indent;
       }
       outFileStream << indent << "</PointData>\n";
       --indent;
+      
+      std::cout << "Vertex data written\n";
     }
 
     void writeCellData(std::ofstream& outFileStream, Indentation& indent) const
@@ -505,7 +538,13 @@ namespace duneuro {
           for(size_t j = 0; j < gradient.N() - 1; ++j) {
             outFileStream << gradient[j] << " ";
           }
-          outFileStream << gradient[gradient.N() - 1] << "\n";
+          outFileStream << gradient[gradient.N() - 1];
+          
+          if constexpr(dim == 2) {
+           outFileStream << " 0";
+          }
+          
+          outFileStream << "\n";
         }
         --indent;
         outFileStream << indent << "</DataArray>\n";
