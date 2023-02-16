@@ -22,6 +22,7 @@
 #include <memory>
 #include <dune/pdelab/function/discretegridviewfunction.hh>
 #include <dune/pdelab/common/crossproduct.hh>				                    // include for cross product
+#include <dune/grid/io/file/vtk/common.hh>
 
 namespace duneuro {
 
@@ -323,36 +324,6 @@ namespace duneuro {
     return;
   } // end write_mesh
 
-  // essentially copied from dune/grid/io/file/vtk/common.hh, written again for learning purposes
-  inline std::string endianness()
-  {
-    // NOTE : This solution needs some assumption about the number of bits in a byte. It works as long as you assume
-    //        that a byte consists of 8 bits, which is NOT guaranteed by the standard, although on most modern systems 
-    //        and C++ implementations it is true. If you are on such a system, please rewrite this function yourself
-    if (CHAR_BIT != 8) {
-      DUNE_THROW(Dune::NotImplemented, "entity_vtu_writer only supports C++ implementations where a byte consists of 8 bits");
-    }
-
-    // The C++ standard implies that on systems where a byte consists of 8 bits a short has a length of at least 2 byte, 
-    // and a char has a size of exactly one byte.
-    // In big endian systems, the most significant byte is stored at the smallest memory address,
-    // while in little endian systems the least significant byte is stored at the smallest
-    // memory address. Thus, on a little endian system if we store the value 1 inside a short,
-    // the least significant byte is non zero, and this byte is stored in the smallest memory
-    // address. If we store 1 inside a short on a big endian system the most significant bit
-    // is zero, and this is stored at the smallest memory address. We can thus check the
-    // endianness by checking the byte of 1 stored inside a short at the smallest memory address.
-    short i = 1;
-    if(reinterpret_cast<char*>(&i)[0] != 0) {
-      return "LittleEndian";
-    }
-    else {
-      return "BigEndian";
-    }
-
-    // NOTE : From C++20 onward one can simply use std::endian
-  }
-
   // this function generates a .vtu file for visualization in paraview, given some entities
   // we assume that all entities to be of the same type
   // template params:
@@ -378,7 +349,7 @@ namespace duneuro {
     // write header
     std::cout << "Writing header\n";
     outFileStream << indent << "<?xml version=\"1.0\"?>\n";
-    outFileStream << indent << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"" << endianness() << "\">\n";
+    outFileStream << indent << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"" << Dune::VTK::getEndiannessString() << "\">\n";
 
     ++indent;
     outFileStream << indent << "<UnstructuredGrid>\n";
