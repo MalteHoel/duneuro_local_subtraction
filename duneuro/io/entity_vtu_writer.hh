@@ -313,7 +313,6 @@ namespace duneuro {
     }
 
     if(dataWriterPtr && dataWriterPtr->containsVertexData()) {
-      std::cout << "Writing vertex data\n";
       outFileStream << "\n";
       dataWriterPtr->writeVertexData(outFileStream, indent, nodeMapper);
     }
@@ -347,7 +346,6 @@ namespace duneuro {
     Indentation indent;
 
     // write header
-    std::cout << "Writing header\n";
     outFileStream << indent << "<?xml version=\"1.0\"?>\n";
     outFileStream << indent << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"" << Dune::VTK::getEndiannessString() << "\">\n";
 
@@ -454,33 +452,24 @@ namespace duneuro {
         }
       } // mapping created
 
-      std::cout << "Mapping created\n";
-
       // we can now write out the data
       ++indent;
       outFileStream << indent << "<PointData Scalars=\"" << vertexDataNames_[0] << "\">\n";
       for(size_t i = 0; i < vertexData_.size(); ++i) {
-        std::cout << "Inside iteration\n";
         const auto& DOFVector = *(vertexData_[i]);
         ++indent;
-        std::cout << "Before accessing name\n";
         outFileStream << indent << "<DataArray type=\"Float32\" Name=\"" << vertexDataNames_[i] << "\" NumberOfComponents=\"1\" format=\"ascii\">\n";
         ++indent;
         for(size_t j = 0; j < nodeMapper.size(); ++j) {
-          std::cout << "Before computing container index\n";
           auto containerIndex = vtu2pdelab[j];
-          std::cout << "Before accessing DOFVector\n";
           outFileStream << indent << DOFVector[containerIndex] << "\n";
         }
-        std::cout << "DOFVector written\n";
         --indent;
         outFileStream << indent << "</DataArray>\n";
         --indent;
       }
       outFileStream << indent << "</PointData>\n";
       --indent;
-      
-      std::cout << "Vertex data written\n";
     }
 
     void writeCellData(std::ofstream& outFileStream, Indentation& indent) const

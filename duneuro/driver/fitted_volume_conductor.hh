@@ -356,7 +356,6 @@ public:
   virtual void write_memory_optimized(const Dune::ParameterTree& config,
                                       DataTree dataTree = DataTree()) const
   {
-    std::cout << "Writing on the C++ side\n";
     writer_.write(config.get<std::string>("filename"));
   }
 
