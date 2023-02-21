@@ -11,6 +11,7 @@
 #include <duneuro/common/sparse_vector_container.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/eeg/electrode_projection_interface.hh>
 
 namespace duneuro
 {
@@ -68,7 +69,7 @@ namespace duneuro
       }
     }
 
-    void postProcessPotential(const std::vector<typename Traits::Coordinate>& projectedElectrodes,
+    void postProcessPotential(const std::vector<ProjectedElectrode<typename S::Traits::GridView>>& projectedElectrodes,
                               std::vector<typename Traits::DomainField>& potential)
     {
       if (density_ == VectorDensity::sparse) {
@@ -144,10 +145,10 @@ namespace duneuro
   private:
     std::shared_ptr<const typename Traits::Solver> solver_;
     VectorDensity density_;
-    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>
         sparseSourceModel_;
-    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::DomainField, Traits::dimension,
                                          typename Traits::DenseRHSVector>>
         denseSourceModel_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;

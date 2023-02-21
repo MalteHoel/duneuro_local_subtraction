@@ -184,9 +184,7 @@ public:
     electrodeProjection_->setElectrodes(electrodes);
     projectedGlobalElectrodes_.clear();
     for (unsigned int i = 0; i < electrodeProjection_->size(); ++i) {
-      const auto &proj = electrodeProjection_->getProjection(i);
-      projectedGlobalElectrodes_.push_back(
-          proj.element.geometry().global(proj.localPosition));
+      projectedGlobalElectrodes_.push_back(electrodeProjection_->getProjection(i));
     }
   }
 
@@ -409,7 +407,11 @@ public:
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
-    return projectedGlobalElectrodes_;
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coordinates;
+    for(size_t i = 0; i < projectedGlobalElectrodes_.size(); ++i) {
+      coordinates.push_back(projectedGlobalElectrodes_[i].element.geometry().global(projectedGlobalElectrodes_[i].localPosition));
+    }
+    return coordinates;
   }
 
   virtual void statistics(DataTree dataTree) const override {
@@ -450,13 +452,11 @@ private:
   std::unique_ptr<
       duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
       electrodeProjection_;
-  std::vector<typename duneuro::ElectrodeProjectionInterface<
-      typename Traits::VC::GridView>::GlobalCoordinate>
+  std::vector<typename duneuro::ProjectedElectrode<typename Traits::VC::GridView>>
       projectedGlobalElectrodes_;
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
-  std::shared_ptr<SourceModelInterface<double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
-  VolumeConductorVtuWriter<typename Traits::VC, typename Traits::Solver> writer_;
+  std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
 };
 
 } // namespace duneuro

@@ -46,7 +46,7 @@ namespace duneuro
           *solver_, config, solverConfig);
     }
 
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>> sourceModel() const
     {
       return denseSourceModel_;
@@ -86,7 +86,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>>
         denseSourceModel_;
 
