@@ -457,6 +457,7 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
+  VolumeConductorVtuWriter<typename Traits::VC, typename Traits::Solver> writer_;
 };
 
 } // namespace duneuro
