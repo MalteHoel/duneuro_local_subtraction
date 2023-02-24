@@ -68,9 +68,10 @@ namespace duneuro
       auto transferMatrix = std::make_unique<DenseMatrix<double>>(
           projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
       auto solver_config = config.sub("solver");
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
+      auto maxNrConcurrentThreads = solver_config.hasKey("numberOfThreads")
+                                      ? solver_config.get<size_t>("numberOfThreads")
+                                      : tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
+      tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, maxNrConcurrentThreads);
       auto grainSize = solver_config.get<int>("grainSize", 16);
       tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
           solver_->functionSpace().getGFS(), 0.0);

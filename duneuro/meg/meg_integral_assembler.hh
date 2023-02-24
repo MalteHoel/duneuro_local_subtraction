@@ -131,9 +131,10 @@ namespace duneuro
 #if HAVE_TBB
     void assembleCachedDOFs(tbb::enumerable_thread_specific<Assembler>& assembler, int verbose)
     {
-      tbb::task_scheduler_init init(config_.hasKey("numberOfThreads") ?
-                                        config_.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
+      auto maxNrConcurrentThreads = config_.hasKey("numberOfThreads")
+                                      ? config_.get<size_t>("numberOfThreads")
+                                        : tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
+      tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, maxNrConcurrentThreads);
       auto grainSize = config_.get<int>("grainSize", 16);
       // split coils into blocks of at most grainSize entries and assemble in parallel
       tbb::parallel_for(

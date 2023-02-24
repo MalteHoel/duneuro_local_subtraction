@@ -280,10 +280,10 @@ protected:
     using User = typename Traits::TransferMatrixUser;
 #if HAVE_TBB
     auto grainSize = config.get<int>("grainSize", 16);
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
+    auto maxNrConcurrentThreads = config.hasKey("numberOfThreads")
+                                    ? config.get<size_t>("numberOfThreads")
+                                    : tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
+    tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, maxNrConcurrentThreads);
     tbb::parallel_for(
         tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
         [&](const tbb::blocked_range<std::size_t> &range) {
@@ -344,10 +344,10 @@ protected:
 
 #if HAVE_TBB
     auto grainSize = config.get<int>("grainSize", 16);
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
+    auto maxNrConcurrentThreads = config.hasKey("numberOfThreads")
+                                    ? config.get<size_t>("numberOfThreads")
+                                    : tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
+    tbb::global_control global_limit(tbb::global_control::max_allowed_parallelism, maxNrConcurrentThreads);
     tbb::parallel_for(
         tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
         [&](const tbb::blocked_range<std::size_t> &range) {
