@@ -95,8 +95,7 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        VTKWriter<typename Traits::VC> writer(volumeConductorStorage_.get(),
-                                              config.get<unsigned int>("subsampling", degree - 1));
+        VTKWriter<typename Traits::VC::GridView> writer(volumeConductorStorage_.get()->gridView());
         writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
             volumeConductorStorage_.get()));
 
@@ -109,7 +108,7 @@ namespace duneuro
         }
 #endif
 
-        writer.write(config.get<std::string>("filename"), dataTree);
+        writer.write(config, dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }
@@ -120,8 +119,7 @@ namespace duneuro
     {
       auto format = config.get<std::string>("format");
       if (format == "vtk") {
-        VTKWriter<typename Traits::VC> writer(volumeConductorStorage_.get(),
-                                              config.get<unsigned int>("subsampling", degree - 1));
+        VTKWriter<typename Traits::VC::GridView> writer(volumeConductorStorage_.get()->gridView());
         auto gradient_type = config.get<std::string>("gradient.type", "vertex");
         auto potential_type = config.get<std::string>("potential.type", "vertex");
 
@@ -159,7 +157,7 @@ namespace duneuro
         }
 #endif
 
-        writer.write(config.get<std::string>("filename"), dataTree);
+        writer.write(config, dataTree);
       } else {
         DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
       }

@@ -22,7 +22,7 @@ namespace duneuro
     solve(std::size_t coil, std::size_t projection) const = 0;
     virtual void assembleTransferMatrixRHS(std::size_t coil, std::size_t projection,
                                            V& rhs) const = 0;
-    virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const = 0;
+    virtual void addFluxToVTKWriter(VTKWriter<typename VC::GridView>& writer) const = 0;
     virtual std::size_t numberOfCoils() const = 0;
     virtual std::size_t numberOfProjections(std::size_t coil) const = 0;
     virtual ~MEGSolverInterface()

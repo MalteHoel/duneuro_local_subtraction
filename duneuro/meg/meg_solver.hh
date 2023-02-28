@@ -75,7 +75,7 @@ namespace duneuro
 #endif
     }
 
-    virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const override
+    virtual void addFluxToVTKWriter(VTKWriter<typename VC::GridView>& writer) const override
     {
       writer.addCellData(std::make_shared<typename Flux::FluxVTKF>(
           std::make_shared<typename Flux::FluxDGF>(
