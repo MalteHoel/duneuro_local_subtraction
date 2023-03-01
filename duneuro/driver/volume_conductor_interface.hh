@@ -114,17 +114,29 @@ public:
       const std::vector<std::vector<CoordinateType>> &projections) = 0;
 
   /**
-   * \brief write the given solution to a file
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each vertex,
+   * and this value will be associated to the corresponding vertex in the vtu visualization.
    */
-  virtual void write(const Function &solution,
-                     const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const = 0;
+  virtual void writerAddVertexData(const Function& function, const std::string& name) = 0;
+
+
+  /**
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each cell center,
+   * and this value will be associated to the corresponding cell in the vtu visualization.
+   */
+  virtual void writerAddCellData(const Function& function, const std::string& name) = 0;
+
+  /**
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The gradient of the function will be evaluated
+   * at each cell center, and this vector will be associated to the corresponding cell in the vtu visualization.
+   */
+  virtual void writerAddCellDataGradient(const Function& function, const std::string& name) = 0;
 
   /**
    * \brief write the model without a solution to a file
    */
   virtual void write(const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const = 0;
+                     DataTree dataTree = DataTree()) = 0;
 
   /**
    * \brief compute the EEG transfer matrix

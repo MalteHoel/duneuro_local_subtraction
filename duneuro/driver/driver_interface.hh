@@ -119,11 +119,31 @@ public:
   }
 
   /**
-   * \brief write the given solution to a file
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each vertex,
+   * and this value will be associated to the corresponding vertex in the vtu visualization.
    */
-  void write(const Function &solution, const Dune::ParameterTree &config,
-             DataTree dataTree = DataTree()) const {
-    volumeConductor_->write(solution, config, dataTree);
+  void writerAddVertexData(const Function& function, std::string name)
+  {
+    volumeConductor_->writerAddVertexData(function, name);
+  }
+
+
+  /**
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each cell center,
+   * and this value will be associated to the corresponding cell in the vtu visualization.
+   */
+  void writerAddCellData(const Function& function, std::string name)
+  {
+    volumeConductor_->writerAddCellData(function, name);
+  }
+
+  /**
+   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The gradient of the function will be evaluated
+   * at each cell center, and this vector will be associated to the corresponding cell in the vtu visualization.
+   */
+  void writerAddCellDataGradient(const Function& function, std::string name)
+  {
+    volumeConductor_->writerAddCellDataGradient(function, name);
   }
 
   /**

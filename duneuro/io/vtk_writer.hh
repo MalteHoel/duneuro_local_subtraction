@@ -37,7 +37,7 @@ namespace duneuro
     {
     }
 
-    void addCellData(std::shared_ptr<VTKFunction> vtkf)
+    void addCellData(const std::shared_ptr<VTKFunction> vtkf)
     {
       cellData_.push_back(vtkf);
     }
@@ -53,7 +53,7 @@ namespace duneuro
       cellData_.push_back(std::make_shared<VTKF>(gridFunctionPtr, name));
     }
 
-    void addVertexData(std::shared_ptr<VTKFunction> vtkf)
+    void addVertexData(const std::shared_ptr<VTKFunction> vtkf)
     {
       vertexData_.push_back(vtkf);
     }
