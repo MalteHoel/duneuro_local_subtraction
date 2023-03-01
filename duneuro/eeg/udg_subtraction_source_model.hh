@@ -28,8 +28,7 @@ namespace duneuro
     using Problem = SubtractionUDGDefaultParameter<GV, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = UnfittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting,
-                              ContinuityType::discontinuous>;
+    using LOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting, ContinuityType::discontinuous>;
     using WLOP = Dune::UDG::MultiPhaseLocalOperatorWrapper<LOP>;
     using DOF = typename FS::DOF;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GV>;
