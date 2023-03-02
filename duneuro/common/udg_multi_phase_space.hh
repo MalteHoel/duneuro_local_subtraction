@@ -22,6 +22,7 @@ namespace duneuro
   public:
     typedef TGV GV;
     enum { dim = GV::dimension };
+    enum { dimworld = GV::dimensionworld};
     typedef typename GV::ctype ctype;
     typedef N NT;
     typedef Dune::OPBLocalFiniteElement<ctype, NT, degree, dim, Dune::GeometryType::cube,

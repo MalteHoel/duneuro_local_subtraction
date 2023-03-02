@@ -165,7 +165,7 @@ public:
             electrodes, solver_->functionSpace().getGFS(), *subTriangulation_);
     projectedGlobalElectrodes_.clear();
     for (unsigned int i = 0; i < projectedElectrodes_->size(); ++i) {
-      projectedGlobalElectrodes_.push_back(projectedElectrodes_->projection(i));
+      projectedGlobalElectrodes_.push_back(projectedElectrodes_->getProjection(i));
     }
   }
 
@@ -294,7 +294,11 @@ public:
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
-    return projectedGlobalElectrodes_;
+    std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>> electrodeCoordinates;
+    for(size_t i = 0; i < projectedGlobalElectrodes_.size(); ++i) {
+      electrodeCoordinates.push_back(projectedGlobalElectrodes_[i].element.geometry().global(projectedGlobalElectrodes_[i].localPosition));
+    }
+    return electrodeCoordinates;
   }
 
   virtual void statistics(DataTree dataTree) const override {
@@ -339,8 +343,7 @@ private:
       eegForwardSolver_;
   std::unique_ptr<ProjectedElectrodes<typename Traits::GridView>>
       projectedElectrodes_;
-  std::vector<Dune::FieldVector<typename Traits::GridView::ctype,
-                                Traits::GridView::dimension>>
+  std::vector<typename ProjectedElectrodes<typename Traits::GridView>::Projection>
       projectedGlobalElectrodes_;
   std::vector<double> conductivities_;
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
