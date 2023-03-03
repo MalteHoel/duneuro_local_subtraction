@@ -11,6 +11,7 @@
 #include <duneuro/common/function.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/driver/feature_manager.hh>
+#include <duneuro/io/volume_conductor_vtk_writer.hh>
 
 #include <vector>
 
@@ -114,29 +115,11 @@ public:
       const std::vector<std::vector<CoordinateType>> &projections) = 0;
 
   /**
-   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each vertex,
-   * and this value will be associated to the corresponding vertex in the vtu visualization.
+   * Return a writer, which can be used to visualize the volume conductor. FEM trial functions can be associated to the writer
+   * in various ways, see the interface class. By calling the write-method of the writer, a vtu file containing the volume conductor
+   * and all registered data is created.
    */
-  virtual void writerAddVertexData(const Function& function, const std::string& name) = 0;
-
-
-  /**
-   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The function will be evaluated at each cell center,
-   * and this value will be associated to the corresponding cell in the vtu visualization.
-   */
-  virtual void writerAddCellData(const Function& function, const std::string& name) = 0;
-
-  /**
-   * A given FEM trial function, encapsulated in function, is registered to be written once the write-method is called. The gradient of the function will be evaluated
-   * at each cell center, and this vector will be associated to the corresponding cell in the vtu visualization.
-   */
-  virtual void writerAddCellDataGradient(const Function& function, const std::string& name) = 0;
-
-  /**
-   * \brief write the model without a solution to a file
-   */
-  virtual void write(const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) = 0;
+  virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const = 0;
 
   /**
    * \brief compute the EEG transfer matrix

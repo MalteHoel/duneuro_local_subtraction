@@ -79,56 +79,10 @@ namespace duneuro
                      config, dataTree);
     }
 
-    virtual void write(const Function& function, const Dune::ParameterTree& config,
-                       DataTree dataTree = DataTree()) const override
+    virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const override
     {
-      auto format = config.get<std::string>("format");
-      if (format == "vtk") {
-        RefinedVTKWriter<typename Traits::Solver::Traits::FunctionSpace::GFS,
-                         typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, solver_->functionSpace().getGFS());
-        vtkWriter.addVertexData(*solver_, function.cast<typename Traits::DomainDOFVector>(),
-                                "potential");
-        vtkWriter.addVertexDataGradient(*solver_, function.cast<typename Traits::DomainDOFVector>(),
-                                        "gradient_potential");
-        vtkWriter.addVertexData(
-            std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
-                fundamentalGridView_, conductivities_));
-        vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
-                                    typename Traits::GridView>>(fundamentalGridView_));
-        auto modeString = config.get<std::string>("mode", "volume");
-        if ((modeString == "faces") || (modeString == "boundary")) {
-          vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
-                                      typename Traits::GridView>>(fundamentalGridView_, false));
-        }
-        vtkWriter.write(config, dataTree);
-      } else {
-        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-      }
-    }
-
-    virtual void write(const Dune::ParameterTree& config,
-                       DataTree dataTree = DataTree()) const override
-    {
-      auto format = config.get<std::string>("format");
-      if (format == "vtk") {
-        RefinedVTKWriter<typename Traits::Solver::Traits::FunctionSpace::GFS,
-                         typename Traits::SubTriangulation, compartments>
-            vtkWriter(subTriangulation_, solver_->functionSpace().getGFS());
-        vtkWriter.addVertexData(
-            std::make_shared<TensorUnfittedVTKGridFunction<typename Traits::GridView>>(
-                fundamentalGridView_, conductivities_));
-        vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
-                                    typename Traits::GridView>>(fundamentalGridView_));
-        auto modeString = config.get<std::string>("mode", "volume");
-        if ((modeString == "faces") || (modeString == "boundary")) {
-          vtkWriter.addVertexData(std::make_shared<Dune::UDG::DomainIndexUnfittedVTKGridFunction<
-                                      typename Traits::GridView>>(fundamentalGridView_, false));
-        }
-        vtkWriter.write(config, dataTree);
-      } else {
-        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-      }
+      std::string modeString = config.get<std::string>("mode", "volume");
+      return std::make_unique<UnfittedVCVTKWriter<typename Traits::Solver>>(solver_, subTriangulation_, fundamentalGridView_, conductivities_, modeString);
     }
 
   private:

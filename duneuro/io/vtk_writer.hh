@@ -16,9 +16,7 @@
 /*
  * This purpose of this class is to visualize the EMEG volume conductor, and data associated to it.
  * The central abstraction is the VTKFunction, as it is described in dune/grid/io/file/vtk/function.hh.
- * The class implemented below gathers a set of VTKFunctions, which can later be written. Currently, these can either be supplied
- * directly or they can be derived from a DOF vector in some way. To extend the visualization capabilities, you can
- * implement a function that wraps the data you want to visualize into a VTKFunction object.
+ * The class implemented below gathers a set of VTKFunctions, which can later be written.
  * The actual heavy lifting in writing the corresponding files is done by the VTKWriters implemented in
  * the dune-grid module.
  */
@@ -42,53 +40,9 @@ namespace duneuro
       cellData_.push_back(vtkf);
     }
 
-    template <class Solver>
-    void addCellData(const Solver& solver,
-                     std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                     const std::string& name)
-    {
-      using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::DomainDOFVector>;
-      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      std::shared_ptr<DGF> gridFunctionPtr = std::make_shared<DGF>(solver.functionSpace().getGFS(), *v);
-      cellData_.push_back(std::make_shared<VTKF>(gridFunctionPtr, name));
-    }
-
     void addVertexData(const std::shared_ptr<VTKFunction> vtkf)
     {
       vertexData_.push_back(vtkf);
-    }
-
-    template <class Solver>
-    void addVertexData(const Solver& solver,
-                       std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                       const std::string& name)
-    {
-      using DGF = Dune::PDELab::DiscreteGridFunction<typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::DomainDOFVector>;
-      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      std::shared_ptr<DGF> gridFunctionPtr = std::make_shared<DGF>(solver.functionSpace().getGFS(), *v);
-      vertexData_.push_back(std::make_shared<VTKF>(gridFunctionPtr, name));
-    }
-
-    template <class Solver>
-    void addCellDataGradient(const Solver& solver,
-                             std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                             const std::string& name)
-    {
-      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::DomainDOFVector>;
-      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      std::shared_ptr<DGF> gridFunctionPtr = std::make_shared<DGF>(solver.functionSpace().getGFS(), *v);
-      cellData_.push_back(std::make_shared<VTKF>(gridFunctionPtr, name));
-    }
-
-    template <class Solver>
-    void addVertexDataGradient(const Solver& solver,
-                               std::shared_ptr<const typename Solver::Traits::DomainDOFVector> v,
-                               const std::string& name)
-    {
-      using DGF = Dune::PDELab::DiscreteGridFunctionGradient<typename Solver::Traits::FunctionSpace::GFS, typename Solver::Traits::DomainDOFVector>;
-      using VTKF = Dune::PDELab::VTKGridFunctionAdapter<DGF>;
-      std::shared_ptr<DGF> gridFunctionPtr = std::make_shared<DGF>(solver.functionSpace().getGFS(), *v);
-      vertexData_.push_back(std::make_shared<VTKF>(gridFunctionPtr, name));
     }
 
     void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree())

@@ -14,6 +14,7 @@
 #include <duneuro/common/volume_conductor_storage.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
+#include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/tes/tdcs_driver_interface.hh>
 #include <duneuro/tes/tdcs_patch_dg_parameter.hh>
@@ -90,77 +91,10 @@ namespace duneuro
                      config, dataTree);
     }
 
-    virtual void write(const Dune::ParameterTree& config,
-                       DataTree dataTree = DataTree()) const override
+    virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const override
     {
-      auto format = config.get<std::string>("format");
-      if (format == "vtk") {
-        VTKWriter<typename Traits::VC::GridView> writer(volumeConductorStorage_.get()->gridView());
-        writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
-            volumeConductorStorage_.get()));
-
-#if HAVE_EIGEN
-        if (config.get("anisotropy.enable", false)) {
-          for (unsigned int i = 0; i < dim; ++i) {
-            writer.addCellData(std::make_shared<duneuro::FittedTensorFunctor<typename Traits::VC>>(
-                volumeConductorStorage_.get(), i));
-          }
-        }
-#endif
-
-        writer.write(config, dataTree);
-      } else {
-        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-      }
-    }
-
-    virtual void write(const Function& function, const Dune::ParameterTree& config,
-                       DataTree dataTree = DataTree()) const override
-    {
-      auto format = config.get<std::string>("format");
-      if (format == "vtk") {
-        VTKWriter<typename Traits::VC::GridView> writer(volumeConductorStorage_.get()->gridView());
-        auto gradient_type = config.get<std::string>("gradient.type", "vertex");
-        auto potential_type = config.get<std::string>("potential.type", "vertex");
-
-        if (gradient_type == "vertex") {
-          writer.addVertexDataGradient(
-              *solver_,
-              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
-              "gradient_potential");
-
-        } else {
-          writer.addCellDataGradient(
-              *solver_,
-              Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()),
-              "gradient_potential");
-        }
-        if (potential_type == "vertex") {
-          writer.addVertexData(*solver_, Dune::stackobject_to_shared_ptr(
-                                             function.cast<typename Traits::DomainDOFVector>()),
-                               "potential");
-
-        } else {
-          writer.addCellData(*solver_, Dune::stackobject_to_shared_ptr(
-                                           function.cast<typename Traits::DomainDOFVector>()),
-                             "potential");
-        }
-        writer.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
-            volumeConductorStorage_.get()));
-
-#if HAVE_EIGEN
-        if (config.get("anisotropy.enable", false)) {
-          for (unsigned int i = 0; i < dim; ++i) {
-            writer.addCellData(std::make_shared<duneuro::FittedTensorFunctor<typename Traits::VC>>(
-                volumeConductorStorage_.get(), i));
-          }
-        }
-#endif
-
-        writer.write(config, dataTree);
-      } else {
-        DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-      }
+      bool visualizeAnisotropy = config.get<bool>("anisotropy.enable", false);
+      return std::make_unique<VolumeConductorVTKWriter<typename Traits::Solver>>(*solver_, visualizeAnisotropy);
     }
 
   private:

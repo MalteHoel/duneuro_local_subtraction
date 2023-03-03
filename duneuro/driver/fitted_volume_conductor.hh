@@ -30,6 +30,7 @@
 #include <duneuro/eeg/transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
+#include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
@@ -114,8 +115,7 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
-        eegForwardSolver_(solver_),
-        writer_(volumeConductorStorage_.get()->gridView())
+        eegForwardSolver_(solver_)
   {
   }
 
@@ -231,31 +231,10 @@ public:
     return result;
   }
 
-  virtual void writerAddVertexData(const Function& function, const std::string& name) override
+  virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const override
   {
-    writer_.addVertexData(*solver_, Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()), name);
-  }
-
-  virtual void writerAddCellData(const Function& function, const std::string& name) override
-  {
-    writer_.addCellData(*solver_, Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()), name);
-  }
-
-  virtual void writerAddCellDataGradient(const Function& function, const std::string& name) override
-  {
-    writer_.addCellDataGradient(*solver_, Dune::stackobject_to_shared_ptr(function.cast<typename Traits::DomainDOFVector>()), name);
-  }
-
-  virtual void write(const Dune::ParameterTree &config, DataTree dataTree = DataTree()) override {
-    writer_.addCellData(std::make_shared<duneuro::FittedTensorNormFunctor<typename Traits::VC>>(volumeConductorStorage_.get()));
-#if HAVE_EIGEN
-      if (config.get("anisotropy.enable", false)) {
-        for (unsigned int i = 0; i < dim; ++i) {
-          writer_.addCellData(std::make_shared<duneuro::FittedTensorFunctor<typename Traits::VC>>(volumeConductorStorage_.get(), i));
-        }
-      }
-#endif
-      writer_.write(config, dataTree);
+    bool visualizeAnisotropy = config.get<bool>("anisotropy.enable", false);
+    return std::make_unique<VolumeConductorVTKWriter<typename Traits::Solver>>(*solver_, visualizeAnisotropy);
   }
 
   virtual std::unique_ptr<DenseMatrix<double>>
@@ -350,7 +329,6 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
-  VTKWriter<typename Traits::VC::GridView> writer_;
 };
 
 } // namespace duneuro
