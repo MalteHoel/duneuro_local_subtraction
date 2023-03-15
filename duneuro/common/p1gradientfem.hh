@@ -19,17 +19,17 @@ namespace duneuro
       : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient2DLocalFiniteElement<D, R>, GV::dimension>
   {
   public:
-    bool fixedSize() const
+    static constexpr bool fixedSize()
     {
       return true;
     }
 
-    bool hasDOFs(int codim) const
+    static constexpr bool hasDOFs(int codim)
     {
       return codim == 0;
     }
 
-    std::size_t size(Dune::GeometryType gt) const
+    static constexpr std::size_t size(Dune::GeometryType gt)
     {
       if (gt == Dune::GeometryTypes::simplex(2))
         return 2;
@@ -37,7 +37,7 @@ namespace duneuro
         return 0;
     }
 
-    std::size_t maxLocalSize() const
+    static constexpr std::size_t maxLocalSize()
     {
       return 2;
     }
@@ -55,17 +55,17 @@ namespace duneuro
       : public Dune::PDELab::SimpleLocalFiniteElementMap<P1Gradient3DLocalFiniteElement<D, R>, GV::dimension>
   {
   public:
-    bool fixedSize() const
+    static constexpr bool fixedSize()
     {
       return true;
     }
 
-    bool hasDOFs(int codim) const
+    static constexpr bool hasDOFs(int codim)
     {
       return codim == 0;
     }
 
-    std::size_t size(Dune::GeometryType gt) const
+    static constexpr std::size_t size(Dune::GeometryType gt)
     {
       if (gt == Dune::GeometryTypes::simplex(3))
         return 3;
@@ -73,7 +73,7 @@ namespace duneuro
         return 0;
     }
 
-    std::size_t maxLocalSize() const
+    static constexpr std::size_t maxLocalSize()
     {
       return 3;
     }

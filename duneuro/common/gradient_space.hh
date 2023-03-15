@@ -26,10 +26,7 @@ namespace {
 namespace duneuro
 {
   template <typename T, typename N, unsigned int degree,
-            Dune::SolverCategory::Category st = Dune::SolverCategory::sequential,
-            typename VBET = Dune::PDELab::ISTL::
-                VectorBackend<Dune::PDELab::ISTL::Blocking::fixed,
-                              T::dimension * Dune::QkStuff::QkSize<degree, T::dimension>::value>>
+            Dune::SolverCategory::Category st = Dune::SolverCategory::sequential>
   class DGQkGradientSpace
   {
   public:
@@ -41,7 +38,7 @@ namespace duneuro
     static const int dimworld = T::dimensionworld;
     typedef N NT;
     typedef duneuro::Q1GradientLocalFiniteElementMap<GV, NT, NT> FEM;
-    typedef VBET VBE;
+    typedef Dune::PDELab::ISTL::VectorBackend<Dune::PDELab::ISTL::Blocking::fixed, FEM::maxLocalSize()> VBE;
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE> GFS;
     typedef typename GFS::template ConstraintsContainer<N>::Type CC;
     using DOF = Dune::PDELab::Backend::Vector<GFS, N>;
@@ -96,10 +93,7 @@ namespace duneuro
   };
 
   template <typename T, typename N, unsigned int degree,
-            Dune::SolverCategory::Category st = Dune::SolverCategory::sequential,
-            typename VBET = Dune::PDELab::ISTL::
-                VectorBackend<Dune::PDELab::ISTL::Blocking::fixed,
-                              T::dimension * monomialsize<T::dimension, degree>()>>
+            Dune::SolverCategory::Category st = Dune::SolverCategory::sequential>
   class DGPkGradientSpace
   {
   public:
@@ -111,7 +105,7 @@ namespace duneuro
     static const int dimworld = T::dimensionworld;
     typedef N NT;
     typedef duneuro::P1GradientLocalFiniteElementMap<GV, NT, NT> FEM;
-    typedef VBET VBE;
+    typedef Dune::PDELab::ISTL::VectorBackend<Dune::PDELab::ISTL::Blocking::fixed, FEM::maxLocalSize()> VBE;
     typedef Dune::PDELab::GridFunctionSpace<GV, FEM, Dune::PDELab::NoConstraints, VBE> GFS;
     typedef typename GFS::template ConstraintsContainer<N>::Type CC;
     using DOF = Dune::PDELab::Backend::Vector<GFS, N>;
