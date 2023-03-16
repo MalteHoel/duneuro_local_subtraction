@@ -76,16 +76,32 @@ namespace duneuro
       auto offsets = computeOffsets();
       std::size_t numberOfProjections = offsets.back();
 
-      auto transferMatrix = std::make_unique<DenseMatrix<double>>(
-          numberOfProjections, solver_->functionSpace().getGFS().ordering().size());
-
+      auto transferMatrix = std::make_unique<DenseMatrix<double>>(numberOfProjections, solver_->functionSpace().getGFS().ordering().size());
+      int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+      int grainSize = config.get<int>("grainSize", 16);
       auto solver_config = config.sub("solver");
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      auto grainSize = solver_config.get<int>("grainSize", 16);
-      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
-          solver_->functionSpace().getGFS(), 0.0);
+      
+      tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(solver_->functionSpace().getGFS(), 0.0);
+      
+      tbb::task_arena arena(nr_threads);
+      arena.execute([&]{
+        tbb::parallel_for(
+          tbb::blocked_range<std::size_t>(0, megSolver_->numberOfCoils(), grainSize),
+          [&](const tbb::blocked_range<std::size_t>& range) {
+            auto& mySolution = solution.local();
+            for (std::size_t index = range.begin(); index != range.end(); ++index) {
+              auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
+              for (unsigned int j = 0; j < megSolver_->numberOfProjections(index); ++j) {
+                solve(solverBackend.local().get(), index, j, mySolution,
+                      rightHandSideVector_.local(), solver_config,
+                      coilDT.sub("projection_" + std::to_string(j)));
+                set_matrix_row(*transferMatrix, offsets[index] + j, Dune::PDELab::Backend::native(mySolution));
+              }
+            }
+          }
+        );
+      });
+      
       tbb::parallel_for(tbb::blocked_range<std::size_t>(0, megSolver_->numberOfCoils(), grainSize),
                         [&](const tbb::blocked_range<std::size_t>& range) {
                           auto& mySolution = solution.local();

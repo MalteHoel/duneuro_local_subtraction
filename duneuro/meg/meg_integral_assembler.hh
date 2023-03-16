@@ -131,17 +131,17 @@ namespace duneuro
 #if HAVE_TBB
     void assembleCachedDOFs(tbb::enumerable_thread_specific<Assembler>& assembler, int verbose)
     {
-      tbb::task_scheduler_init init(config_.hasKey("numberOfThreads") ?
-                                        config_.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      auto grainSize = config_.get<int>("grainSize", 16);
+      int nr_threads = config_.hasKey("numberOfThreads") ? config_.get<std::size_t>("numberOfThreads") : tbb::task_arena::automatic;
+      int grainSize = config_.get<int>("grainSize", 16);
+      
       // split coils into blocks of at most grainSize entries and assemble in parallel
-      tbb::parallel_for(
+      tbb::task_arena arena(nr_threads);
+      arena.execute([&]{
+        tbb::parallel_for(
           tbb::blocked_range<std::size_t>(0, coils_.size(), grainSize),
           [&](const tbb::blocked_range<std::size_t>& range) {
             for (unsigned int coil = range.begin(); coil < range.end(); ++coil) {
-              for (unsigned int projection = 0; projection < projections_[coil].size();
-                   ++projection) {
+              for (unsigned int projection = 0; projection < projections_[coil].size(); ++projection) {
                 Dune::Timer timer;
                 assemble(assembler.local(), coil, projection, *cachedDofs_[coil][projection]);
                 if (verbose > 0) {
@@ -150,7 +150,9 @@ namespace duneuro
                 }
               }
             }
-          });
+          }
+        );
+      });
     }
 #endif
   };
