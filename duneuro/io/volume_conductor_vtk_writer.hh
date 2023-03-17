@@ -13,7 +13,10 @@
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 
+#if HAVE_DUNE_UDG
 #include <duneuro/io/refined_vtk_writer.hh>
+#endif
+
 #include <duneuro/io/vtk_functors.hh>
 
 namespace duneuro {
