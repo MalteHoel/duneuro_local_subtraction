@@ -37,6 +37,9 @@
 #include <duneuro/meg/meg_solver_interface.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
+
+#include <tuple>
+
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
 struct SelectFittedSolver;
@@ -298,6 +301,52 @@ public:
                   std::to_string(itv.first.second),
               itv.second);
     }
+  }
+
+  // export the underlying mesh
+  // structure : nodes, elements, labels, conductivities
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const
+  {
+    auto volumeConductorPtr = volumeConductorStorage_.get();
+    const auto& gridView = volumeConductorPtr->gridView();
+    const auto& indexSet = gridView.indexSet();
+    size_t nr_nodes = indexSet.size(dim);
+    size_t nr_elements = indexSet.size(0);
+    const auto& tensors = volumeConductorPtr->tensors();
+    size_t nr_tensors = tensors.size();
+    
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> nodes(nr_nodes);
+    std::vector<std::vector<size_t>> elementArray(nr_elements);
+    std::vector<size_t> labels(nr_elements);
+    std::vector<typename VolumeConductorInterface<dim>::FieldType> conductivities(nr_tensors);
+    
+    // first write out nodes
+    for(const auto& vertex : vertices(gridView)) {
+      nodes[indexSet.index(vertex)] = vertex.geometry().corner(0);
+    }
+    
+    // now write out elements and their labels
+    for(const auto& element : elements(gridView)) {
+      auto element_index = indexSet.index(element);
+      size_t nr_vertices = element.subEntities(dim);
+      elementArray[element_index].resize(nr_vertices);
+      for(size_t i = 0; i < nr_vertices; ++i) {
+        elementArray[element_index][i] = indexSet.subIndex(element, i, dim);
+      }
+      labels[element_index] = volumeConductorPtr->label(element);
+    }
+    
+    // finally write out tensors (currently as scalars)
+    // TODO : generalize to anisotropic conductivities
+    for(size_t i = 0; i < nr_tensors; ++i) {
+      conductivities[i] = tensors[i][0][0];
+    }
+    
+    return {nodes, elementArray, labels, conductivities};
   }
 
 private:

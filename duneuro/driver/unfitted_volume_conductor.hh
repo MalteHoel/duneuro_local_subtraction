@@ -253,6 +253,18 @@ public:
               itv.second);
     }
   }
+  
+  // export the underlying mesh
+  // structure : nodes, elements, labels, conductivities
+  // only available for fitted volume conductor
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const
+  {
+    DUNE_THROW(Dune::Exception, "exporting mesh is only possible for fitted volume conductor");
+  }
 
 private:
   void checkElectrodes() const {

@@ -190,6 +190,15 @@ public:
     volumeConductor_->print_citations();
   }
 
+  std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const
+  {
+    return volumeConductor_->exportVolumeConductor();
+  }
+
   ~DriverInterface() {}
 
 private:

@@ -55,6 +55,7 @@ namespace duneuro
         factory.insertElement(gt, element);
       }
       std::unique_ptr<G> grid(factory.createGrid());
+      dataTree.set("gridRefinements", refinements);
       grid->globalRefine(refinements);
       timer.stop();
       dataTree.set("time_creating_grid", timer.lastElapsed());

@@ -174,6 +174,14 @@ public:
     featureManager_->print_citations();
   }
 
+  // export the underlying mesh
+  // structure : nodes, elements, labels, conductivities
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const = 0;
+
   virtual ~VolumeConductorInterface() {}
 
 protected:

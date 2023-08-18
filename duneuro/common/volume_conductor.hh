@@ -97,6 +97,10 @@ namespace duneuro
         DUNE_THROW(Dune::Exception, "Element neighborhood map needed, but not computed");
       }
     }
+    
+    const std::vector<TensorType>& tensors() const {
+      return tensors_;
+    }
 
   private:
     std::unique_ptr<G> grid_;
