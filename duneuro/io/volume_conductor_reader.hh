@@ -58,6 +58,10 @@ namespace duneuro
       grid->globalRefine(refinements);
       timer.stop();
       dataTree.set("time_creating_grid", timer.lastElapsed());
+      if(refinements > 0) {
+        std::cout << "vertices after refinement : " << grid->leafGridView().size(dim) << "\n";
+        std::cout << "elements after refinement : " << grid->leafGridView().size(0) << "\n";
+      }
       timer.start();
       using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
       GV gv = grid->leafGridView();
@@ -161,12 +165,21 @@ namespace duneuro
         Dune::GmshReader<G>::read(factory, gridFilename, boundaryIdToPhysicalEntity,
                                   elementIndexToPhysicalEntity);
         std::unique_ptr<G> grid(factory.createGrid());
+        if(refinements > 0) {
+          std::cout << "vertices before refinement : " << grid->leafGridView().size(dim) << "\n";
+          std::cout << "elements before refinement : " << grid->leafGridView().size(0) << "\n";
+        }
+        dataTree.set("gridRefinements", refinements);
         grid->globalRefine(refinements);
         typedef Dune::SingleCodimSingleGeomTypeMapper<GV, 0> Mapper;
         GV gv = grid->leafGridView();
         Mapper mapper(gv);
         timer.stop();
         dataTree.set("time_reading_gmsh", timer.lastElapsed());
+        if(refinements > 0) {
+          std::cout << "vertices after refinement : " << grid->leafGridView().size(dim) << "\n";
+          std::cout << "elements after refinement : " << grid->leafGridView().size(0) << "\n";
+        }
         timer.start();
         std::vector<TensorType> tensors;
         GmshTensorReader<G>::read(tensorFilename, tensors);
