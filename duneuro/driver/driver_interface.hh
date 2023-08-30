@@ -190,6 +190,20 @@ public:
     volumeConductor_->print_citations();
   }
 
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const
+  {
+    return volumeConductor_->exportVolumeConductorAndFunction(functionPtr);
+  }
+
   std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
                      std::vector<std::vector<size_t>>, 
                      std::vector<size_t>, 
