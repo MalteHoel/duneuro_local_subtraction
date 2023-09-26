@@ -194,6 +194,9 @@ public:
     exportVolumeConductor() const = 0;
 
 
+  // compute the electrical power dissipation of a given EEG forwared solution
+  virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const = 0;
+
   virtual ~VolumeConductorInterface() {}
 
 protected:

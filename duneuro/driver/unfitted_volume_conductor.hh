@@ -279,6 +279,11 @@ public:
   {
     DUNE_THROW(Dune::Exception, "exporting mesh is only possible for fitted volume conductor");
   }
+  
+   virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+   {
+    DUNE_THROW(Dune::Exception, "computing power is only possible for fitted volume conductor");
+   }
 
 private:
   void checkElectrodes() const {

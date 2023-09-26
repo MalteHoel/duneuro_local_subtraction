@@ -212,6 +212,12 @@ public:
   {
     return volumeConductor_->exportVolumeConductor();
   }
+  
+  // compute the electrical power dissipation of a given EEG forwared solution
+  FieldType computePower(const Function& eegSolution) const
+  {
+    return volumeConductor_->computePower(eegSolution);
+  }
 
   ~DriverInterface() {}
 

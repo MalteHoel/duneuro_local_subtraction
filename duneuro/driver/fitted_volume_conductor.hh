@@ -340,14 +340,6 @@ public:
     std::vector<size_t> labels(nr_elements);
     std::vector<typename VolumeConductorInterface<dim>::FieldType> conductivities(nr_tensors);
     
-    // computing power dissipation of secondary currents
-    ScalarType dissipated_power = 0.0;
-    if(functionPtr) {
-      std::cout << "Computing power dissipated by secondary currents\n";
-      std::cout << "We assume all distances are measured in millimeter and the dipole moment is given in Ampere-millimeter. The power is then computed in Watt.\n";
-      std::cout << "More concretely, we compute the integral of <sigma * grad u, grad u> over the head volume\n";
-    }
-    
     // first write out nodes
     for(const auto& vertex : vertices(gridView)) {
       nodes[indexSet.index(vertex)] = vertex.geometry().corner(0);
@@ -394,10 +386,6 @@ public:
         sigma.mv(-gradient, current);
         functionCurrentAtElementCenters[element_index] = current;
         
-        // compute power dissipation in this element
-        ScalarType element_volume = (1.0 / 6.0) * element.geometry().integrationElement(element_center_local);
-        dissipated_power += ((-gradient) * current) * element_volume;
-        
         // look up value of function at vertices
         for(size_t i = 0; i < element.subEntities(dim); ++i) {
           auto vertex = element.template subEntity<dim>(i);
@@ -405,9 +393,7 @@ public:
           auto local_vertex_pos = element.geometry().local(vertex.geometry().corner(0));
           functionAtNodes[vertexIndex] = function_local(local_vertex_pos);
         }
-      }
-      
-      std::cout << "Dissipated power : " << dissipated_power << " Watt\n";
+      } 
     }
     
     return {nodes, elementArray, labels, conductivities, functionAtNodes, functionNegativeGradientAtElementCenters, functionCurrentAtElementCenters};
@@ -421,7 +407,39 @@ public:
   {
     auto mesh = exportVolumeConductorAndFunction();
     return {std::get<0>(mesh), std::get<1>(mesh), std::get<2>(mesh), std::get<3>(mesh)};
-  }  
+  }
+  
+  virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+  {
+    using ScalarType = typename VolumeConductorInterface<dim>::FieldType;
+    using VectorType = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using TensorType = typename Traits::VC::TensorType;
+    
+    DiscreteGridFunction function(solver_->functionSpace().getGFS(), eegSolution.cast<DOFVector>());
+    LocalDerivativeFunction function_derivative_local = localFunction(derivative(function));
+    
+    ScalarType dissipatedPower = 0.0; 
+    for(const auto& element : elements(volumeConductorStorage_.get()->gridView())) {
+      function_derivative_local.bind(element);
+      
+      auto element_center_local = element.geometry().local(element.geometry().center());
+      auto gradient = function_derivative_local(element_center_local)[0];
+      VectorType current;
+      TensorType sigma = volumeConductorStorage_.get()->tensor(element);
+      sigma.mv(-gradient, current);
+      
+      ScalarType element_volume = (1.0 / 6.0) * element.geometry().integrationElement(element_center_local);
+      dissipatedPower += ((-gradient) * current) * element_volume;
+    }
+    
+    return dissipatedPower;
+  }
 
 private:
   Dune::ParameterTree config_;
