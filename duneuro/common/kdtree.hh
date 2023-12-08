@@ -165,7 +165,7 @@ namespace duneuro
      * The method first searches an entity which is close to the entity containing global. It then
      * uses edgehopping for the rest of the way
      */
-    Entity findEntity(const GlobalCoordinate& global) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global) const
     {
       EntitySeed seed = tree_.find(global);
       return edgeHopping_.findEntity(global, gridView_.grid().entity(seed));

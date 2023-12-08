@@ -89,7 +89,11 @@ namespace duneuro
       Dune::Timer timer;
       KDTreeElementSearch<GV> search(gridView_);
       for (const auto& electrode : electrodes) {
-        const auto& element = search.findEntity(electrode);
+        auto search_result = search.findEntity(electrode);
+        if(!search_result.has_value()) {
+          DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+        }
+        const auto& element = search_result.value();
         if (!subTriangulation.isHostCell(element)) {
           DUNE_THROW(Dune::Exception, "element of electrode at "
                                           << electrode << " is not a host cell for any domain");

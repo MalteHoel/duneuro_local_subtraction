@@ -2,6 +2,7 @@
 #define DUNEURO_EDGEHOPPING_HH
 
 #include <set>
+#include <optional>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
@@ -41,18 +42,18 @@ namespace duneuro
     {
     }
 
-    Entity findEntity(const GlobalCoordinate& global) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global) const
     {
       return findEntityImpl(global, *(gridView_.template begin<0>()));
     }
 
-    Entity findEntity(const GlobalCoordinate& global, const Entity& start) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global, const Entity& start) const
     {
       return findEntityImpl(global, start);
     }
 
   private:
-    Entity findEntityImpl(const GlobalCoordinate& global, const Entity& start) const
+    std::optional<Entity> findEntityImpl(const GlobalCoordinate& global, const Entity& start) const
     {
       using ElementIndex = typename GV::IndexSet::IndexType;
       std::set<ElementIndex> visited = {gridView_.indexSet().index(start)};
@@ -80,9 +81,13 @@ namespace duneuro
           }
         }
       }
-      if (boundaryIntersectionFound)
-        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
-      return current;
+      if (boundaryIntersectionFound) {
+        return {};
+        //DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      else {
+        return current;
+      }
     }
 
     GV gridView_;

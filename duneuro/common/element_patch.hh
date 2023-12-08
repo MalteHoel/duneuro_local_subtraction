@@ -204,7 +204,11 @@ namespace duneuro
     template <typename ElementSearch>
     void initializeSingleElement(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      element_of_start_position_ = elementSearch.findEntity(position);
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      element_of_start_position_ = search_result.value();
       if (elementFilter_(element_of_start_position_)) {
         elements_.push_back(element_of_start_position_);
         elementIndices_.insert(elementMapper_.index(element_of_start_position_));
@@ -214,7 +218,11 @@ namespace duneuro
     template <typename ElementSearch>
     void initializeClosestVertex(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      element_of_start_position_ = elementSearch.findEntity(position);
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      element_of_start_position_ = search_result.value();
       const auto& geo = element_of_start_position_.geometry();
       // find closest corner
       unsigned int minCorner = 0;
@@ -250,7 +258,11 @@ namespace duneuro
                       const Dune::FieldVector<typename VC::ctype, VC::dim>& position, bool restrict)
   {
     if (restrict) {
-      auto reference = volumeConductor->tensor(elementSearch.findEntity(position));
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      auto reference = volumeConductor->tensor(search_result.value());
       return [volumeConductor, reference](const typename VC::EntityType& e) {
         auto diff = volumeConductor->tensor(e);
         diff -= reference;

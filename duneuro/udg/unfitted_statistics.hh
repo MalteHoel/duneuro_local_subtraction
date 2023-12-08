@@ -31,11 +31,14 @@ namespace duneuro
     std::vector<double> interfaceValues(const Dune::FieldVector<double, dim>& x) const
     {
       std::vector<double> result;
-      auto element = levelSetElementSearch_->findEntity(x);
-      auto local = element.geometry().local(x);
+      auto search_result = levelSetElementSearch_->findEntity(x);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      auto local = search_result.value().geometry().local(x);
       for (const auto& interface : domain_.getDomainConfiguration().interfaces()) {
         auto localInterfaceFunction = localFunction(interface.function());
-        localInterfaceFunction.bind(element);
+        localInterfaceFunction.bind(element.value());
         result.push_back(localInterfaceFunction(local));
       }
       return result;
