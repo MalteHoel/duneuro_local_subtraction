@@ -285,8 +285,8 @@ public:
     DUNE_THROW(Dune::Exception, "computing power is only possible for fitted volume conductor");
    }
    
-   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
-    construct_regular_source_space(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+   virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
+    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
                                    const std::vector<std::size_t> sourceCompartmentsVector,
                                    const Dune::ParameterTree& config,
                                    DataTree dataTree = DataTree()) const override

@@ -34,6 +34,38 @@ namespace duneuro
         , elementMapper_(gridView_)
         , elementNeighborhoodMapPtr_(nullptr)
         , elementNeighborhoodMapComputed_(false)
+        , hasInsertionIndices_(false)
+        , elementInsertionIndices_(0)
+    {
+      // check if we are given one label for each element
+      if (labels.size() != elementMapper_.size()) {
+        DUNE_THROW(Dune::Exception, "number of labels ("
+                                        << labels.size()
+                                        << ") has to match the number of elements ("
+                                        << elementMapper_.size() << ")");
+      }
+      // check if all labels are valid
+      for (const auto& l : labels) {
+        if (l >= tensors_.size()) {
+          DUNE_THROW(Dune::Exception,
+                     "label " << l << " is not a valid index into the tensors vector of size "
+                              << tensors_.size());
+        }
+      }
+    }
+    
+    // if VolumeConductor was constructed by directly specifying nodes and elements, we want to keep track of the insertion indices
+    VolumeConductor(std::unique_ptr<G> grid, std::vector<std::size_t> labels,
+                    std::vector<TensorType> tensors, std::vector<std::size_t> elementInsertionIndices)
+        : grid_(std::move(grid))
+        , labels_(labels)
+        , tensors_(tensors)
+        , gridView_(grid_->leafGridView())
+        , elementMapper_(gridView_)
+        , elementNeighborhoodMapPtr_(nullptr)
+        , elementNeighborhoodMapComputed_(false)
+        , hasInsertionIndices_(true)
+        , elementInsertionIndices_(elementInsertionIndices)
     {
       // check if we are given one label for each element
       if (labels.size() != elementMapper_.size()) {
@@ -76,6 +108,16 @@ namespace duneuro
     {
       return labels_[elementMapper_.index(entity)];
     }
+    
+    std::size_t insertionIndex(const EntityType& entity) const
+    {
+      if(hasInsertionIndices_) {
+        return elementInsertionIndices_[elementMapper_.index(entity)];
+      }
+      else {
+        DUNE_THROW(Dune::Exception, "this volume conductor does not store insertion indices");
+      } 
+    }
 
     G* releaseGrid()
     {
@@ -110,6 +152,8 @@ namespace duneuro
     Dune::SingleCodimSingleGeomTypeMapper<GridView, 0> elementMapper_;
     std::shared_ptr<ElementNeighborhoodMap<GridView>> elementNeighborhoodMapPtr_;
     bool elementNeighborhoodMapComputed_;
+    bool hasInsertionIndices_;
+    std::vector<std::size_t> elementInsertionIndices_;
   };
 }
 

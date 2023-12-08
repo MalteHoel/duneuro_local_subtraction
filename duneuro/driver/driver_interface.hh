@@ -219,12 +219,14 @@ public:
     return volumeConductor_->computePower(eegSolution);
   }
   
-  std::vector<CoordinateType> construct_regular_source_space(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+  // construct source space by placing a regular grid and rejecting all positions not contained inside the specified source compartments.
+  // returns a list of source positions and the insertion indices of their containing elements
+  std::pair<std::vector<CoordinateType>, std::vector<size_t>> constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
                                                              const std::vector<std::size_t> sourceCompartmentsVector,
                                                              const Dune::ParameterTree& config,
                                                              DataTree dataTree = DataTree()) const
   {
-    return volumeConductor_->construct_regular_source_space(gridSize, sourceCompartmentsVector, config, dataTree);
+    return volumeConductor_->constructRegularSourceSpace(gridSize, sourceCompartmentsVector, config, dataTree);
   }
 
   ~DriverInterface() {}

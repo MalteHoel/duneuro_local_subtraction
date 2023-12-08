@@ -447,8 +447,8 @@ public:
   
   // construct a volumetric source space by first constructing a regular grid of a given step size, 
   // and then removing all positions that are not contained in the specified source compartments
-  virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
-    construct_regular_source_space(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
+    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
                                    const std::vector<std::size_t> sourceCompartmentsVector,
                                    const Dune::ParameterTree& config,
                                    DataTree dataTree = DataTree()) const override
@@ -485,9 +485,10 @@ public:
       }
     } // loop over elements
     
-    std::cout << "Bounding box of source compartments:\n" << "x min : " << lower_limits[0] << ", x max : " << upper_limits[0]
-                                                          << "y min : " << lower_limits[1] << ", y max : " << upper_limits[1]
-                                                          << "z min : " << lower_limits[2] << ", z max : " << upper_limits[2];
+    std::cout << "Bounding box of source compartments:\n" << "x-min : " << lower_limits[0] << ", x-max : " << upper_limits[0] << "\n"
+                                                          << "y-min : " << lower_limits[1] << ", y-max : " << upper_limits[1] << "\n"
+                                                          << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2] <<
+                                                          << std::endl;
   
     // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
     // on tissue interfaces
@@ -500,7 +501,7 @@ public:
     }
     
     std::vector<Coordinate> positions;
-    std::vector<size_t> element_indices;
+    std::vector<size_t> elementInsertionIndices;
     
     Coordinate current_position;
     for(int x_step = 1; x_step < nr_steps[0]; ++x_step) {
@@ -520,12 +521,13 @@ public:
           }
           else {
             positions.push_back(current_position);
+            elementInsertionIndices.push_back(volumeConductorPtr->insertionIndex(search_result.value()));
           }
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
     
-    return positions;
+    return {positions, elementInsertionIndices};
   }
 
 private:
