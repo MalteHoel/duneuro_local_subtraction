@@ -49,7 +49,11 @@ namespace duneuro
     virtual void bind(const DipoleType& dipole, DataTree dataTree = DataTree()) override
     {
       dipole_ = std::make_shared<DipoleType>(dipole);
-      dipoleElement_ = search_->findEntity(dipole_->position());
+      auto search_result = search_->findEntity(dipole_->position());
+      if(!search_result.has_value()) {
+          DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      dipoleElement_ = search_result.value();
       localDipolePosition_ = dipoleElement_.geometry().local(dipole_->position());
     }
 

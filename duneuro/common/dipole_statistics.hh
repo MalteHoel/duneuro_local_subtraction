@@ -44,7 +44,11 @@ namespace duneuro
 
     virtual TensorType conductivity(const DipoleType& x) const override
     {
-      return volumeConductorStorage_.get()->tensor(elementSearch_->findEntity(x.position()));
+      auto search_result = elementSearch_->findEntity(x.position());
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      return volumeConductorStorage_.get()->tensor(search_result.value());
     }
 
   private:

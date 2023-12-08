@@ -198,6 +198,14 @@ public:
   {
     volumeConductor_->print_citations();
   }
+  
+  std::vector<CoordinateType> construct_regular_source_space(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                                             const std::vector<std::size_t> sourceCompartmentsVector,
+                                                             const Dune::ParameterTree& config,
+                                                             DataTree dataTree = DataTree()) const
+  {
+    return volumeConductor_->construct_regular_source_space(gridSize, sourceCompartmentsVector, config, dataTree);
+  }
 
   ~DriverInterface() {}
 

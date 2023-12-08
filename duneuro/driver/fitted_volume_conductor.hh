@@ -5,6 +5,10 @@
 #include <tbb/tbb.h>
 #endif
 
+#include <set>
+#include <limits>
+#include <cmath>
+
 #include <duneuro/common/cg_solver.hh>
 #include <duneuro/common/cg_solver_backend.hh>
 #include <duneuro/common/default_grids.hh>
@@ -308,6 +312,89 @@ public:
                   std::to_string(itv.first.second),
               itv.second);
     }
+  }
+  
+  // construct a volumetric source space by first constructing a regular grid of a given step size, 
+  // and then removing all positions that are not contained in the specified source compartments
+  virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
+    construct_regular_source_space(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                   const std::vector<std::size_t> sourceCompartmentsVector,
+                                   const Dune::ParameterTree& config,
+                                   DataTree dataTree = DataTree()) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    
+    // gather source compartments in set
+    std::set<std::size_t> sourceCompartments(sourceCompartmentsVector.begin(), sourceCompartmentsVector.end());
+    
+    auto volumeConductorPtr = volumeConductorStorage_.get();
+    const auto& gridView = volumeConductorPtr->gridView();
+    
+    std::vector<Scalar> lower_limits(dim, std::numeric_limits<Scalar>::max());
+    std::vector<Scalar> upper_limits(dim, std::numeric_limits<Scalar>::min());
+    
+    // get bounding box of specified source compartments
+    for(const auto& element : elements(gridView)) {
+      if(sourceCompartments.find(volumeConductorPtr->label(element)) != sourceCompartments.end()) {
+        for(int i = 0; i < element.geometry().corners(); ++i) {
+          Coordinate corner = element.geometry().corner(i);
+          for(int k = 0; k < dim; ++k) {
+            if(corner[k] < lower_limits[k]) {
+              lower_limits[k] = corner[k];
+            }
+            if(corner[k] > upper_limits[k]) {
+              upper_limits[k] = corner[k];
+            }
+          } // loop over dimensions  
+        } // loop over corners
+      }
+      else {
+        continue;
+      }
+    } // loop over elements
+    
+    std::cout << "Bounding box of source compartments:\n" << "x min : " << lower_limits[0] << ", x max : " << upper_limits[0]
+                                                          << "y min : " << lower_limits[1] << ", y max : " << upper_limits[1]
+                                                          << "z min : " << lower_limits[2] << ", z max : " << upper_limits[2];
+  
+    // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
+    // on tissue interfaces
+    
+    // nr_steps[i] contains the step numer when lower_limits[i] + nr_steps[i] * gridSize >= upper_limits[i] is true for the first time. 
+    // We stop scanning one step before this happens.
+    std::vector<int> nr_steps(dim);
+    for(int i = 0; i < dim; ++i) {
+      nr_steps[i] = static_cast<int>(std::ceil((upper_limits[i] - lower_limits[i]) / gridSize));
+    }
+    
+    std::vector<Coordinate> positions;
+    std::vector<size_t> element_indices;
+    
+    Coordinate current_position;
+    for(int x_step = 1; x_step < nr_steps[0]; ++x_step) {
+      for(int y_step = 1; y_step < nr_steps[1]; ++y_step) {
+        for(int z_step = 1;  z_step < nr_steps[2]; ++z_step) {
+          // get coordinates of current point
+          current_position[0] = lower_limits[0] + x_step * gridSize;
+          current_position[1] = lower_limits[1] + y_step * gridSize;
+          current_position[2] = lower_limits[2] + z_step * gridSize;
+          
+          // get element of current point
+          auto search_result = elementSearch_->findEntity(current_position);
+          
+          // only add point if it is contained inside a source compartment
+          if(!search_result.has_value() || sourceCompartments.find(volumeConductorPtr->label(search_result.value())) == sourceCompartments.end()) {
+            continue;
+          }
+          else {
+            positions.push_back(current_position);
+          }
+        } // loop over z coord
+      } // loop over y coord
+    } // loop over x coord
+    
+    return positions;
   }
 
 private:
