@@ -62,6 +62,9 @@ namespace duneuro
       using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
       GV gv = grid->leafGridView();
       Mapper mapper(gv);
+      
+      std::vector<size_t> elementInsertionIndices(gv.size(0));
+      
       if (data.tensors.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -84,12 +87,13 @@ namespace duneuro
                                                  << data.tensors.size() << ")");
           }
           reordered_labels[mapper.index(element)] = label;
+          elementInsertionIndices[mapper.index(element)] = index;
         }
         timer.stop();
         dataTree.set("time_reordering_labels", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
         return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels,
-                                                    data.tensors);
+                                                    data.tensors, elementInsertionIndices);
       } else if (data.labels.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -112,6 +116,7 @@ namespace duneuro
                                                  << data.conductivities.size() << ")");
           }
           reordered_labels[mapper.index(element)] = label;
+          elementInsertionIndices[mapper.index(element)] = index;
         }
         timer.stop();
         dataTree.set("time_reordering_labels", timer.lastElapsed());
@@ -127,7 +132,7 @@ namespace duneuro
           tensors.push_back(t);
         }
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors);
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors, elementInsertionIndices);
       } else {
         DUNE_THROW(Dune::Exception, "you have to provide labels or tensors");
       }
