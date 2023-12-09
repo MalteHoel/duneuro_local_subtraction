@@ -80,6 +80,11 @@ namespace duneuro
     {
       return gridView_;
     }
+    
+    const std::vector<std::vector<EntitySeed>>& vertexToElements() const
+    {
+      return vertexToElements_;
+    }
 
   private:
     GV gridView_;

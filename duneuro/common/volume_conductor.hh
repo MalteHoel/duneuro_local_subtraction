@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <set>
 
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
@@ -25,6 +26,7 @@ namespace duneuro
     typedef typename G::template Codim<dim>::Entity VertexType;
     typedef Dune::FieldMatrix<ctype, dim, dim> TensorType;
     typedef typename G::LeafGridView GridView;
+    typedef typename Dune::SingleCodimSingleGeomTypeMapper<GridView, dim>::Index VertexIndex;
 
     VolumeConductor(std::unique_ptr<G> grid, std::vector<std::size_t> labels,
                     std::vector<TensorType> tensors)
@@ -154,8 +156,34 @@ namespace duneuro
       }
     }
     
+    std::set<VertexIndex> venantVertices(const std::set<std::size_t>& sourceCompartments) const 
+    {
+      const auto& vertexToElements = elementNeighborhoodMapPtr_->vertexToElements();
+      std::set<VertexIndex> venantVertexSet;
+      
+      for(const auto& vertex : vertices(gridView_)) {
+        bool venantVertex = true;
+        for(auto elementSeed : vertexToElements[vertexMapper_.index(vertex)]) {
+          if(sourceCompartments.find(labels_[elementMapper_.index(grid_->entity(elementSeed))]) == sourceCompartments.end()) {
+            venantVertex = false;
+            break;
+          }
+        }
+        if(venantVertex) {
+          venantVertexSet.insert(vertexMapper_.index(vertex));
+        }
+      }
+      
+      return venantVertexSet;
+    }
+    
     const std::vector<TensorType>& tensors() const {
       return tensors_;
+    }
+    
+    VertexIndex vertexIndex(typename GridView::template Codim<dim>::Entity::EntitySeed vertexSeed) const
+    {
+      return vertexMapper_.index(grid_->entity(vertexSeed));
     }
 
   private:
