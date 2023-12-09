@@ -130,32 +130,24 @@ namespace duneuro
       const Dune::FieldVector<T, dim>&  x,
       unsigned int depth,
       T knownDistance)
-    {      
+    {            
       std::size_t currentBestIndex;
-      T rootDistance = (points[node.location].first - x).two_norm2();
-      T currentBestDistance;
-      if(rootDistance < knownDistance) {
-        currentBestIndex = node.location;
-        currentBestDistance = rootDistance;
-      }
-      else {
-        currentBestDistance = knownDistance;
-      }
-      
+      T currentBestDistance = knownDistance;
       std::stack<const Node*> currentBranch;
-      currentBranch.push(&node);
-      
+      std::stack<bool> positionRelativeToNode; // False -> left, True -> right
+      unsigned int currentDepth = depth;
       const Node* currentNodePtr = &node;
       bool foundNext = true;
       
-      unsigned int currentDepth = depth;
-      T currentDistance;
-      
       // descend down the tree
-      std::stack<bool> positionRelativeToNode; // False -> left, True -> right
       while(foundNext) {
-      
         foundNext = false;
+        currentBranch.push(currentNodePtr);
+        T currentDistance = (points[(*currentNodePtr).location].first - x).two_norm2();
+        if(currentDistance < currentBestDistance) {
+          currentBestDistance = currentDistance;
+          currentBestIndex = (*currentNodePtr).location;
+        }
         
         if(AxisComparator{currentDepth % dim}(x, points[(*currentNodePtr).location].first)) {
           positionRelativeToNode.push(false);
@@ -170,15 +162,6 @@ namespace duneuro
             foundNext = true;
             currentNodePtr = (*currentNodePtr).right.get();
             ++currentDepth;
-          }
-        }
-        
-        if(foundNext) {
-          currentBranch.push(currentNodePtr);
-          currentDistance = (points[(*currentNodePtr).location].first - x).two_norm2();
-          if(currentDistance < currentBestDistance) {
-            currentBestDistance = currentDistance;
-            currentBestIndex = (*currentNodePtr).location;
           }
         }
       }
