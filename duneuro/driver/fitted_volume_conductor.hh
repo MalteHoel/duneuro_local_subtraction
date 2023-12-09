@@ -39,6 +39,7 @@
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
+#include <duneuro/common/kdtree.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -487,8 +488,11 @@ public:
     
     std::cout << "Bounding box of source compartments:\n" << "x-min : " << lower_limits[0] << ", x-max : " << upper_limits[0] << "\n"
                                                           << "y-min : " << lower_limits[1] << ", y-max : " << upper_limits[1] << "\n"
-                                                          << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2] <<
+                                                          << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2]
                                                           << std::endl;
+  
+    // create KDTree for vertices
+    KDTree<typename Traits::VC::GridView, typename Traits::VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
   
     // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
     // on tissue interfaces
@@ -526,6 +530,12 @@ public:
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
+    
+    // print nearest neighbor of first point
+    auto result = nodeTree.nearestNeighbor(positions[0]);
+    std::cout << "First point : " << positions[0] << std::endl;
+    std::cout << "NN index : " << volumeConductorPtr->vertexInsertionIndex(gridView.grid().entity(result.first)) << std::endl;
+    std::cout << "Distance : " << result.second << std::endl;
     
     return {positions, elementInsertionIndices};
   }

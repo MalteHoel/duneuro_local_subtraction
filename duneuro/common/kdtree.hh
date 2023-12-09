@@ -2,6 +2,9 @@
 #define DUNEURO_KDTREE_HH
 
 #include <memory>
+#include <type_traits>
+#include <stack>
+#include <cmath>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
@@ -104,28 +107,132 @@ namespace duneuro
       }
       return node.location;
     }
+    
+    // find the nearest neighbor in the tree to the coordinate x
+    // returns nearest neighbor index and the squared distance
+    template<class T, int dim, class Identifier>
+    std::pair<std::size_t, T> nearestNeighbor(const Node& node,
+                                const std::vector<std::pair<Dune::FieldVector<T, dim>, Identifier>>& points,
+                                const Dune::FieldVector<T, dim>&  x,
+                                unsigned int depth)
+    {
+      std::size_t currentBestIndex = node.location;
+      T currentBestDistance = (points[node.location].first - x).two_norm2();
+      
+      std::stack<const Node*> currentBranch;
+      currentBranch.push(&node);
+      
+      const Node* currentNodePtr = &node;
+      bool foundNext = true;
+      
+      unsigned int currentDepth = depth;
+      T currentDistance;
+      
+      // descend down the tree
+      std::stack<bool> positionRelativeToNode; // False -> left, True -> right
+      while(foundNext) {
+      
+        foundNext = false;
+        
+        if(AxisComparator{currentDepth % dim}(x, points[(*currentNodePtr).location].first)) {
+          positionRelativeToNode.push(false);
+          if((*currentNodePtr).left) {
+            foundNext = true;
+            currentNodePtr = (*currentNodePtr).left.get();
+            ++currentDepth;
+          }
+        } else {
+          positionRelativeToNode.push(true);
+          if((*currentNodePtr).right) {
+            foundNext = true;
+            currentNodePtr = (*currentNodePtr).right.get();
+            ++currentDepth;
+          }
+        }
+        
+        if(foundNext) {
+          currentBranch.push(currentNodePtr);
+          currentDistance = (points[(*currentNodePtr).location].first - x).two_norm2();
+          if(currentDistance < currentBestDistance) {
+            currentBestDistance = currentDistance;
+            currentBestIndex = (*currentNodePtr).location;
+          }
+        }
+      }
+      
+      // we have arrived at a leaf node, and can now unwind the descend
+      while(!currentBranch.empty()) {
+        
+        currentNodePtr = currentBranch.top();
+        
+        // check branch not visited on descend
+        int currentAxis = currentDepth % dim;
+        if(!positionRelativeToNode.top()) { // if point is on the left, check right subtree
+          if((*currentNodePtr).right && std::pow(x[currentAxis] - points[(*currentNodePtr).location].first[currentAxis], 2) < currentBestDistance) {
+            std::pair<std::size_t, T> nearestNeighborRightBranch = nearestNeighbor(*((*currentNodePtr).right), points, x, currentDepth + 1);
+            if(nearestNeighborRightBranch.second < currentBestDistance) {
+              currentBestDistance = nearestNeighborRightBranch.second;
+              currentBestIndex = nearestNeighborRightBranch.first;
+            }
+          }
+        } else { // check left subtree
+          if((*currentNodePtr).left && std::pow(x[currentAxis] - points[(*currentNodePtr).location].first[currentAxis], 2) < currentBestDistance) {
+            std::pair<std::size_t, T> nearestNeighborLeftBranch = nearestNeighbor(*((*currentNodePtr).left), points, x, currentDepth + 1);
+            if(nearestNeighborLeftBranch.second < currentBestDistance) {
+              currentBestDistance = nearestNeighborLeftBranch.second;
+              currentBestIndex = nearestNeighborLeftBranch.first;
+            }
+          }
+        }
+        
+        // go up one step
+        --currentDepth;
+        currentBranch.pop();
+        positionRelativeToNode.pop();
+      }
+      
+      return {currentBestIndex, currentBestDistance};
+    }
   }
 
-  template <class GV>
+  template <class GV, class Identifier = typename GV::template Codim<0>::Entity::EntitySeed>
   class KDTree
   {
   public:
     enum { dim = GV::dimension };
     using Real = typename GV::ctype;
     using Coordinate = Dune::FieldVector<Real, dim>;
-    using ElementSeed = typename GV::template Codim<0>::Entity::EntitySeed;
 
     explicit KDTree(const GV& gridView) : gridView_(gridView)
     {
+      if(!std::is_same<Identifier, typename GV::template Codim<0>::Entity::EntitySeed>::value) {
+        DUNE_THROW(Dune::Exception, "constructing a KD tree from a grid view is only possible if you choose element entity seeds as identifiers");
+      }
       for (const auto& element : elements(gridView)) {
         seeds_.emplace_back(element.geometry().center(), element.seed());
       }
       root_ = KDTreeDetail::construct(seeds_, 0, seeds_.size() - 1, 0);
     }
 
-    ElementSeed find(const Coordinate& x) const
+    template<class EntityIterator>
+    explicit KDTree(const EntityIterator& entityIterator, const GV& gridView)
+    : gridView_(gridView)
+    {
+      for(const auto& entity : entityIterator) {
+        seeds_.emplace_back(entity.geometry().center(), entity.seed());
+      }
+      root_ = KDTreeDetail::construct(seeds_, 0, seeds_.size() - 1, 0);
+    }
+
+    Identifier find(const Coordinate& x) const
     {
       return seeds_[KDTreeDetail::find(*root_, seeds_, x, 0)].second;
+    }
+    
+    std::pair<Identifier, Real> nearestNeighbor(const Coordinate& x)
+    {
+      std::pair<std::size_t, Real> nearestNeighborResult = KDTreeDetail::nearestNeighbor(*root_, seeds_, x, 0);
+      return {seeds_[nearestNeighborResult.first].second, nearestNeighborResult.second};
     }
 
     void print() const
@@ -140,7 +247,7 @@ namespace duneuro
 
   private:
     GV gridView_;
-    std::vector<std::pair<Coordinate, ElementSeed>> seeds_;
+    std::vector<std::pair<Coordinate, Identifier>> seeds_;
     std::unique_ptr<KDTreeDetail::Node> root_;
   };
 
