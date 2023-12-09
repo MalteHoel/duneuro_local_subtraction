@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <stack>
 #include <cmath>
+#include <algorithm>
+#include <limits>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
@@ -108,16 +110,37 @@ namespace duneuro
       return node.location;
     }
     
-    // find the nearest neighbor in the tree to the coordinate x
-    // returns nearest neighbor index and the squared distance
+    /* find the nearest neighbor in the tree to the coordinate x
+     * returns nearest neighbor index and the squared distance, if it improves on a previously known distance
+     *  params:
+     *    node          :         root of the (sub-)tree we are searching for a nearest neighbor
+     *    points        :         vector containing all the (point, identifier) pairs making up the tree entries
+     *    x             :         point we want to find the nearest neighbor of
+     *    depth         :         depth of root node of the current subtree in the total tree
+     *    knownDistance :         a squared distance of x to some point in the tree. This function only returns a value if this value can be improved.
+     *
+     *  returns:
+     *    If the knownDistance can be improved in this subtree, returns the index and the squared distance of the entry improving the distance.
+     *    Otherwise, return an empty optional.
+     */
     template<class T, int dim, class Identifier>
-    std::pair<std::size_t, T> nearestNeighbor(const Node& node,
-                                const std::vector<std::pair<Dune::FieldVector<T, dim>, Identifier>>& points,
-                                const Dune::FieldVector<T, dim>&  x,
-                                unsigned int depth)
-    {
-      std::size_t currentBestIndex = node.location;
-      T currentBestDistance = (points[node.location].first - x).two_norm2();
+    std::optional<std::pair<std::size_t, T>> nearestNeighborRecursion(
+      const Node& node,
+      const std::vector<std::pair<Dune::FieldVector<T, dim>, Identifier>>& points,
+      const Dune::FieldVector<T, dim>&  x,
+      unsigned int depth,
+      T knownDistance)
+    {      
+      std::size_t currentBestIndex;
+      T rootDistance = (points[node.location].first - x).two_norm2();
+      T currentBestDistance;
+      if(rootDistance < knownDistance) {
+        currentBestIndex = node.location;
+        currentBestDistance = rootDistance;
+      }
+      else {
+        currentBestDistance = knownDistance;
+      }
       
       std::stack<const Node*> currentBranch;
       currentBranch.push(&node);
@@ -169,18 +192,18 @@ namespace duneuro
         int currentAxis = currentDepth % dim;
         if(!positionRelativeToNode.top()) { // if point is on the left, check right subtree
           if((*currentNodePtr).right && std::pow(x[currentAxis] - points[(*currentNodePtr).location].first[currentAxis], 2) < currentBestDistance) {
-            std::pair<std::size_t, T> nearestNeighborRightBranch = nearestNeighbor(*((*currentNodePtr).right), points, x, currentDepth + 1);
-            if(nearestNeighborRightBranch.second < currentBestDistance) {
-              currentBestDistance = nearestNeighborRightBranch.second;
-              currentBestIndex = nearestNeighborRightBranch.first;
+            std::optional<std::pair<std::size_t, T>> nearestNeighborRightBranch = nearestNeighborRecursion(*((*currentNodePtr).right), points, x, currentDepth + 1, currentBestDistance);
+            if(nearestNeighborRightBranch.has_value()) {
+              currentBestDistance = nearestNeighborRightBranch.value().second;
+              currentBestIndex = nearestNeighborRightBranch.value().first;
             }
           }
         } else { // check left subtree
           if((*currentNodePtr).left && std::pow(x[currentAxis] - points[(*currentNodePtr).location].first[currentAxis], 2) < currentBestDistance) {
-            std::pair<std::size_t, T> nearestNeighborLeftBranch = nearestNeighbor(*((*currentNodePtr).left), points, x, currentDepth + 1);
-            if(nearestNeighborLeftBranch.second < currentBestDistance) {
-              currentBestDistance = nearestNeighborLeftBranch.second;
-              currentBestIndex = nearestNeighborLeftBranch.first;
+            std::optional<std::pair<std::size_t, T>> nearestNeighborLeftBranch = nearestNeighborRecursion(*((*currentNodePtr).left), points, x, currentDepth + 1, currentBestDistance);
+            if(nearestNeighborLeftBranch.has_value()) {
+              currentBestDistance = nearestNeighborLeftBranch.value().second;
+              currentBestIndex = nearestNeighborLeftBranch.value().first;
             }
           }
         }
@@ -191,9 +214,23 @@ namespace duneuro
         positionRelativeToNode.pop();
       }
       
-      return {currentBestIndex, currentBestDistance};
+      if(currentBestDistance < knownDistance) {
+        return std::pair<std::size_t, T>({currentBestIndex, currentBestDistance});
+      } else {
+        return {};
+      }
+    }
+    
+    template<class T, int dim, class Identifier>
+    std::pair<std::size_t, T> nearestNeighbor(
+      const Node& rootNode,
+      const std::vector<std::pair<Dune::FieldVector<T, dim>, Identifier>>& points,
+      const Dune::FieldVector<T, dim>&  x)
+    {
+      return nearestNeighborRecursion(rootNode, points, x, 0, std::numeric_limits<T>::max()).value();
     }
   }
+  
 
   template <class GV, class Identifier = typename GV::template Codim<0>::Entity::EntitySeed>
   class KDTree
@@ -231,7 +268,7 @@ namespace duneuro
     
     std::pair<Identifier, Real> nearestNeighbor(const Coordinate& x)
     {
-      std::pair<std::size_t, Real> nearestNeighborResult = KDTreeDetail::nearestNeighbor(*root_, seeds_, x, 0);
+      std::pair<std::size_t, Real> nearestNeighborResult = KDTreeDetail::nearestNeighbor(*root_, seeds_, x);
       return {seeds_[nearestNeighborResult.first].second, nearestNeighborResult.second};
     }
 
