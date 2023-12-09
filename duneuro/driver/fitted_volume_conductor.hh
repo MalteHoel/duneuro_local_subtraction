@@ -359,10 +359,11 @@ public:
                                                           << "y-min : " << lower_limits[1] << ", y-max : " << upper_limits[1] << "\n"
                                                           << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2]
                                                           << std::endl;
-  
-    // create KDTree for vertices
-    KDTree<typename Traits::VC::GridView, typename Traits::VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
-  
+    
+    /*
+     * Step 1 : Place a regular grid and reject all points not contained in the source compartments
+     */
+    
     // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
     // on tissue interfaces
     
@@ -373,8 +374,8 @@ public:
       nr_steps[i] = static_cast<int>(std::ceil((upper_limits[i] - lower_limits[i]) / gridSize));
     }
     
-    std::vector<Coordinate> positions;
-    std::vector<size_t> elementInsertionIndices;
+    std::vector<Coordinate> candidatePositions;
+    std::vector<size_t> candidatePositionsElementInsertionIndices;
     
     Coordinate current_position;
     for(int x_step = 1; x_step < nr_steps[0]; ++x_step) {
@@ -393,18 +394,35 @@ public:
             continue;
           }
           else {
-            positions.push_back(current_position);
-            elementInsertionIndices.push_back(volumeConductorPtr->insertionIndex(search_result.value()));
+            candidatePositions.push_back(current_position);
+            candidatePositionsElementInsertionIndices.push_back(volumeConductorPtr->insertionIndex(search_result.value()));
           }
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
     
-    // print nearest neighbor of first point
-    auto result = nodeTree.nearestNeighbor(positions[0]);
-    std::cout << "First point : " << positions[0] << std::endl;
-    std::cout << "NN index : " << volumeConductorPtr->vertexInsertionIndex(gridView.grid().entity(result.first)) << std::endl;
-    std::cout << "Distance : " << result.second << std::endl;
+    std::cout << "Source positions before Venant condition: " << candidatePositions.size() << std::endl;
+    
+    /*
+     * Step 2 : Reject all positions not fulfilling the Venant condition
+     */
+    
+    KDTree<typename Traits::VC::GridView, typename Traits::VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
+    auto venantVertexIndices = volumeConductorPtr->venantVertices(sourceCompartments);
+    std::vector<Coordinate> positions;
+    std::vector<size_t> elementInsertionIndices;
+    
+    for(int i = 0; i < candidatePositions.size(); ++i) {
+      auto nearest_neighbor_vertex_seed = nodeTree.nearestNeighbor(candidatePositions[i]).first;
+      auto nearest_neighbor_vertex_index = volumeConductorPtr->vertexIndex(nearest_neighbor_vertex_seed);
+      
+      if(venantVertexIndices.find(nearest_neighbor_vertex_index) != venantVertexIndices.end()) {
+        positions.push_back(candidatePositions[i]);
+        elementInsertionIndices.push_back(candidatePositionsElementInsertionIndices[i]);
+      }
+    }
+    
+    std::cout << "Source positions after Venant condition: " << positions.size() << std::endl;
     
     return {positions, elementInsertionIndices};
   }
