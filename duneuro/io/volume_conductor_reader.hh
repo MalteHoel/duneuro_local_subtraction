@@ -65,6 +65,14 @@ namespace duneuro
       
       std::vector<size_t> elementInsertionIndices(gv.size(0));
       
+      using VertexMapper = Dune::SingleCodimSingleGeomTypeMapper<GV, dim>;
+      VertexMapper vertexMapper(gv);
+      std::vector<size_t> vertexInsertionIndices(gv.size(dim));
+      for(const auto& vertex : Dune::vertices(gv)) {
+        vertexInsertionIndices[vertexMapper.index(vertex)] = factory.insertionIndex(vertex);
+      }
+      
+      
       if (data.tensors.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -93,7 +101,7 @@ namespace duneuro
         dataTree.set("time_reordering_labels", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
         return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels,
-                                                    data.tensors, elementInsertionIndices);
+                                                    data.tensors, elementInsertionIndices, vertexInsertionIndices);
       } else if (data.labels.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -132,7 +140,7 @@ namespace duneuro
           tensors.push_back(t);
         }
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors, elementInsertionIndices);
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors, elementInsertionIndices, vertexInsertionIndices);
       } else {
         DUNE_THROW(Dune::Exception, "you have to provide labels or tensors");
       }
