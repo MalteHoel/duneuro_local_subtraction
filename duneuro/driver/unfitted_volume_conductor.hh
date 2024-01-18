@@ -253,6 +253,20 @@ public:
               itv.second);
     }
   }
+
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const override
+  {
+    DUNE_THROW(Dune::Exception, "exporting mesh and function is only possible for fitted volume conductor");
+  }
   
   // export the underlying mesh
   // structure : nodes, elements, labels, conductivities
@@ -261,10 +275,15 @@ public:
                      std::vector<std::vector<size_t>>, 
                      std::vector<size_t>, 
                      std::vector<typename VolumeConductorInterface<dim>::FieldType>>
-    exportVolumeConductor() const
+    exportVolumeConductor() const override
   {
     DUNE_THROW(Dune::Exception, "exporting mesh is only possible for fitted volume conductor");
   }
+  
+   virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+   {
+    DUNE_THROW(Dune::Exception, "computing power is only possible for fitted volume conductor");
+   }
 
 private:
   void checkElectrodes() const {

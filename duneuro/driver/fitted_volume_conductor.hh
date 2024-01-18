@@ -40,6 +40,9 @@
 
 #include <tuple>
 
+#include <dune/functions/gridfunctions/gridviewfunction.hh>
+#include <dune/pdelab/function/discretegridviewfunction.hh>
+
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
 struct SelectFittedSolver;
@@ -303,14 +306,27 @@ public:
     }
   }
 
-  // export the underlying mesh
-  // structure : nodes, elements, labels, conductivities
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, negative gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
   virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
                      std::vector<std::vector<size_t>>, 
                      std::vector<size_t>, 
-                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
-    exportVolumeConductor() const
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const override
   {
+    using ScalarType = typename VolumeConductorInterface<dim>::FieldType;
+    using VectorType = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using TensorType = typename Traits::VC::TensorType;
+    
     auto volumeConductorPtr = volumeConductorStorage_.get();
     const auto& gridView = volumeConductorPtr->gridView();
     const auto& indexSet = gridView.indexSet();
@@ -346,7 +362,83 @@ public:
       conductivities[i] = tensors[i][0][0];
     }
     
-    return {nodes, elementArray, labels, conductivities};
+    // if a function is given, evaluate it and its derivative and write it out
+    std::vector<ScalarType> functionAtNodes(nr_nodes);
+    std::vector<VectorType> functionNegativeGradientAtElementCenters(nr_elements);
+    std::vector<VectorType> functionCurrentAtElementCenters(nr_elements);
+    
+    if(functionPtr) {
+      DiscreteGridFunction function(solver_->functionSpace().getGFS(), functionPtr->cast<DOFVector>());
+      LocalFunction function_local = localFunction(function);
+      LocalDerivativeFunction function_derivative_local = localFunction(derivative(function));
+      
+      for(const auto& element : elements(gridView)) {
+        function_local.bind(element);
+        function_derivative_local.bind(element);
+        
+        // look up value of gradient at element center
+        auto element_center_local = element.geometry().local(element.geometry().center());
+        auto element_index = indexSet.index(element);
+        auto gradient = function_derivative_local(element_center_local)[0];
+        functionNegativeGradientAtElementCenters[element_index] = -gradient;
+        VectorType current;
+        TensorType sigma = volumeConductorPtr->tensor(element);
+        sigma.mv(-gradient, current);
+        functionCurrentAtElementCenters[element_index] = current;
+        
+        // look up value of function at vertices
+        for(size_t i = 0; i < element.subEntities(dim); ++i) {
+          auto vertex = element.template subEntity<dim>(i);
+          auto vertexIndex = indexSet.index(vertex);
+          auto local_vertex_pos = element.geometry().local(vertex.geometry().corner(0));
+          functionAtNodes[vertexIndex] = function_local(local_vertex_pos);
+        }
+      } 
+    }
+    
+    return {nodes, elementArray, labels, conductivities, functionAtNodes, functionNegativeGradientAtElementCenters, functionCurrentAtElementCenters};
+  }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const override
+  {
+    auto mesh = exportVolumeConductorAndFunction();
+    return {std::get<0>(mesh), std::get<1>(mesh), std::get<2>(mesh), std::get<3>(mesh)};
+  }
+  
+  virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+  {
+    using ScalarType = typename VolumeConductorInterface<dim>::FieldType;
+    using VectorType = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using TensorType = typename Traits::VC::TensorType;
+    
+    DiscreteGridFunction function(solver_->functionSpace().getGFS(), eegSolution.cast<DOFVector>());
+    LocalDerivativeFunction function_derivative_local = localFunction(derivative(function));
+    
+    ScalarType dissipatedPower = 0.0; 
+    for(const auto& element : elements(volumeConductorStorage_.get()->gridView())) {
+      function_derivative_local.bind(element);
+      
+      auto element_center_local = element.geometry().local(element.geometry().center());
+      auto gradient = function_derivative_local(element_center_local)[0];
+      VectorType current;
+      TensorType sigma = volumeConductorStorage_.get()->tensor(element);
+      sigma.mv(-gradient, current);
+      
+      ScalarType element_volume = (1.0 / 6.0) * element.geometry().integrationElement(element_center_local);
+      dissipatedPower += ((-gradient) * current) * element_volume;
+    }
+    
+    return dissipatedPower;
   }
 
 private:
