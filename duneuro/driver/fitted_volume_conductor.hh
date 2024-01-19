@@ -282,6 +282,16 @@ public:
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
+  
+  virtual std::vector<std::vector<double>> computeMEGPrimaryField(
+    const std::vector<typename VolumeConductorInterface<dim>::DipoleType>& dipoles,
+    const Dune::ParameterTree& config) const override
+  {
+    if(coils_.size() == 0) {
+      DUNE_THROW(Dune::Exception, "coils and projections not set");
+    }
+    return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
+  }
 
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
