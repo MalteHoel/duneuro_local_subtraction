@@ -13,6 +13,8 @@
 #include <duneuro/driver/feature_manager.hh>
 #include <duneuro/io/volume_conductor_vtk_writer.hh>
 
+#include <dune/pdelab/common/crossproduct.hh>
+
 #include <vector>
 
 namespace duneuro {
@@ -157,6 +159,12 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
+
+  /**
+   * \brief compute the primary B field for a given set of dipoles
+   */
+  virtual std::vector<std::vector<FieldType>>
+  computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
 
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
@@ -325,6 +333,93 @@ protected:
 #endif
     return result;
   }
+  
+  std::vector<std::vector<double>>
+  computeMEGPrimaryField_impl(const std::vector<DipoleType> &dipoles,
+                              const std::vector<CoordinateType>& coils,
+                              const std::vector<std::vector<CoordinateType>>& projections,
+                              Dune::ParameterTree cfg) const
+  {
+    const Dune::ParameterTree& config = cfg;
+
+    // compute size of inner vectors
+    size_t nr_values = 0;
+    for(size_t i = 0; i < coils.size(); ++i) {
+      nr_values += projections[i].size();
+    }
+
+    // compute primary fields
+    std::vector<std::vector<double>> primaryFields(dipoles.size());
+
+#if HAVE_TBB
+    auto grainSize = config.get<int>("grainSize", 16);
+    int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    tbb::task_arena arena(nr_threads);
+
+    arena.execute([&]{
+      tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
+        [&](const tbb::blocked_range<std::size_t>& range) {
+          CoordinateType crossProduct;
+          int current_pos = 0;
+          // loop over dipoles in this range
+          for(std::size_t k = range.begin(); k != range.end(); ++k) {
+            primaryFields[k].resize(nr_values);
+            current_pos = 0;
+            const CoordinateType dipole_position = dipoles[k].position();
+            const CoordinateType dipole_moment = dipoles[k].moment();
+
+            // loop over all coils and projections
+            for(int i = 0; i < coils.size(); ++i) {
+              // compute RHS
+              CoordinateType rhs = coils[i] - dipole_position;
+              auto diff_norm = rhs.two_norm();
+              auto norm_cubed = diff_norm * diff_norm * diff_norm;
+              rhs /= norm_cubed;
+
+              // compute cross product
+              Dune::PDELab::CrossProduct<dim,dim>(crossProduct, dipole_moment, rhs);
+
+              for(int j = 0; j < projections[i].size(); ++j) {
+                primaryFields[k][current_pos] = crossProduct * projections[i][j];
+                ++current_pos;
+              } // end loop over projections
+            } // end loop over coils
+          } // end loop over dipoles
+        }
+      );
+    });
+
+#else
+    CoordinateType crossProduct;
+    int current_pos = 0;
+    for(int k = 0; k < dipoles.size(); ++k) {
+      primaryFields[k].resize(nr_values);
+      current_pos = 0;
+      const CoordinateType dipole_position = dipoles[k].position();
+      const CoordinateType dipole_moment = dipoles[k].moment();
+
+      // loop over all coils and projections
+      for(int i = 0; i < coils.size(); ++i) {
+        // compute RHS
+        CoordinateType rhs = coils[i] - dipole_position;
+        auto diff_norm = rhs.two_norm();
+        auto norm_cubed = diff_norm * diff_norm * diff_norm;
+        rhs /= norm_cubed;
+
+        // compute cross product
+        Dune::PDELab::CrossProduct<dim,dim>(crossProduct, dipole_moment, rhs);
+
+        for(int j = 0; j < projections[i].size(); ++j) {
+          primaryFields[k][current_pos] = crossProduct * projections[i][j];
+          ++current_pos;
+        } // end loop over projections
+      } // end loop over coils
+    } // end loop over dipoles
+#endif
+
+    return primaryFields;
+  } // end computeMEGPrimaryField_impl
 
 private:
 };

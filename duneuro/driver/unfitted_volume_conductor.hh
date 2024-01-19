@@ -253,6 +253,13 @@ public:
               itv.second);
     }
   }
+  
+  virtual std::vector<std::vector<double>> computeMEGPrimaryField(
+    const std::vector<typename VolumeConductorInterface<dim>::DipoleType>& dipoles,
+    const Dune::ParameterTree& config) const override
+  {
+    return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
+  }
 
 private:
   void checkElectrodes() const {

@@ -169,6 +169,15 @@ public:
     return volumeConductor_->applyMEGTransfer(transferMatrix, dipole, config,
                                               dataTree);
   }
+  
+  /**
+   * \brief compute the primary B field for a given set of dipoles
+   */
+  std::vector<std::vector<FieldType>>
+  computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->computeMEGPrimaryField(dipoles, config);
+  }
 
   std::vector<CoordinateType> getProjectedElectrodes() const {
     return volumeConductor_->getProjectedElectrodes();
