@@ -70,7 +70,7 @@ namespace duneuro
       int grainSize = config.get<int>("grainSize", 16);
       auto solver_config = config.sub("solver");
       tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(solver_->functionSpace().getGFS(), 0.0);
-      
+       
       tbb::task_arena arena(nr_threads);
       arena.execute([&]{
         tbb::parallel_for(
