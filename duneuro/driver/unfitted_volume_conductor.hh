@@ -298,7 +298,7 @@ public:
                                    const Dune::ParameterTree& config,
                                    DataTree dataTree = DataTree()) const override
   {
-    DUNE_TRHOW(Dune::Exception, "source space construction is only implemented for fitted volume conductors");
+    DUNE_THROW(Dune::Exception, "source space construction is only implemented for fitted volume conductors");
   }
 
 private:

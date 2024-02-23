@@ -6,6 +6,8 @@ set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/tes/fitted_td
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/driver_3d.cc)
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/fitted_volume_conductor_3d.cc)
 
+set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/inverse/inverse_solver.cc)
+
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/tes/fitted_tdcs_driver_3d.cc)
 
 if (dune-udg_FOUND)

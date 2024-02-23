@@ -35,10 +35,11 @@ namespace duneuro
       if(!search_result.has_value()) {
         DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
       }
-      auto local = search_result.value().geometry().local(x);
+      auto element = search_result.value();
+      auto local = element.geometry().local(x);
       for (const auto& interface : domain_.getDomainConfiguration().interfaces()) {
         auto localInterfaceFunction = localFunction(interface.function());
-        localInterfaceFunction.bind(element.value());
+        localInterfaceFunction.bind(element);
         result.push_back(localInterfaceFunction(local));
       }
       return result;
