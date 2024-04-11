@@ -184,21 +184,22 @@ public:
   
     Eigen::MatrixXd C = sLORETAParameterMatrix(sloretaConfig);
     
-    std::vector<Scalar> sloretaMeasure(nrSourcePositions_);
+    std::vector<Scalar> sloretaGOF(nrSourcePositions_);
     std::vector<SourceVector> estimatedMoments(nrSourcePositions_);
     
     Eigen::VectorXd transformedTopography = C * topography;
+    Scalar gof_factor = 1.0 / (topography.transpose() * transformedTopography).value();
     
     // iterate over sourcespace
     for(size_t i = 0; i < nrSourcePositions_; ++i) {
       Eigen::MatrixXd currentLeadField = leadfield_.block(0, dim * i, nrChannels_, dim);
       Eigen::Matrix3d weightMatrix = (currentLeadField.transpose() * C * currentLeadField).inverse();
       Eigen::Vector3d projectedVector = currentLeadField.transpose() * transformedTopography;
-      sloretaMeasure[i] = (projectedVector.transpose() * weightMatrix * projectedVector).value();
+      sloretaGOF[i] = gof_factor * (projectedVector.transpose() * weightMatrix * projectedVector).value();
       estimatedMoments[i] = weightMatrix * projectedVector;
     }
     
-    return {sloretaMeasure, estimatedMoments};
+    return {sloretaGOF, estimatedMoments};
   }
   
   std::vector<SourceVector> vectorMNE(const Eigen::VectorXd& topography, const Dune::ParameterTree& mneConfig) const
