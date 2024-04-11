@@ -113,15 +113,15 @@ public:
       SourceVector singularValues = leadfield_svd.singularValues();
       SourceVector inverseS;
       
-      for(size_t i = 0; i < dim - 1; ++i) {
-        inverseS[i] = singularValues[i] / (singularValues[i] * singularValues[i] + regularizationParameter); 
+      for(size_t k = 0; k < dim - 1; ++k) {
+        inverseS[k] = singularValues[k] / (singularValues[k] * singularValues[k] + regularizationParameter); 
       }
       
       if(truncateLeadfield) {
         inverseS[dim - 1] = 0.0;
       }
       else {
-        inverseS[dim - 1] = singularValues[i] / (singularValues[i] * singularValues[i] + regularizationParameter);
+        inverseS[dim - 1] = singularValues[dim - 1] / (singularValues[dim - 1] * singularValues[dim - 1] + regularizationParameter);
       }
       
       SourceVector reconstruction = leadfield_svd.matrixV() * inverseS.asDiagonal() * leadfield_svd.matrixU().transpose() * topography;
