@@ -37,6 +37,7 @@ public:
     , noiseCovariance_()
     , signalCovarianceBound_(false)
     , noiseCovarianceBound_(false)
+    , customMetricMatrixDefined_(false)
   {
   }
   
@@ -83,6 +84,26 @@ public:
     
     noiseCovariance_ = noiseCovariance;
     noiseCovarianceBound_ = true;
+  }
+  
+  void bindCustomMetricMatrix(const Eigen::MatrixXd& metricMatrix)
+  {
+    if(metricMatrix.rows() != metricMatrix.cols()) {
+      DUNE_THROW(Dune::Exception, "metric matrix must be square");
+    }
+    
+    // check if matrix is positive definite
+    Eigen::LLT<Eigen::MatrixXd> cholesky_decomposition(metricMatrix);
+    if(cholesky_decomposition.info() == Eigen::NumericalIssue) {
+      DUNE_THROW(Dune::Exception, "supplied metric matrix does not seem to be positive definite");
+    }
+    
+    if(!leadfieldBound_) {
+      DUNE_THROW(Dune::Exception, "bind leadfield before binding custom metric matrix");
+    }
+    
+    metricMatrix_ = metricMatrix;
+    customMetricMatrixDefined_ = true;
   }
   
   // perform a dipole scan over the source space. The 3d variant also estimates the source
@@ -384,13 +405,19 @@ private:
       gramMatrix += regularizationParameter * projectionOntoComplement;
       
       Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(nrChannels_, nrChannels_);
-      cod.setThreshold(10.0 * nrChannels_ * nrSourcePositions_ * std::numeric_limits<Scalar>::epsilon());
+      cod.setThreshold(10.0 * nrChannels_ * std::numeric_limits<Scalar>::epsilon());
       cod.compute(gramMatrix);
       parameterMatrix = cod.pseudoInverse();
     }
     else if(parameterMatrixString == "SEKIHARA") {
       gramMatrix += regularizationParameter * Eigen::MatrixXd::Identity(nrChannels_, nrChannels_);
       parameterMatrix = gramMatrix.inverse();
+    }
+    else if(parameterMatrixString == "CUSTOM") {
+      if(!customMetricMatrixDefined_) {
+        DUNE_THROW(Dune::Exception, "CUSTOM parameter matrix requires the custom parameter matrix to be defined beforehand");
+      }
+      return metricMatrix_;
     }
     else {
       DUNE_THROW(Dune::Exception, "unknown parameter matrix string " << parameterMatrixString);
@@ -435,6 +462,9 @@ private:
   Eigen::MatrixXd noiseCovariance_;
   bool signalCovarianceBound_;
   bool noiseCovarianceBound_;
+  
+  Eigen::MatrixXd metricMatrix_;
+  bool customMetricMatrixDefined_;
 }; // InverseSolver class
 
 } // namespace duneuro
