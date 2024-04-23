@@ -212,6 +212,25 @@ public:
     Scalar gof_factor = 1.0 / (topography.transpose() * transformedTopography).value();
     
     // iterate over sourcespace
+#if HAVE_TBB
+    int nr_threads = sloretaConfig.hasKey("numberOfThreads") ? sloretaConfig.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    int grainSize = sloretaConfig.get<int>("grainSize", 100);
+    tbb::task_arena arena(nr_threads);
+    arena.execute([&]{
+      tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, nrSourcePositions_, grainSize),
+        [&](const tbb::blocked_range<std::size_t>& range) {
+          for(std::size_t i = range.begin(); i != range.end(); ++i) {
+            Eigen::MatrixXd currentLeadField = leadfield_.block(0, dim * i, nrChannels_, dim);
+            Eigen::Matrix3d weightMatrix = (currentLeadField.transpose() * C * currentLeadField).inverse();
+            Eigen::Vector3d projectedVector = currentLeadField.transpose() * transformedTopography;
+            sloretaGOF[i] = gof_factor * (projectedVector.transpose() * weightMatrix * projectedVector).value();
+            estimatedMoments[i] = weightMatrix * projectedVector;
+          }
+        }
+      );
+    });
+#else
     for(size_t i = 0; i < nrSourcePositions_; ++i) {
       Eigen::MatrixXd currentLeadField = leadfield_.block(0, dim * i, nrChannels_, dim);
       Eigen::Matrix3d weightMatrix = (currentLeadField.transpose() * C * currentLeadField).inverse();
@@ -219,6 +238,7 @@ public:
       sloretaGOF[i] = gof_factor * (projectedVector.transpose() * weightMatrix * projectedVector).value();
       estimatedMoments[i] = weightMatrix * projectedVector;
     }
+#endif
     
     return {sloretaGOF, estimatedMoments};
   }
@@ -242,6 +262,73 @@ public:
     }
     
     return estimatedMoments;
+  }
+  
+  /* given a matrix of measurements, perform for each source position and for each timepoint
+   * a fit to the data. Concretely, compute
+   *    ev(t, i, C) = ||d||^2_C - ||d - L * j||^2_C,
+   * where j is the vector maximizing the expression on the right hand side. Then compute
+   * the average over t for each source position i.
+   * parameters:
+   *    - measurements      : N x T matrix, where each column corresponds to a measurement
+   *    - scanConfig        : Dune::ParameterTree containing configuration information
+   */
+  std::vector<Scalar> scanAverageExplainedVariance(const Eigen::MatrixXd& measurements, const Dune::ParameterTree& scanConfig)
+  {
+    if(!leadfieldBound_) {
+      DUNE_THROW(Dune::Exception, "no leadfield specified");
+    }
+    
+    if(measurements.rows() != nrChannels_) {
+      DUNE_THROW(Dune::Exception, "number of rows in measurement matrix does not match number of rows in leadfield");
+    }
+    
+    size_t nrSamples = measurements.cols();
+    Eigen::MatrixXd C = sLORETAParameterMatrix(scanConfig);
+    std::vector<Scalar> average_explained_variances(nrSourcePositions_, 0.0);
+    
+    // iterate over sourcespace
+#if HAVE_TBB
+    int nr_threads = scanConfig.hasKey("numberOfThreads") ? scanConfig.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    int grainSize = scanConfig.get<int>("grainSize", 100);
+    tbb::task_arena arena(nr_threads);
+    arena.execute([&]{
+      tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, nrSourcePositions_, grainSize),
+        [&](const tbb::blocked_range<std::size_t>& range) {
+          // loop over source positions
+          for(std::size_t i = range.begin(); i != range.end(); ++i) {
+            Eigen::MatrixXd currentLeadField = leadfield_.block(0, dim * i, nrChannels_, dim);
+            Eigen::MatrixXd conjugationMatrix = C * currentLeadField * (currentLeadField.transpose() * C * currentLeadField).inverse() * currentLeadField.transpose() * C;
+            
+            // compute explained variances for each sample
+            for(std::size_t t = 0; t < nrSamples; ++t) {
+              Eigen::VectorXd currentSample = measurements.col(t);
+              average_explained_variances[i] += (currentSample.transpose() * conjugationMatrix * currentSample).value();
+            }
+          }
+        }
+      );
+    });
+#else
+    for(size_t i = 0; i < nrSourcePositions_; ++i) {
+      Eigen::MatrixXd currentLeadField = leadfield_.block(0, dim * i, nrChannels_, dim);
+      Eigen::MatrixXd conjugationMatrix = C * currentLeadField * (currentLeadField.transpose() * C * currentLeadField).inverse() * currentLeadField.transpose() * C;
+      
+      // compute explained variances for each sample
+      for(size_t t = 0; t < nrSamples; ++t) {
+        Eigen::VectorXd currentSample = measurements.col(t);
+        average_explained_variances[i] += (currentSample.transpose() * conjugationMatrix * currentSample).value();
+      }
+    }
+#endif
+
+    // divide by number of samples to get averages
+    for(size_t i = 0; i < nrSourcePositions_; ++i) {
+      average_explained_variances[i] /= nrSamples;
+    } 
+    
+    return average_explained_variances;
   }
   
 private:
@@ -389,10 +476,20 @@ private:
   Eigen::MatrixXd sLORETAParameterMatrix(const Dune::ParameterTree& config) const
   {
     std::string parameterMatrixString = config.get<std::string>("parameterMatrix", "sekihara");
-    Scalar regularizationParameter = config.get<Scalar>("regularization_parameter");
     for(auto& character : parameterMatrixString) {
       character = std::toupper(character);
     }
+    
+    // if a custom metric matrix has already been defined, we can return early
+    if(parameterMatrixString == "CUSTOM") {
+      if(!customMetricMatrixDefined_) {
+        DUNE_THROW(Dune::Exception, "CUSTOM parameter matrix requires the custom parameter matrix to be defined beforehand");
+      }
+      return metricMatrix_;
+    }
+    
+    // otherwise we need to compute a metric matrix
+    Scalar regularizationParameter = config.get<Scalar>("regularization_parameter");
     
     Eigen::MatrixXd gramMatrix = leadfield_ * leadfield_.transpose();
     Eigen::MatrixXd parameterMatrix;
@@ -412,12 +509,6 @@ private:
     else if(parameterMatrixString == "SEKIHARA") {
       gramMatrix += regularizationParameter * Eigen::MatrixXd::Identity(nrChannels_, nrChannels_);
       parameterMatrix = gramMatrix.inverse();
-    }
-    else if(parameterMatrixString == "CUSTOM") {
-      if(!customMetricMatrixDefined_) {
-        DUNE_THROW(Dune::Exception, "CUSTOM parameter matrix requires the custom parameter matrix to be defined beforehand");
-      }
-      return metricMatrix_;
     }
     else {
       DUNE_THROW(Dune::Exception, "unknown parameter matrix string " << parameterMatrixString);
