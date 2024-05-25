@@ -209,7 +209,11 @@ public:
     return volumeConductor_->constructRegularSourceSpace(gridSize, sourceCompartmentsVector, config, dataTree);
   }
 
-  std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, 3>>> 
+  std::tuple<std::vector<CoordinateType>,
+             std::vector<std::array<std::size_t, 2>>,
+             CoordinateType,
+             CoordinateType,
+             std::array<FieldType, 2>>
     placeSourcesZ(const FieldType resolution,
                   const FieldType zHeight, 
                   const size_t compartmentLabel) const

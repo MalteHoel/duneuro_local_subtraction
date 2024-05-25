@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <set>
+#include <tuple>
 #include <duneuro/common/kdtree.hh>
 
 namespace duneuro {
@@ -60,7 +61,11 @@ namespace duneuro {
   }
 
   template<class VC, class CoordinateType, class ElementSearch, int dim>
-  std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, 3>>> 
+  std::tuple<std::vector<CoordinateType>,
+            std::vector<std::array<std::size_t, 2>>,
+            CoordinateType,
+            CoordinateType,
+            std::array<typename VC::ctype, 2>>
     placeSourcesOnZSlice(
       const VC& volumeConductor,
       const std::array<typename VC::ctype, 2>& stepSizes,
@@ -144,7 +149,19 @@ namespace duneuro {
     augmentedStepSizes[1] = stepSizes[1];
     augmentedStepSizes[2] = 1.0;
     
-    return placeSourcesOnRegularGridWithFilter<CoordinateType, Scalar, dim>(lowerLeftCorner, upperRightCorner, augmentedStepSizes, combinedFilter);
+    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, 3>>> placed_sources = placeSourcesOnRegularGridWithFilter<CoordinateType, Scalar, dim>(lowerLeftCorner, upperRightCorner, augmentedStepSizes, combinedFilter);
+    std::vector<CoordinateType>& placed_positions = std::get<0>(placed_sources);
+    size_t nr_sources = placed_positions.size();
+    std::vector<std::array<std::size_t, 3>>& fullIndices = std::get<1>(placed_sources);
+    
+    // postprocess placed sources
+    std::vector<std::array<std::size_t, 2>> gridIndices(nr_sources);
+    for(size_t i = 0; i < nr_sources; ++i) {
+      gridIndices[i][0] = fullIndices[i][0];
+      gridIndices[i][1] = fullIndices[i][1];
+    }
+    
+    return {placed_positions, gridIndices, lowerLeftCorner, upperRightCorner, stepSizes};
   }
 
 } // namespace duneuro
