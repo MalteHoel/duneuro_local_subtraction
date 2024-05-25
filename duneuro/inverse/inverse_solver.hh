@@ -290,7 +290,7 @@ public:
     // iterate over sourcespace
 #if HAVE_TBB
     int nr_threads = scanConfig.hasKey("numberOfThreads") ? scanConfig.get<int>("numberOfThreads") : tbb::task_arena::automatic;
-    int grainSize = scanConfig.get<int>("grainSize", 100);
+    int grainSize = scanConfig.get<int>("grainSize", 1000);
     tbb::task_arena arena(nr_threads);
     arena.execute([&]{
       tbb::parallel_for(

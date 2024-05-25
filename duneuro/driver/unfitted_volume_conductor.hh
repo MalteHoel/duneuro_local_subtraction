@@ -300,6 +300,14 @@ public:
   {
     DUNE_THROW(Dune::Exception, "source space construction is only implemented for fitted volume conductors");
   }
+  
+  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<std::array<std::size_t, 3>>> 
+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
+                  const size_t compartmentLabel) const override
+  {
+    DUNE_THROW(Dune::Exception, "source placement is only implemented for fitted volume conductors");
+  }
 
 private:
   void checkElectrodes() const {

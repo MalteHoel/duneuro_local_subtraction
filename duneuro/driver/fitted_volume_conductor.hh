@@ -8,6 +8,7 @@
 #include <set>
 #include <limits>
 #include <cmath>
+#include <array>
 
 #include <duneuro/common/cg_solver.hh>
 #include <duneuro/common/cg_solver_backend.hh>
@@ -47,6 +48,8 @@
 
 #include <dune/functions/gridfunctions/gridviewfunction.hh>
 #include <dune/pdelab/function/discretegridviewfunction.hh>
+
+#include <duneuro/common/sourcespace_creation_utilities.hh>
 
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
@@ -566,6 +569,19 @@ public:
     std::cout << "Source positions after Venant condition: " << positions.size() << std::endl;
     
     return {positions, elementInsertionIndices};
+  }
+  
+  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<std::array<std::size_t, 3>>> 
+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
+                  const size_t compartmentLabel) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    std::array<Scalar, 2> stepSizes{resolution, resolution};
+    return placeSourcesOnZSlice<typename Traits::VC,
+                                typename VolumeConductorInterface<dim>::CoordinateType,
+                                typename Traits::ElementSearch,
+                                dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, compartmentLabel, *elementSearch_);
   }
 
 private:
