@@ -211,7 +211,11 @@ public:
                                    const Dune::ParameterTree& config,
                                    DataTree dataTree = DataTree()) const = 0;
 
-  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<std::array<std::size_t, 3>>> 
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
     placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
                   const typename VolumeConductorInterface<dim>::FieldType zHeight, 
                   const size_t compartmentLabel) const = 0;
