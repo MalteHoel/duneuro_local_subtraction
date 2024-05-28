@@ -15,6 +15,8 @@
 
 #include <dune/common/parametertree.hh>
 
+#include <duneuro/inverse/gof_utilities.hh>
+
 namespace duneuro {
 
 template <int dim, class Scalar>
@@ -25,6 +27,7 @@ public:
   using SourceMatrix = Eigen::Matrix<Scalar, dim, dim>;
   using ScanResult = std::tuple<std::vector<Scalar>, std::vector<SourceVector>>;
   using LeadfieldMatrix = Eigen::Matrix<Scalar, Eigen::Dynamic, dim>;
+  using ScalarField = std::vector<Scalar>;
 
   explicit InverseSolver(const Dune::ParameterTree& config)
     : config_(config)
@@ -241,6 +244,16 @@ public:
 #endif
     
     return {sloretaGOF, estimatedMoments};
+  }
+  
+  ScalarField expectedEVDistribution(const Eigen::VectorXd& trueLeadFieldVector) const
+  {
+    // check if all necessary requirements are fullfilled
+    if(!(customMetricMatrixDefined_ && noiseCovarianceBound_ && leadfieldBound_)) {
+      DUNE_THROW(Dune::Exception, "expected EV distribution is only defined if a metric matrix, a noise covariance matrix, and a leadfield have been specified");
+    }
+    
+    return expectedExplainedVarianceDistribution<Scalar>(trueLeadFieldVector, metricMatrix_, noiseCovariance_, leadfield_);
   }
   
   std::vector<SourceVector> vectorMNE(const Eigen::VectorXd& topography, const Dune::ParameterTree& mneConfig) const
