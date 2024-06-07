@@ -292,10 +292,44 @@ namespace duneuro
      * The method first searches an entity which is close to the entity containing global. It then
      * uses edgehopping for the rest of the way
      */
-    std::optional<Entity> findEntity(const GlobalCoordinate& global) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global, bool fallback = true, int verbosity = 0) const
     {
       EntitySeed seed = tree_.find(global);
-      return edgeHopping_.findEntity(global, gridView_.grid().entity(seed));
+      std::optional<Entity> containingEntity = edgeHopping_.findEntity(global, gridView_.grid().entity(seed));
+      if(containingEntity.has_value()) {
+        return containingEntity;
+      }
+      
+      // if this does not work, which happens rarely, use the element whose center is closest to the given point
+      // as starting point for edgehopping
+      EntitySeed nearestNeighborSeed = tree_.nearestNeighbor(global).first;
+      
+      if(verbosity > 0) {
+        std::cout << "Falling back to nearest neighbor element center as start for edgehopping for point " << global << std::endl;
+        std::cout << "Initial start at " << gridView_.grid().entity(seed).geometry().center() << std::endl;
+        std::cout << "new start at " << gridView_.grid().entity(nearestNeighborSeed).geometry().center() << std::endl;
+      }
+      
+      containingEntity = edgeHopping_.findEntity(global, gridView_.grid().entity(nearestNeighborSeed));
+      if(containingEntity.has_value()) {
+        return containingEntity;
+      }
+      
+      
+      // if this does not work, either give up or simply search all elements
+      if(!fallback) {
+        return {};
+      }
+      else {
+        std::cout << "Edgehopping for point " << global << " did not work, falling back to scanning mesh" << std::endl;
+        containingEntity = edgeHopping_.scanElementsForPosition(global);
+        if(containingEntity.has_value()) {
+          return containingEntity;
+        }
+        else {
+          DUNE_THROW(Dune::Exception, "position " << global << " not contained in mesh");
+        }
+      }
     }
 
   private:

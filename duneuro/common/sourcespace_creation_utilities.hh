@@ -51,9 +51,6 @@ namespace duneuro {
             gridIndices.push_back({i_x, i_y, i_z});
             ++nrPositions;
           }
-          else {
-            std::cout << "Filtered value\n";
-          }
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
@@ -217,7 +214,7 @@ template<class VC, class CoordinateType, class ElementSearch, int dim>
     
     // create filter
     std::function<bool(CoordinateType)> volumeConductorFilter([&elementSearch](const CoordinateType& position){ 
-      auto search_result = elementSearch.findEntity(position); 
+      auto search_result = elementSearch.findEntity(position, false);
       return !search_result.has_value(); 
     });
     

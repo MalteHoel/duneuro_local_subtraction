@@ -51,6 +51,30 @@ namespace duneuro
     {
       return findEntityImpl(global, start);
     }
+    
+    // if edgehopping fails, we fall back to scanning all elements
+    std::optional<Entity> scanElementsForPosition(const GlobalCoordinate& global) const
+    {
+      for(const auto& element : elements(gridView_)) {
+        // check if dipole is inside element
+        bool isContained = true;
+        
+        for(const auto& intersection : Dune::intersections(gridView_, element)) {
+          if(EdgeHoppingDetail::isOutside(intersection, global)) {
+            // position is not inside this element
+            isContained = false;
+            break;
+          }
+        }
+        
+        if(isContained) {
+          return element;
+        }
+      } // end loop over elements
+      
+      // no element contains the positions
+      return {};
+    }
 
   private:
     std::optional<Entity> findEntityImpl(const GlobalCoordinate& global, const Entity& start) const
