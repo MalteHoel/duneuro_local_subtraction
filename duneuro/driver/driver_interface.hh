@@ -249,6 +249,31 @@ public:
   {
     return volumeConductor_->placeSourcesZ(resolution, zHeight, compartmentLabel);
   }
+  
+  std::tuple<std::vector<CoordinateType>,
+             std::vector<std::array<std::size_t, 2>>,
+             CoordinateType,
+             CoordinateType,
+             std::array<FieldType, 2>>
+    placePositionsZ(const FieldType resolution,
+                    const FieldType zHeight) const
+  {
+    return volumeConductor_->placePositionsZ(resolution, zHeight);
+  }
+  
+  virtual std::vector<FieldType> 
+    evaluateFunctionAtPositionsInsideMesh(const Function& function,
+                                         const std::vector<CoordinateType>& positions) const
+  {
+    return volumeConductor_->evaluateFunctionAtPositionsInsideMesh(function, positions);
+  }
+
+  virtual std::vector<FieldType>
+    evaluateUInfinityAtPositions(const DipoleType& dipole,
+                                 const std::vector<CoordinateType>& positions) const
+  {
+    return volumeConductor_->evaluateUInfinityAtPositions(dipole, positions);
+  }
 
   ~DriverInterface() {}
 

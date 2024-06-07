@@ -51,6 +51,9 @@ namespace duneuro {
             gridIndices.push_back({i_x, i_y, i_z});
             ++nrPositions;
           }
+          else {
+            std::cout << "Filtered value\n";
+          }
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
@@ -162,6 +165,92 @@ namespace duneuro {
     }
     
     return {placed_positions, gridIndices, lowerLeftCorner, upperRightCorner, stepSizes};
+  }
+
+/*
+ * Place positions on a Z-slice of the brain. In constrast to the function above, this function also places positions in non-brain compartments, as long as they belong to head elements
+ */
+template<class VC, class CoordinateType, class ElementSearch, int dim>
+  std::tuple<std::vector<CoordinateType>,
+            std::vector<std::array<std::size_t, 2>>,
+            CoordinateType,
+            CoordinateType,
+            std::array<typename VC::ctype, 2>>
+    placePositionsOnZSlice(
+      const VC& volumeConductor,
+      const std::array<typename VC::ctype, 2>& stepSizes,
+      typename VC::ctype zHeight,
+      const ElementSearch& elementSearch)
+  {
+    using Scalar = typename VC::ctype;
+
+    const auto& gridView = volumeConductor.gridView();  
+    typename VC::ctype lower_x, lower_y, upper_x, upper_y;
+    lower_x = std::numeric_limits<Scalar>::max();
+    lower_y = std::numeric_limits<Scalar>::max();
+    upper_x = std::numeric_limits<Scalar>::min();
+    upper_y = std::numeric_limits<Scalar>::min();
+    
+    // compute bounding box
+    for(const auto& element : elements(gridView)) {
+      for(int i = 0; i < element.geometry().corners(); ++i) {
+        CoordinateType  corner = element.geometry().corner(i);
+        
+        if(corner[0] < lower_x) {
+          lower_x = corner[0];
+        }
+        if(corner[1] < lower_y) {
+          lower_y = corner[1];
+        }
+        
+        if(corner[0] > upper_x) {
+          upper_x = corner[0];
+        }
+        if(corner[1] > upper_y) {
+          upper_y = corner[1];
+        }
+      } // loop over corners
+    } // loop over elements
+    
+    std::cout << "x range (init) : [" << lower_x << ", " << upper_x << "]\n";
+    std::cout << "y range (init) : [" << lower_y << ", " << upper_y << "]\n"; 
+    
+    // create filter
+    std::function<bool(CoordinateType)> volumeConductorFilter([&elementSearch](const CoordinateType& position){ 
+      auto search_result = elementSearch.findEntity(position); 
+      return !search_result.has_value(); 
+    });
+    
+    
+    CoordinateType lowerLeftCorner;
+    CoordinateType upperRightCorner;
+    
+    lowerLeftCorner[0] = lower_x;
+    lowerLeftCorner[1] = lower_y;
+    lowerLeftCorner[2] = zHeight;
+    
+    upperRightCorner[0] = upper_x;
+    upperRightCorner[1] = upper_y;
+    upperRightCorner[2] = zHeight;
+    
+    std::array<typename VC::ctype, 3> augmentedStepSizes;
+    augmentedStepSizes[0] = stepSizes[0];
+    augmentedStepSizes[1] = stepSizes[1];
+    augmentedStepSizes[2] = 1.0;
+    
+    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, 3>>> placed_positions = placeSourcesOnRegularGridWithFilter<CoordinateType, Scalar, dim>(lowerLeftCorner, upperRightCorner, augmentedStepSizes, volumeConductorFilter);
+    std::vector<CoordinateType>& placed_positions_coordinates = std::get<0>(placed_positions);
+    size_t nr_sources = placed_positions_coordinates.size();
+    std::vector<std::array<std::size_t, 3>>& fullIndices = std::get<1>(placed_positions);
+    
+    // postprocess placed sources
+    std::vector<std::array<std::size_t, 2>> gridIndices(nr_sources);
+    for(size_t i = 0; i < nr_sources; ++i) {
+      gridIndices[i][0] = fullIndices[i][0];
+      gridIndices[i][1] = fullIndices[i][1];
+    }
+    
+    return {placed_positions_coordinates, gridIndices, lowerLeftCorner, upperRightCorner, stepSizes};
   }
 
 } // namespace duneuro

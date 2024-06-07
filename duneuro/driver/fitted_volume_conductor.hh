@@ -587,6 +587,88 @@ public:
                                 typename Traits::ElementSearch,
                                 dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, compartmentLabel, *elementSearch_);
   }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    std::array<Scalar, 2> stepSizes{resolution, resolution};
+    return placePositionsOnZSlice<typename Traits::VC,
+                                  typename VolumeConductorInterface<dim>::CoordinateType,
+                                  typename Traits::ElementSearch,
+                                  dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, *elementSearch_);
+  }
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    
+    size_t nr_positions = positions.size();
+    std::vector<Scalar> functionValues(nr_positions);
+    
+    DiscreteGridFunction discreteFunction(solver_->functionSpace().getGFS(), function.cast<DOFVector>());
+    LocalFunction localDiscreteFunction(localFunction(discreteFunction));
+    
+    for(size_t i = 0; i < nr_positions; ++i) {
+      // localize current positions
+      const Coordinate& currentPosition = positions[i];
+      auto searchResult = elementSearch_->findEntity(currentPosition);
+      
+      if(!searchResult.has_value()) {
+        DUNE_THROW(Dune::Exception, "position " << currentPosition << " not contained in volume conductor");
+      }
+      
+      // bind local function to current element
+      localDiscreteFunction.bind(searchResult.value());
+      functionValues[i] = localDiscreteFunction(searchResult.value().geometry().local(currentPosition));
+    }
+    
+    return functionValues;
+  }
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateUInfinityAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    using GridView = typename Traits::VC::GridView;
+    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
+    
+    const Coordinate& dipolePosition = dipole.position();
+    const Coordinate& dipoleMoment = dipole.moment();
+    
+    // set up u-infinity function
+    SubtractionParameters parameters(volumeConductorStorage_.get()->gridView(), volumeConductorStorage_.get());
+    
+    auto searchResult = elementSearch_->findEntity(dipolePosition);
+    if(!searchResult.has_value()) {
+      DUNE_THROW(Dune::Exception, "dipole at position " << dipolePosition << " is not contained in the mesh");
+    }
+    
+    const auto& dipoleElement = searchResult.value();
+    parameters.bind(dipoleElement, dipoleElement.geometry().local(dipolePosition), dipoleMoment);
+    
+    // compute u-infinity values
+    size_t nr_positions = positions.size();
+    std::vector<Scalar> uInfinityValues(nr_positions);
+    for(size_t i = 0; i < nr_positions; ++i) {
+      uInfinityValues[i] = parameters.get_u_infty(positions[i]);
+    }
+    
+    return uInfinityValues;
+  }
 
 private:
   Dune::ParameterTree config_;
