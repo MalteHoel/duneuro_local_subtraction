@@ -196,6 +196,22 @@ public:
     placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
                   const typename VolumeConductorInterface<dim>::FieldType zHeight, 
                   const size_t compartmentLabel) const = 0;
+                  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+    evaluateFunctionAtPositionsInsideMesh(const Function& function,
+                                         const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+    evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+                                 const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
 
   virtual ~VolumeConductorInterface() {}
 

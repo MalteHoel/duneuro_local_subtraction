@@ -281,6 +281,31 @@ public:
   {
     DUNE_THROW(Dune::Exception, "source placement is only implemented for fitted volume conductors");
   }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
+  {
+    DUNE_THROW(Dune::Exception, "position placement is only implemented for fitted volume conductors");
+  }
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
+  }
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateUInfinityAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
+  }
 
 private:
   void checkElectrodes() const {
