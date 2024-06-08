@@ -270,6 +270,14 @@ namespace duneuro
         std::cout << " Noop postprocess\n";
       }
     }
+    
+    std::shared_ptr<DiscreteGridFunction> getChiGridFunction() const
+    {
+      if(!chiFunctionPtr_) {
+        DUNE_THROW(Dune::Exception, "chi not defined yet");
+      }
+      return chiFunctionPtr_;
+    }
 
   private:
     std::shared_ptr<const VC> volumeConductor_;

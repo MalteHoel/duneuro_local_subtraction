@@ -306,6 +306,21 @@ public:
   {
     DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
   }
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
 
 private:
   void checkElectrodes() const {

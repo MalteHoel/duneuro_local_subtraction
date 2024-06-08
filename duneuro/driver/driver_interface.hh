@@ -232,18 +232,33 @@ public:
     return volumeConductor_->placePositionsZ(resolution, zHeight);
   }
   
-  virtual std::vector<FieldType> 
+  std::vector<FieldType> 
     evaluateFunctionAtPositionsInsideMesh(const Function& function,
                                          const std::vector<CoordinateType>& positions) const
   {
     return volumeConductor_->evaluateFunctionAtPositionsInsideMesh(function, positions);
   }
 
-  virtual std::vector<FieldType>
+  std::vector<FieldType>
     evaluateUInfinityAtPositions(const DipoleType& dipole,
                                  const std::vector<CoordinateType>& positions) const
   {
     return volumeConductor_->evaluateUInfinityAtPositions(dipole, positions);
+  }
+
+  std::vector<FieldType>
+    evaluateChiAtPositions(const DipoleType& dipole,
+                           const std::vector<CoordinateType>& positions,
+                           const Dune::ParameterTree& configSourceModel,
+                           const Dune::ParameterTree& configSolver) const
+  {
+    return volumeConductor_->evaluateChiAtPositions(dipole, positions, configSourceModel, configSolver);
+  }
+  
+  std::vector<FieldType>
+    evaluateSigmaAtPositions(const std::vector<CoordinateType>& positions) const
+  {
+    return volumeConductor_->evaluateSigmaAtPositions(positions);
   }
 
   ~DriverInterface() {}

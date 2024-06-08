@@ -213,6 +213,16 @@ public:
     evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
                                  const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
 
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+    evaluateChiAtPositions(
+      const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+      const Dune::ParameterTree& configSourceModel,
+      const Dune::ParameterTree& configSolver) const = 0;
+      
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
+
   virtual ~VolumeConductorInterface() {}
 
 protected:
