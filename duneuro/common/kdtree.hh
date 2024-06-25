@@ -249,7 +249,7 @@ namespace duneuro
       return seeds_[KDTreeDetail::find(*root_, seeds_, x, 0)].second;
     }
     
-    std::pair<Identifier, Real> nearestNeighbor(const Coordinate& x)
+    std::pair<Identifier, Real> nearestNeighbor(const Coordinate& x) const
     {
       std::pair<std::size_t, Real> nearestNeighborResult = KDTreeDetail::nearestNeighbor(*root_, seeds_, x);
       return {seeds_[nearestNeighborResult.first].second, nearestNeighborResult.second};
