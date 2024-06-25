@@ -11,6 +11,8 @@
 #include <tuple>
 #include <duneuro/common/kdtree.hh>
 
+#include <mutex>
+
 namespace duneuro {
 
   /* place positions on a 3d grid, but only if some filter is passed.
@@ -37,8 +39,43 @@ namespace duneuro {
     size_t y_steps = static_cast<int>(std::floor((upperRightCorner[1] - lowerLeftCorner[1]) / stepSizes[1])) + 1;
     size_t z_steps = static_cast<int>(std::floor((upperRightCorner[2] - lowerLeftCorner[2]) / stepSizes[2])) + 1;
     
-    CoordinateType candidate;
     size_t nrPositions = 0;
+
+#if HAVE_TBB
+    std::mutex push_back_mutex;
+    //auto grainSize = config.get<int>("grainSize", 10);
+    //int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    int grainSize = 10;
+    int nr_threads = tbb::task_arena::automatic;
+    tbb::task_arena arena(nr_threads);
+    
+    arena.execute([&]{
+      tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, x_steps, grainSize),
+        [&](const tbb::blocked_range<std::size_t>& range) {
+          // create and check candidate position
+          CoordinateType candidate;
+          
+          for(std::size_t i_x = range.begin(); i_x != range.end(); ++i_x) {
+            for(std::size_t i_y = 0; i_y < y_steps; ++i_y) {
+              for(std::size_t i_z = 0; i_z < z_steps; ++i_z) {
+                candidate[0] = lowerLeftCorner[0] + i_x * stepSizes[0];
+                candidate[1] = lowerLeftCorner[1] + i_y * stepSizes[1];
+                candidate[2] = lowerLeftCorner[2] + i_z * stepSizes[2];
+                
+                if(!filter(candidate)) {
+                  std::lock_guard<std::mutex> lock(push_back_mutex);
+                  positions.push_back(candidate);
+                  gridIndices.push_back({i_x, i_y, i_z});
+                  ++nrPositions;
+                }
+              } // loop over z coord
+            } // loop over y coord
+          } // loop over current block of x coord
+        } // end lambda
+      );
+    });
+#else
     for(size_t i_x = 0; i_x < x_steps; ++i_x) {
       for(size_t i_y = 0; i_y < y_steps; ++i_y) {
         for(size_t i_z = 0; i_z < z_steps; ++i_z) {
@@ -54,6 +91,7 @@ namespace duneuro {
         } // loop over z coord
       } // loop over y coord
     } // loop over x coord
+#endif
     
     std::cout << "Placed " << nrPositions << " positions\n";
     
