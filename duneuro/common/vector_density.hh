@@ -13,7 +13,7 @@ namespace duneuro
     if (t == "partial_integration") {
       return VectorDensity::sparse;
     }
-    if (t == "localized_subtraction") {
+    if (t == "local_subtraction") {
       return VectorDensity::sparse;
     }
     if (t == "whitney") {

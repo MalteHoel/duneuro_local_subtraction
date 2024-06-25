@@ -1,11 +1,11 @@
-#ifndef DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_LOCAL_OPERATOR_HH
-#define DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_LOCAL_OPERATOR_HH
+#ifndef DUNEURO_EEG_LOCAL_SUBTRACTION_CG_LOCAL_OPERATOR_HH
+#define DUNEURO_EEG_LOCAL_SUBTRACTION_CG_LOCAL_OPERATOR_HH
 
 namespace duneuro {
 
-  // this class implements the local operator for the CG localized subtraction source model
+  // this class implements the local operator for the CG local subtraction source model
   template<class VolumeConductor, class GridFunction, class ProblemParameters>
-  class LocalizedSubtractionCGLocalOperator
+  class LocalSubtractionCGLocalOperator
   {
   public: 
     using Tensor = typename ProblemParameters::Traits::PermTensorType;
@@ -15,7 +15,7 @@ namespace duneuro {
     using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename GridFunction::GridFunctionSpace, typename GridFunction::Vector, diffOrder>;
     using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
   
-    LocalizedSubtractionCGLocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
+    LocalSubtractionCGLocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
                                         std::shared_ptr<GridFunction> gridFunctionPtr,
                                         const ProblemParameters& problemParameters,
                                         unsigned int intorderadd_eeg_patch,
@@ -231,4 +231,4 @@ namespace duneuro {
 
 } // namespace duneuro
 
-#endif // DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_LOCAL_OPERATOR_HH
+#endif // DUNEURO_EEG_LOCAL_SUBTRACTION_CG_LOCAL_OPERATOR_HH

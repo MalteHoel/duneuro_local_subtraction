@@ -151,7 +151,7 @@ namespace duneuro
       return element_of_start_position_;
     }
 
-    // For the CG localized subtraction source model, we need one additional vertex extension as a transitional region
+    // For the CG local subtraction source model, we need one additional vertex extension as a transitional region
     // for chi to drop to zero. This function computes a vector containing the elements of this transitional region,
     // where we assume that the inner region of the patch has already been computed
     std::vector<Element> transitionElements()

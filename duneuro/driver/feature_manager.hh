@@ -48,7 +48,7 @@ public:
             {"subtraction",
              {"Related to the subtraction source model:",
               {"Wolters2007", "Drechsler2009"}}},
-            {"localized_subtraction", {"", {}}},
+            {"local_subtraction", {"", {}}},
             {"whitney",
              {"Related to the Whitney source model:", {"Miinalainen2018"}}},
             {"transfer_matrix",
@@ -145,7 +145,7 @@ public:
              "doi: 10.1137/060659053."}},
         experimental_features_{"cutfem", "patch_based_venant",
                                "truncated_spatial_venant",
-                               "localized_subtraction"} {
+                               "local_subtraction"} {
     if (enable_experimental) {
       std::cout << "WARNING: You have enabled to use untested features which "
                    "may lead to unreliable results."

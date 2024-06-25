@@ -1,12 +1,12 @@
-#ifndef DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
-#define DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
+#ifndef DUNEURO_EEG_LOCAL_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
+#define DUNEURO_EEG_LOCAL_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
 
 #include <algorithm>
 
 namespace duneuro {
 
   template<class VolumeConductor, class GridFunction, class ProblemParameters>
-  class LocalizedSubtractionCGP1LocalOperator
+  class LocalSubtractionCGP1LocalOperator
   {
     public: 
     using Tensor = typename ProblemParameters::Traits::PermTensorType;
@@ -23,7 +23,7 @@ namespace duneuro {
     enum {facet_codim = 1};
     enum {vertex_codim = 3};
   
-    LocalizedSubtractionCGP1LocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
+    LocalSubtractionCGP1LocalOperator(std::shared_ptr<const VolumeConductor> volumeConductorPtr,
                                           std::shared_ptr<GridFunction> gridFunctionPtr,
                                           const ProblemParameters& problemParameters,
                                           unsigned int intorderadd_eeg_patch,
@@ -196,6 +196,6 @@ namespace duneuro {
     unsigned int intorderadd_eeg_transition_;
     Coordinate dipole_position_;
     Coordinate dipole_moment_;
-  }; // end class LocalizedSubtractionCGP1LocalOperator
+  }; // end class LocalSubtractionCGP1LocalOperator
 } // end namespace duneuro
-#endif //DUNEURO_EEG_LOCALIZED_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
+#endif //DUNEURO_EEG_LOCAL_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH

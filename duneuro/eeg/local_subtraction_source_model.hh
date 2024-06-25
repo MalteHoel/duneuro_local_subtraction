@@ -1,5 +1,5 @@
-#ifndef DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
-#define DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
+#ifndef DUNEURO_LOCAL_SUBTRACTION_SOURCE_MODEL_HH
+#define DUNEURO_LOCAL_SUBTRACTION_SOURCE_MODEL_HH
 
 #include <type_traits>
 #include <unordered_set>
@@ -27,16 +27,16 @@
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
-#include <duneuro/eeg/localized_subtraction_dg_local_operator.hh>
-#include <duneuro/eeg/localized_subtraction_cg_local_operator.hh>
+#include <duneuro/eeg/local_subtraction_dg_local_operator.hh>
+#include <duneuro/eeg/local_subtraction_cg_local_operator.hh>
 #include <duneuro/eeg/analytic_utilities.hh>
-#include <duneuro/eeg/localized_subtraction_cg_p1_local_operator.hh>
+#include <duneuro/eeg/local_subtraction_cg_p1_local_operator.hh>
 #include <duneuro/common/flags.hh>
 
 namespace duneuro
 {
   template <class VC, class FS, class V, ContinuityType continuityType>
-  class LocalizedSubtractionSourceModel
+  class LocalSubtractionSourceModel
       : public SourceModelBase<typename FS::GFS::Traits::GridViewType, V>
   {
   public:
@@ -71,11 +71,11 @@ namespace duneuro
     using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
     using Tensor = typename HostProblem::Traits::PermTensorType;
 
-    LocalizedSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
-                                    std::shared_ptr<const FS> fs,
-                                    std::shared_ptr<const SearchType> search,
-                                    const Dune::ParameterTree& config,
-                                    const Dune::ParameterTree& solverConfig)
+    LocalSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
+                                std::shared_ptr<const FS> fs,
+                                std::shared_ptr<const SearchType> search,
+                                const Dune::ParameterTree& config,
+                                const Dune::ParameterTree& solverConfig)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
         , functionSpace_(fs)
@@ -173,15 +173,15 @@ namespace duneuro
       if constexpr(continuityType == ContinuityType::discontinuous)
       {
         assembleLocalDefaultSubtraction(vector);
-        using LOP = LocalizedSubtractionDGLocalOperator<HostProblem, EdgeNormProvider, PenaltyFluxWeighting>;
+        using LOP = LocalSubtractionDGLocalOperator<HostProblem, EdgeNormProvider, PenaltyFluxWeighting>;
         LOP lop2(*hostProblem_, edgeNormProvider_, weighting_, penalty_, intorderadd_eeg_boundary_);
         patchAssembler_.assemblePatchBoundary(vector, lop2);
       }
       else if(continuityType == ContinuityType::continuous)
       {
         using LOP = typename std::conditional<isP1FEM<FS>::value && dim == 3,
-                                              LocalizedSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, HostProblem>,
-                                              LocalizedSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>>::type;
+                                              LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, HostProblem>,
+                                              LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>>::type;
         LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
         patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
         patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
@@ -253,7 +253,7 @@ namespace duneuro
       }
       else {
         // assume patch does not intersect the boundary
-        // TODO
+        std::cout << "WARNING: Postprocessing for DG local subtraction approach currently assumes that the patch does not touch the boundary. Please make sure that this is the case." << std::endl;
       }
     }
 
@@ -267,7 +267,7 @@ namespace duneuro
         fluxFromTransition(coils, projections, fluxes);
       }
       else {
-        std::cout << " Noop postprocess\n";
+        DUNE_THROW(Dune::Exception, "MEG postprocessing not implemented for DG local subtraction");
       }
     }
     
@@ -544,4 +544,4 @@ namespace duneuro
   };
 }
 
-#endif // DUNEURO_LOCALIZED_SUBTRACTION_SOURCE_MODEL_HH
+#endif // DUNEURO_LOCAL_SUBTRACTION_SOURCE_MODEL_HH

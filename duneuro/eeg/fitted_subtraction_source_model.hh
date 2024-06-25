@@ -139,7 +139,7 @@ namespace duneuro
         fluxFromNonPatchVolume(coils, projections, fluxes);
       }
       else {
-        DUNE_THROW(Dune::NotImplemented, "MEG postprocessing for dg localized subtraction source model is not yet implemented");
+        DUNE_THROW(Dune::NotImplemented, "MEG postprocessing for dg subtraction source model is not yet implemented");
       }
     }
 

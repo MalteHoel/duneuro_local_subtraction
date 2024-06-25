@@ -1,13 +1,13 @@
-#ifndef DUNEURO_EEG_LOCALIZED_SUBTRACTION_DG_LOCAL_OPERATOR_HH
-#define DUNEURO_EEG_LOCALIZED_SUBTRACTION_DG_LOCAL_OPERATOR_HH
+#ifndef DUNEURO_EEG_LOCAL_SUBTRACTION_DG_LOCAL_OPERATOR_HH
+#define DUNEURO_EEG_LOCAL_SUBTRACTION_DG_LOCAL_OPERATOR_HH
 
 namespace duneuro {
 
   template <typename Problem, typename EdgeNormProvider, typename PenaltyFluxWeighting>
-  class LocalizedSubtractionDGLocalOperator
+  class LocalSubtractionDGLocalOperator
   {
   public:
-    LocalizedSubtractionDGLocalOperator(const Problem& problem,
+    LocalSubtractionDGLocalOperator(const Problem& problem,
       const EdgeNormProvider& edgenormprovider,
       const PenaltyFluxWeighting& weighting,
       double penalty,
@@ -120,4 +120,4 @@ namespace duneuro {
   };
 } //namespace duneuro
 
-#endif // DUNEURO_EEG_LOCALIZED_SUBTRACTION_DG_LOCAL_OPERATOR_HH
+#endif // DUNEURO_EEG_LOCAL_SUBTRACTION_DG_LOCAL_OPERATOR_HH

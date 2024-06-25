@@ -5,7 +5,7 @@
 
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/eeg/fitted_subtraction_source_model.hh>
-#include <duneuro/eeg/localized_subtraction_source_model.hh>
+#include <duneuro/eeg/local_subtraction_source_model.hh>
 #include <duneuro/eeg/partial_integration_source_model.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/driver/feature_manager.hh>
@@ -36,8 +36,8 @@ namespace duneuro
             ContinuityType::discontinuous>>(
             solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
             solverConfig);
-      } else if (type == "localized_subtraction") {
-        return std::make_shared<LocalizedSubtractionSourceModel<
+      } else if (type == "local_subtraction") {
+        return std::make_shared<LocalSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V, ContinuityType::discontinuous>>(
             solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
             solver.elementSearch(), config, solverConfig);
@@ -67,8 +67,8 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
             V>>(solver.volumeConductor(), solver.functionSpace().getGFS(), solver.elementSearch(),
                 config);
-      } else if (type == "localized_subtraction") {
-        return std::make_shared<LocalizedSubtractionSourceModel<
+      } else if (type == "local_subtraction") {
+        return std::make_shared<LocalSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace, V, ContinuityType::discontinuous>>(
             solver.volumeConductor(), Dune::stackobject_to_shared_ptr(solver.functionSpace()),
             solver.elementSearch(), config, solverConfig);

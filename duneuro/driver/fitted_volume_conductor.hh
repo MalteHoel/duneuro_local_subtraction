@@ -548,7 +548,7 @@ public:
     using Solver = typename Traits::Solver;
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-    using LocSubModel = LocalizedSubtractionSourceModel<
+    using LocSubModel = LocalSubtractionSourceModel<
                           typename Solver::Traits::VolumeConductor,
                           typename Solver::Traits::FunctionSpace,
                           RangeDOFVector,
@@ -590,19 +590,7 @@ virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateS
   {
     using Scalar = typename VolumeConductorInterface<dim>::FieldType;
     using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-    using GridView = typename Traits::VC::GridView;
-    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
-    using Solver = typename Traits::Solver;
-    using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
-    using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-    using LocSubModel = LocalizedSubtractionSourceModel<
-                          typename Solver::Traits::VolumeConductor,
-                          typename Solver::Traits::FunctionSpace,
-                          RangeDOFVector,
-                          ContinuityType::continuous>;
-    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DomainDOFVector>;
-    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
-    
+
     size_t nr_positions = positions.size();
     std::vector<Scalar> conductivityValues(nr_positions);
     
