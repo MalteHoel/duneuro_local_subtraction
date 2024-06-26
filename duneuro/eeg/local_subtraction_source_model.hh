@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <unordered_set>
+#include <limits>
 
 #include <dune/common/parametertree.hh>
 
@@ -338,13 +339,22 @@ namespace duneuro
     // are a little closer than 1mm to the conductivity jump, or the edge length exceeds 6mm by a little
     size_t intorderFromGeometry(const typename ElementType::Geometry& element_geometry) const
     {
-      CoordinateField max_edge_length = -1.0;
+      /*
+      CoordinateField max_edge_length_squared = -1.0;
+      CoordinateField min_corner_distance_squared = std::numeric_limits<CoordinateField>::max();
       for(size_t i = 0; i < element_geometry.corners(); ++i) {
+        // check distance to dipole position
+        CoordinateField corner_distance_squared = (element_geometry.corner(i) - dipole_position).two_norm2();
+        if(corner_distance_squared < min_corner_distance_squared) min_corner_distance_squared = corner_distance_squared;
+        
+        // check distance to other corners to get longest edge
         for(size_t j = i + 1; j < element_geometry.corners(); ++j) {
-          CoordinateField edge_length = (element_geometry.corner(i) - element_geometry.corner(j)).two_norm();
-          if(edge_length > max_edge_length) max_edge_length = edge_length;
+          CoordinateField edge_length_squared = (element_geometry.corner(i) - element_geometry.corner(j)).two_norm2();
+          if(edge_length_squared > max_edge_length_squared) max_edge_length_squared = edge_length_squared;
         }
       }
+      
+      
 
       if(max_edge_length <= 2.0) {
         return 8;
@@ -361,6 +371,8 @@ namespace duneuro
       else {
         return 20;
       }
+      */
+      return 20;
     }
 
     //////////////////////////////////////////////////
