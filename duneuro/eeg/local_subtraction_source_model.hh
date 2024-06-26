@@ -33,6 +33,7 @@
 #include <duneuro/eeg/analytic_utilities.hh>
 #include <duneuro/eeg/local_subtraction_cg_p1_local_operator.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/distance_utilities.hh>
 
 namespace duneuro
 {
@@ -329,50 +330,46 @@ namespace duneuro
       }
     }
 
-    // For the patch integrals we cannot assume the ratio of dipole distance and the edge length to be comfortably bounded below.
-    // For low resolution meshes and highly eccentric sources this ratio might get very small. To compute the corresponding integrals
-    // accurately we need appropriately high quadrature rules. The following function uses the largest edge length of an element to
-    // choose such an order. The values should suffice under the following constraints:
-    //    - the edge lengths of the elements do not exceed 6mm
-    //    - the sources are at least 1mm from a conductivity jump
-    // Note however that the integration orders were chosen using very conservative estimates, so you are probably fine even if your sources
-    // are a little closer than 1mm to the conductivity jump, or the edge length exceeds 6mm by a little
-    size_t intorderFromGeometry(const typename ElementType::Geometry& element_geometry) const
+    // For tetrahedral elements, we choose the integration order based on the ratio d/a, where d is the distance of the dipole position from the
+    // element, and a is the maximal edge length. We choose the integration order as described in the supplementary material of the local subtraction paper. 
+    size_t intorderPatchFlux(const ElementType& element, const CoordinateType& dipole_position) const
     {
-      /*
-      CoordinateField max_edge_length_squared = -1.0;
-      CoordinateField min_corner_distance_squared = std::numeric_limits<CoordinateField>::max();
-      for(size_t i = 0; i < element_geometry.corners(); ++i) {
-        // check distance to dipole position
-        CoordinateField corner_distance_squared = (element_geometry.corner(i) - dipole_position).two_norm2();
-        if(corner_distance_squared < min_corner_distance_squared) min_corner_distance_squared = corner_distance_squared;
+      if (element.type().isTetrahedron()) {
+        CoordinateField max_edge_length_squared = -1.0;
+        const auto& element_geometry = element.geometry();
+        for(size_t i = 0; i < element_geometry.corners(); ++i) {  
+          // check distance to other corners to get longest edge
+          for(size_t j = i + 1; j < element_geometry.corners(); ++j) {
+            CoordinateField edge_length_squared = (element_geometry.corner(i) - element_geometry.corner(j)).two_norm2();
+            if(edge_length_squared > max_edge_length_squared) max_edge_length_squared = edge_length_squared;
+          }
+        }
         
-        // check distance to other corners to get longest edge
-        for(size_t j = i + 1; j < element_geometry.corners(); ++j) {
-          CoordinateField edge_length_squared = (element_geometry.corner(i) - element_geometry.corner(j)).two_norm2();
-          if(edge_length_squared > max_edge_length_squared) max_edge_length_squared = edge_length_squared;
+        CoordinateField distanceFromElementSquared = squaredDistanceOfPointFromTetrahedron(element, dipole_position, volumeConductor_->gridView());
+        CoordinateField ratio_squared = max_edge_length_squared / distanceFromElementSquared;
+
+        if(ratio_squared >= 0.5 * 0.5) {
+          return 8;
+        }
+        else if (ratio_squared >= 0.4 * 0.4) {
+          return 9;
+        }
+        else if (ratio_squared >= 0.33 * 0.33) {
+          return 11;
+        }
+        else if (ratio_squared >= 0.25 * 0.25) {
+          return 13;
+        }
+        else {
+          return 20;
         }
       }
-      
-      
-
-      if(max_edge_length <= 2.0) {
+      else if (element.type().isHexahedron()) {
         return 8;
       }
-      else if (max_edge_length <= 2.5) {
-        return 9;
-      }
-      else if (max_edge_length <= 3) {
-        return 11;
-      }
-      else if (max_edge_length <= 4) {
-        return 13;
-      }
       else {
-        return 20;
+        DUNE_THROW(Dune::Exception, "the element type is neither a tetrahedron nor a hexahedron. For such geometries, we have not yet investigated how to choose integration order. Please specify an integration order yourself.");
       }
-      */
-      return 20;
     }
 
     //////////////////////////////////////////////////
@@ -398,7 +395,7 @@ namespace duneuro
         const auto& elem_geo = element.geometry();
 
         // choose quadrature rule
-        size_t intorder = (intorder_meg_patch_ == 0) ? intorderFromGeometry(elem_geo) : intorder_meg_patch_;
+        size_t intorder = (intorder_meg_patch_ == 0) ? intorderPatchFlux(element, this->dipole().position()) : intorder_meg_patch_;
         Dune::GeometryType geo_type = elem_geo.type();
         const Dune::QuadratureRule<CoordinateField, dim>& quad_rule = Dune::QuadratureRules<CoordinateField, dim>::rule(geo_type, intorder);
 
