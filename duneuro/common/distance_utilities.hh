@@ -12,7 +12,7 @@
 namespace duneuro {
 
   // The following function computes the distance of a point from a tetrahedral element.
-  // We assume that the TetrahedralGeometry class fulfills the interface of a DUNE geometry class,
+  // We assume that the TetrahedralEntity class fulfills the interface of a DUNE geometry class,
   // and that the Coordinate class fulfills the interface of a dune-istl vector.
   // To understand the following code, we assume that the reader is familiar  with simplices.
   // An excellent and extensive introduction can be found here
@@ -32,37 +32,39 @@ namespace duneuro {
      *
      * Now assume we have a point q in R^m and want to find the distance of q from the simplex.
      * First, we can project the point q onto the affine hull of the simplex. Denote this
-     * projection by q_hat. Then, the point in the simplex closest to q will be the same 
-     * as the point closest to q_hat. Now, q_hat can be expressed in affine coordinates as
+     * projection by q_hat. Then, by the Pythagorean theorem, the squared distance of q to the simplex
+     * is the same as the squared distance of q to q_hat plus the squared distance of q_hat to the simplex.
+     * Now, q_hat can be expressed in affine coordinates as
      * q_hat = \lambda_0 p_0 + ... + \lambda_n p_n.
      * We now have two possible cases.
      * a) All \lambda_i are >= 0
      * b) At least one \lambda_i is < 0.
      * In case a), q_hat is inside the simplex, and is the closest point in the simplex to q.
-     * In case b), q_hat is outside the simplex. In this case, the point in the simplex closest
-     * to q_hat is contained in a face of the simplex. To see why this is the case, look at an 
+     * In case b), q_hat is outside the simplex. In this case, the minimal distance of the simplex to q_hat
+     * is realized on a face of the simplex. To see why this is the case, look at an 
      * arbitrary point x = \mu_0 p_0 + ... + \mu_n p_n inside the simplex, i.e. we have
      * \mu_0 >= 0, ..., \mu_n >= 0. Then look at the linear interpolation from x to q_hat,
      * i.e. f(t) = (1 - t) * x + t * q_hat. Then, there will be some t_0 such that 
      * there exists an i_0 with (1 - t_0) \mu_{i_0} + t_0 \lambda_{i_0} = 0,
      * (1 - t_0) \mu_j + t_0 \lambda_j >= 0 for j \neq i, and 
      * (1 - t) \mu_{i_0} + t \lambda_{i_0} < 0 for t > t_0. This point is then in the boundary
-     * of the simplex, and closer to q_hat than x. Furthermore, note that this argument in fact 
-     * also shows that the point in the simplex closest to q_hat is contained in a face
+     * of the simplex, and at least as close to q_hat as x. Furthermore, note that this argument in fact 
+     * also shows that the minimal distance is realized on a face
      * corresponding to an index i_0 such that \lambda_{i_0} < 0. Thus, the problem is reduced 
-     * to findind the closest point in a simplex of dimension n - 1. We can thus inductively 
+     * to finding the minimal distances to simplices of dimension n - 1. We can thus inductively 
      * compute the distance to the simplex.
      *
      * Finally, we need to solve the n = 1 case. In this case, a 1-dimensional simplex is given
-     * by two points p_0 and p_1. The distance of q to the line p_0-p_1 is the same as the
-     * distance of q - p_0 to the line 0-(p_1 - p_0). We can now compute the projection q_hat 
+     * by two points p_0 and p_1. The distance of q to the line p_0->p_1 is the same as the
+     * distance of q - p_0 to the line 0->(p_1 - p_0). We can now compute the projection q_hat 
      * of q - p_0 onto the line defined by R * (p_1 - p_0). This is given by 
      * q_hat = (< q - p_0, p_1 - p_0> / ||p_1 - p_0||^2) * (p_1 - p_0).
      * Let t = < q - p_0, p_1 - p_0> / ||p_1 - p_0||^2. We now have three cases.
      * 1) t < 0: In this case, the closest point on the translated line is given by 0, 
-                 and the closest point to q on the line p_0-p_1 is p_0.
+                 and the closest point to q on the line p_0->p_1 is p_0.
      * 2) 0 <= t <= 1: In this case, q_hat is the closest point on the translated line.
-     * 3) t > 1: In this case, the closest point on the translated line is given by p_1 - p_0.
+     * 3) t > 1: In this case, the closest point on the translated line is given by p_1 - p_0,
+     *           and the closest point to q on the line p_0->p_1 is p_1.
      *
      * Finally, let q = \lambda_0 p_0 + ... + \lambda_m p_m be an arbitray point in R^m, in 
      * affine coordinates for m + 1 affinely independent points. If we have an outer 
@@ -74,9 +76,6 @@ namespace duneuro {
      * investigate in the case that a point is not contained inside the simplex.
      */
      using Scalar = typename GridView::ctype;
-     
-     Scalar squaredDistance = std::numeric_limits<Scalar>::max();
-     auto tetrahedralGeometry = tetrahedralEntity.geometry();
      
      // first iterate over the triangular faces of the tetrahedron
      bool containedInTetrahedron = true;
