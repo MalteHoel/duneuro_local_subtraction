@@ -159,13 +159,47 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
+                   
+/**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<std::vector<FieldType>> 
+  createSourceSpace(const Dune::ParameterTree& config) = 0;
 
   /**
    * \brief compute the primary B field for a given set of dipoles
    */
   virtual std::vector<std::vector<FieldType>>
   computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
+ 
+  /**
+   * \brief compute the tDCS evaluation matrix
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
+                            const Dune::ParameterTree& config,
+                            DataTree dataTree = DataTree()) = 0;
 
+  /**
+   * \brief evaluate electric potential, field or current density for tDCS
+   *  by applying the evaluation matrix
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+      const DenseMatrix<double>& EvaluationMatrix,
+      const std::vector<CoordinateType>& positions,
+      Dune::ParameterTree config) const = 0;
+  /**
+   * \brief evaluate electric potential, field or current density for tDCS
+   *  by applying the evaluation matrix at the element centers
+   */  
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
+      const DenseMatrix<double>& EvaluationMatrix,
+      Dune::ParameterTree config) const = 0;
+
+   /**
+     * \brief return the label, volume and center of all mesh elements
+   */      
+  virtual std::unique_ptr<DenseMatrix<double>> elementStatistics() = 0;
+          
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
   /**

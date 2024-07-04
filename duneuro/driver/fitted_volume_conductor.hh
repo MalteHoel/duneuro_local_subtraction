@@ -40,7 +40,12 @@
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
+<<<<<<< HEAD
 #include <duneuro/common/kdtree.hh>
+=======
+#include <duneuro/tes/tdcs_solver.hh>
+#include <duneuro/eeg/source_space_factory.hh>
+>>>>>>> tdcs_cutfem
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -86,6 +91,8 @@ struct FittedMEEGDriverTraits {
   using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   using TransferMatrixUser =
       duneuro::TransferMatrixUser<Solver, SourceModelFactory>;
+  using TdcsRHSFactory = FittedTdcsRHSFactory;
+
 };
 
 template <int dim, ElementType elementType, FittedSolverType solverType,
@@ -129,9 +136,15 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
+<<<<<<< HEAD
         eegForwardSolver_(solver_)
   {
   }
+=======
+        eegForwardSolver_(solver_),
+       tdcsSolver_(solver_, volumeConductorStorage_.get(), config_) 
+ {}
+>>>>>>> tdcs_cutfem
 
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -300,7 +313,69 @@ public:
     }
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
+  virtual std::vector<std::vector<double>> createSourceSpace(const Dune::ParameterTree& config){
+    sourceSpaceFactory ssf;
+    return ssf.createFitted(config);
+  }
 
+  virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
+      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
+    {
+      return tdcsSolver_.tdcsEvaluationMatrix(
+                                    solverBackend_, *electrodeProjection_,
+                                    config, dataTree);
+    }
+
+ virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+      const DenseMatrix<double>& EvaluationMatrix,
+      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+      Dune::ParameterTree config) const override 
+    {
+          KDTreeElementSearch<typename Traits::VC::GridView> search_(solver_->functionSpace().getGFS().gridView());
+          std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(positions.size());
+          std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(positions.size());
+          for (int i = 0; i<positions.size(); i++)
+          {
+            const auto& element = search_.findEntity(positions[i]);
+            elements[i] = element;
+            localPositions[i] = element.geometry().local(positions[i]);
+          }
+         return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
+    }
+ virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
+      const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
+    {
+
+      std::size_t offset = 0;
+      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(solver_->volumeConductor()->gridView().size(0));
+      std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(solver_->volumeConductor()->gridView().size(0));
+      for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+        elements[offset] = element;
+        auto local = element.geometry().local(element.geometry().center());
+        localPositions[offset] = local;
+        offset += 1;
+      }
+         return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
+    }
+  virtual std::unique_ptr<duneuro::DenseMatrix<double>> elementStatistics()
+  {
+  auto elementStatistics = std::make_unique<DenseMatrix<double>>(
+     solver_->volumeConductor()->gridView().size(0),Traits::VC::GridView::dimension + 2);
+  std::size_t offset = 0;
+  for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+  Dune::FieldVector<double, Traits::VC::GridView::dimension> dummy;
+  std::vector<double> z(Traits::VC::GridView::dimension+2);
+  z[0] = volumeConductorStorage_.get()->label(element);
+  z[1] = element.geometry().volume();
+  dummy = element.geometry().center();
+  for(unsigned int i=0; i<Traits::VC::GridView::dimension; ++i) {
+  z[i+2] = dummy[i];
+  }
+  set_matrix_row(*elementStatistics,offset,z);
+  offset+=1;
+  }
+  return elementStatistics;
+  }
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
     std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coordinates;
@@ -633,6 +708,7 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
+  TDCSSolver<typename Traits::Solver,typename Traits::TdcsRHSFactory, typename Traits::VC > tdcsSolver_;
 };
 
 } // namespace duneuro

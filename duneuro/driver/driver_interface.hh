@@ -179,6 +179,52 @@ public:
     return volumeConductor_->computeMEGPrimaryField(dipoles, config);
   }
 
+  /**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<std::vector<FieldType>> 
+  createSourceSpace(const Dune::ParameterTree& config) {
+    return volumeConductor_->createSourceSpace(config);
+  }
+
+    /**
+     * \brief compute the tDCS evaluation matrix
+     */
+
+    virtual std::unique_ptr<DenseMatrix<double>>
+    computeTDCSEvaluationMatrix(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+    {
+      return volumeConductor_->computeTDCSEvaluationMatrix(config, dataTree);
+    }
+    /**
+     * \brief evaluate electric potential, field or current density for tDCS
+     *  by applying the evaluation matrix
+     */
+    virtual std::unique_ptr<DenseMatrix<double>>
+    applyTDCSEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
+                              const std::vector<CoordinateType>& positions,
+                              Dune::ParameterTree config) const
+    {
+      return volumeConductor_->applyTDCSEvaluationMatrix(EvaluationMatrix, positions, config);
+    }
+    /**
+     * \brief evaluate electric potential, field or current density for tDCS
+     *  by applying the evaluation matrix at the element centers
+     */
+    virtual std::unique_ptr<DenseMatrix<double>>
+    applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                       Dune::ParameterTree config) const
+    {
+      return volumeConductor_->applyTDCSEvaluationMatrixAtCenters(EvaluationMatrix, config);
+    }
+
+    /**
+     * \brief return the label, volume and center of all mesh elements
+     */
+    virtual std::unique_ptr<DenseMatrix<double>> elementStatistics() const
+    {
+      return volumeConductor_->elementStatistics();
+    }
   std::vector<CoordinateType> getProjectedElectrodes() const {
     return volumeConductor_->getProjectedElectrodes();
   }

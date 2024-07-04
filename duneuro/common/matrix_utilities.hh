@@ -114,6 +114,44 @@ namespace duneuro
       }
     }
   }
+  template <class T, int blockSize>
+  void extract_matrix_row(const DenseMatrix<T>& matrix, std::size_t row,
+                      Dune::BlockVector<Dune::FieldVector<T, blockSize>>& vector)
+    {
+    if (row >= matrix.rows()) {
+      DUNE_THROW(Dune::Exception, "tried to set row " << row << " but only " << matrix.rows()
+                                                      << " rows are present");
+    }
+    if (vector.dim() != matrix.cols()) {
+      DUNE_THROW(Dune::Exception, "tried to set row with " << vector.dim()
+                                                           << " entries, but row has actually "
+                                                           << matrix.cols() << " entries");
+    }
+    for (unsigned int block = 0; block < vector.size(); ++block) {
+      for (unsigned int localIndex = 0; localIndex < blockSize; ++localIndex) {
+        unsigned int flatIndex = block * blockSize + localIndex;
+         vector[block][localIndex] = matrix(row, flatIndex);
+      }
+    }
+  }
+
+      template <class T>
+  void set_matrix_row(DenseMatrix<T>& matrix, std::size_t row,
+                      const std::vector<T>& vector)
+  {
+    if (row >= matrix.rows()) {
+      DUNE_THROW(Dune::Exception, "tried to set row " << row << " but only " << matrix.rows()
+                                                      << " rows are present");
+    }
+    if (vector.size() != matrix.cols()) {
+      DUNE_THROW(Dune::Exception, "tried to set row with " << vector.size()
+                                                           << " entries, but row has actually "
+                                                           << matrix.cols() << " entries");
+    }
+    for (unsigned int i = 0; i < vector.size(); ++i) {
+      matrix(row, i) = vector[i];
+    }
+  }
 }
 
 #endif // DUNEURO_MATRIX_UTILITIES_HH

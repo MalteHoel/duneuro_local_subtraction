@@ -88,18 +88,53 @@ namespace duneuro
     {
       Dune::Timer timer;
       KDTreeElementSearch<GV> search(gridView_);
+      std::vector<int> insideHostCell(electrodes.size(),std::numeric_limits<ctype>::max());
+      projections_.resize(electrodes.size());
+      int elecOffset = 0;
+      // use kd-search to find element that contains the electrode
       for (const auto& electrode : electrodes) {
         auto search_result = search.findEntity(electrode);
         if(!search_result.has_value()) {
           DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
         }
         const auto& element = search_result.value();
-        if (!subTriangulation.isHostCell(element)) {
-          DUNE_THROW(Dune::Exception, "element of electrode at "
-                                          << electrode << " is not a host cell for any domain");
+        if (subTriangulation.isHostCell(element)) {
+            projections_[elecOffset] = Projection{element, element.geometry().local(electrode)};
+            insideHostCell[elecOffset] = 1;
         }
-        projections_.push_back(Projection{element, element.geometry().local(electrode)});
+        elecOffset +=1;
       }
+      // for the elements that are not host to a domain, perform a grid wide search for the closest vertex,
+      // identical to closest_subentity_center_electrode_projection
+
+      std::vector<ctype> distances(projections_.size(), std::numeric_limits<ctype>::max());
+      int codim = 3;
+
+      for (const auto& element : Dune::elements(gridView_)) { 
+        if (!subTriangulation.isHostCell(element)) {
+          continue;}
+        // skip electrodes that were already projected
+        for (int elecInd = 0 ; elecInd < electrodes.size(); elecInd++){
+          if (insideHostCell[elecInd] == 1) {
+          continue; }
+          const auto& geo = element.geometry();
+          const auto& ref = Dune::ReferenceElements<ctype, GV::dimension>::general(geo.type());
+          for (int i = 0; i < ref.size(codim); ++i) {
+            auto local = ref.position(i, codim);
+            auto diff = geo.global(local);
+            diff -= electrodes[elecInd];
+            auto distance = diff.two_norm();
+            if (distance < distances[elecInd]) {
+              distances[elecInd] = distance;
+              projections_[elecInd] = Projection{element, local};
+            }
+          }
+         // std::cout<< distances[elecInd] << std::endl;
+        }
+
+      }
+         // DUNE_THROW(Dune::Exception, "element of electrode at "
+         //                                 << electrode << " is not a host cell for any domain");
       dataTree.set("time", timer.elapsed());
     }
 #endif
@@ -165,3 +200,4 @@ namespace duneuro
 }
 
 #endif // DUNEURO_PROJECTEDELECTRODES_HH
+
