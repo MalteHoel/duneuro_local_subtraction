@@ -83,26 +83,33 @@ namespace duneuro
           projectedElectrodes.size(),
           solver_->functionSpace().getGFS().ordering().size()); // setup Matrix
       auto solver_config = config.sub("solver");
-      tbb::task_scheduler_init init(solver_config.hasKey("numberOfThreads") ?
-                                        solver_config.get<std::size_t>("numberOfThreads") :
-                                        tbb::task_scheduler_init::automatic);
-      auto grainSize = solver_config.get<int>("grainSize", 16);
+      int nr_threads = solver_config.hasKey("numberOfThreads") ?
+                        solver_config.get<std::size_t>("numberOfThreads") :
+                        tbb::task_arena_automatic;
+      int grainSize = solver_config.get<int>("grainSize", 16);
       tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
           solver_->functionSpace().getGFS(), 0.0);
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(1, projectedElectrodes.size(), grainSize),
-                        [&](const tbb::blocked_range<std::size_t>& range) {
-                          auto& mySolution = solution.local();
-                          for (std::size_t index = range.begin(); index != range.end(); ++index) {
-                            tbb::enumerable_thread_specific<typename Traits::DomainDOFVector>
-                                rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0);
-                            solve(solverBackend.local().get(), projectedElectrodes.getProjection(0),
-                                  projectedElectrodes.getProjection(index), mySolution,
-                                  rightHandSideVector_.local(), solver_config,
-                                  dataTree.sub("solver.electrode_" + std::to_string(index)));
-                            set_matrix_row(*tdcsMatrix, index,
-                                           Dune::PDELab::Backend::native(mySolution));
-                          }
-                        });
+      
+      tbb::task_arena arena(nr_threads);
+      arena.execute([&]{
+        tbb::parallel_for(
+          tbb::blocked_range<std::size_t>(1, projectedElectrodes.size(), grainSize),
+          [&](const tbb::blocked_range<std::size_t>& range) {
+            auto& mySolution = solution.local();
+            for (std::size_t index = range.begin(); index != range.end(); ++index) {
+              tbb::enumerable_thread_specific<typename Traits::DomainDOFVector>
+                rightHandSideVector_(solver_->functionSpace().getGFS(), 0.0);
+              solve(solverBackend.local().get(), projectedElectrodes.getProjection(0),
+                    projectedElectrodes.getProjection(index), mySolution,
+                    rightHandSideVector_.local(), solver_config,
+                    dataTree.sub("solver.electrode_" + std::to_string(index)));
+              set_matrix_row(*tdcsMatrix, index,
+                             Dune::PDELab::Backend::native(mySolution));
+            }
+          }
+        );
+      });
+      
       return tdcsMatrix;
     }
 #endif
