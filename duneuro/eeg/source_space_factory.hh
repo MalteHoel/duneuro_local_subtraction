@@ -4,7 +4,11 @@
 #include <memory>
 
 #include <dune/common/parametertree.hh>
+
+#if HAVE_DUNE_UDG
 #include <dune/udg/pdelab/subtriangulation.hh>
+#endif
+
 #include <duneuro/common/exceptions.hh>
 #include <duneuro/driver/feature_manager.hh>
 

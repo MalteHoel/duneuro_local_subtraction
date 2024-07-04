@@ -9,8 +9,10 @@
 #include <dune/pdelab/gridfunctionspace/localfunctionspace.hh>
 #include <dune/pdelab/gridfunctionspace/subspace.hh>
 
+#if HAVE_DUNE_UDG
 #include <dune/udg/pdelab/assembler/ulocalfunctionspace.hh>
 #include <dune/udg/pdelab/subtriangulation.hh>
+#endif
 
 #include <duneuro/tes/tdcs_rhs_interface.hh>
 #include <iostream>
@@ -81,7 +83,7 @@ namespace duneuro
 
 
 
-
+#if HAVE_DUNE_UDG
  template <class GFS, class V, class ST>
   class UnfittedTdcsRHS
       : public TdcsRHSInterface<typename GFS::Traits::GridViewType, V>
@@ -183,7 +185,7 @@ namespace duneuro
 
    
   };
-
+#endif
 
 }
 

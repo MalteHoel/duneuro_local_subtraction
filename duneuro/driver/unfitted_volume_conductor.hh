@@ -261,7 +261,11 @@ public:
       std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
       std::size_t index = 0;
       for (const auto& coord : positions) {
-        const auto& element = search.findEntity(coord);
+        auto search_result = search.findEntity(coord);
+        if(!search_result.has_value()) {
+          DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+        }
+        const auto& element = search_result.value();
         elements[index] = element;
         auto local = element.geometry().local(coord);
         localPositions[index] = local;

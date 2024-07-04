@@ -25,6 +25,7 @@ namespace duneuro
     }
   };
 
+#if HAVE_DUNE_UDG
   struct UnfittedTdcsRHSFactory {
     template <class Vector, class Solver>
     static std::unique_ptr<
@@ -43,6 +44,7 @@ namespace duneuro
       }
     }
   };
+#endif
 }
 
 #endif // DUNEURO_TDCS_RHS_FACTORY_HH

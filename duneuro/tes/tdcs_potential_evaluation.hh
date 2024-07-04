@@ -10,6 +10,8 @@
 namespace duneuro
 {
 #if HAVE_DUNE_UDG
+
+#if HAVE_DUNE_UDG
   template <typename GV, typename GFS, typename VC>
   struct PotentialEvaluator;
 #endif
@@ -123,6 +125,8 @@ namespace duneuro
     const typename Traits::ST& subTriangulation_;
   };
 #endif
+
+#endif // HAVE_DUNE_UDG
 }
 
 #endif // DUNEURO_TDCS_POTENTIAL_EVALUATION_HH

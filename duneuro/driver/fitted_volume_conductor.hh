@@ -40,12 +40,9 @@
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
-<<<<<<< HEAD
 #include <duneuro/common/kdtree.hh>
-=======
 #include <duneuro/tes/tdcs_solver.hh>
 #include <duneuro/eeg/source_space_factory.hh>
->>>>>>> tdcs_cutfem
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -136,15 +133,10 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
-<<<<<<< HEAD
-        eegForwardSolver_(solver_)
+        eegForwardSolver_(solver_),
+        tdcsSolver_(solver_, volumeConductorStorage_.get(), config_)
   {
   }
-=======
-        eegForwardSolver_(solver_),
-       tdcsSolver_(solver_, volumeConductorStorage_.get(), config_) 
- {}
->>>>>>> tdcs_cutfem
 
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -336,7 +328,11 @@ public:
           std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(positions.size());
           for (int i = 0; i<positions.size(); i++)
           {
-            const auto& element = search_.findEntity(positions[i]);
+            auto search_result = search_.findEntity(positions[i]);
+            if(!search_result.has_value()) {
+              DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+            }
+            const auto& element = search_result.value();
             elements[i] = element;
             localPositions[i] = element.geometry().local(positions[i]);
           }

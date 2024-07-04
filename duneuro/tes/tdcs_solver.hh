@@ -85,7 +85,7 @@ namespace duneuro
       auto solver_config = config.sub("solver");
       int nr_threads = solver_config.hasKey("numberOfThreads") ?
                         solver_config.get<std::size_t>("numberOfThreads") :
-                        tbb::task_arena_automatic;
+                        tbb::task_arena::automatic;
       int grainSize = solver_config.get<int>("grainSize", 16);
       tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(
           solver_->functionSpace().getGFS(), 0.0);

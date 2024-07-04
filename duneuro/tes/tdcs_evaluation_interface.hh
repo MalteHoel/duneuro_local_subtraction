@@ -7,8 +7,10 @@
  * elecric potential, field or current, evaluated at a point, in an area around the positions or at
  * an EEG source model (last 2 are tbd)
  */
+#if HAVE_DUNE_UDG
 #include <dune/udg/simpletpmctriangulation.hh>
 #include <duneuro/udg/simpletpmc_domain.hh>
+#endif
 
 namespace duneuro
 {
@@ -19,7 +21,6 @@ namespace duneuro
     using Coordinate = Dune::FieldVector<typename GV::ctype, GV::dimension>;
 
   public:
-#if HAVE_DUNE_UDG
     /**
      *\brief returns vector that contains the (also vector valued) evaluation result for each
      *stimulation electrode
@@ -31,7 +32,6 @@ namespace duneuro
     virtual std::unique_ptr<DenseMatrix<double>>
     evaluate(const std::vector<Element>& elements, const std::vector<Coordinate>& positions,
              const DenseMatrix<double>& EvaluationMatrix) const = 0;
-#endif
     virtual ~TDCSEvaluationInterface(){};
   };
 }
