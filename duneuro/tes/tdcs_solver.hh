@@ -126,7 +126,7 @@ namespace duneuro
           typename Traits::Solver::Traits::GridView,
           typename Traits::Solver::Traits::FunctionSpace::GFS, VC>(
           config, solver_->functionSpace().getGFS(), *volumeConductor_);
-      return evaluationFactory->evaluate(elements, localPositions, EvaluationMatrix);
+      return evaluationFactory->evaluate(elements, localPositions, EvaluationMatrix, config);
     }
 
   private:

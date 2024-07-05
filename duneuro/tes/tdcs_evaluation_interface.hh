@@ -31,7 +31,7 @@ namespace duneuro
      */
     virtual std::unique_ptr<DenseMatrix<double>>
     evaluate(const std::vector<Element>& elements, const std::vector<Coordinate>& positions,
-             const DenseMatrix<double>& EvaluationMatrix) const = 0;
+             const DenseMatrix<double>& EvaluationMatrix, const Dune::ParameterTree& config) const = 0;
     virtual ~TDCSEvaluationInterface(){};
   };
 }

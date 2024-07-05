@@ -341,7 +341,6 @@ public:
  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
       const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
     {
-
       std::size_t offset = 0;
       std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(solver_->volumeConductor()->gridView().size(0));
       std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(solver_->volumeConductor()->gridView().size(0));

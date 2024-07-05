@@ -38,7 +38,7 @@ namespace duneuro
       auto local = search_result.value().geometry().local(x);
       for (const auto& interface : domain_.getDomainConfiguration().interfaces()) {
         auto localInterfaceFunction = localFunction(interface.function());
-        localInterfaceFunction.bind(element.value());
+        localInterfaceFunction.bind(search_result.value());
         result.push_back(localInterfaceFunction(local));
       }
       return result;

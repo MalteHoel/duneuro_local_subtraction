@@ -50,7 +50,7 @@ namespace duneuro
   struct GradientEvaluator {
     using Traits = TDCSGradientEvaluationTraits<GV, GFS>;
     explicit GradientEvaluator(const GFS& gfs, const VC& volumeConductor, const bool current)
-        : gfs_(gfs), volumeConductor_(volumeConductor), current_(current), search_(gfs_.gridView())
+        : gfs_(gfs), volumeConductor_(volumeConductor), current_(current)
     {
     }
     
@@ -59,7 +59,6 @@ namespace duneuro
                const typename Traits::LocalCoordinate localPos,
                const DenseMatrix<double>& EvaluationMatrix) const
     {
-     
       std::vector<Dune::FieldVector<typename Traits::Real, GV::dimension>> result;
       result.resize(EvaluationMatrix.rows());
       auto global = element.geometry().global(localPos);
@@ -69,9 +68,7 @@ namespace duneuro
       for (unsigned int nrElec = 0; nrElec < EvaluationMatrix.rows(); ++nrElec) {
         coeffs = 0.0;
         extract_matrix_row(EvaluationMatrix, nrElec, Dune::PDELab::Backend::native(coeffs));
-
       DGFG dgfg(gfs_, coeffs);
-
       // evaluate discrete grid function
       typename DGFG::Traits::RangeType y;
       dgfg.evaluate(element, localPos, y);
@@ -95,7 +92,6 @@ namespace duneuro
     const GFS& gfs_;
     const VC& volumeConductor_;
     const bool current_;
-    KDTreeElementSearch<GV> search_;
   };
 
 #if HAVE_DUNE_UDG
@@ -210,11 +206,103 @@ namespace duneuro
   class TDCSGradientEvaluation : public TDCSEvaluationInterface<GV, GFS>
   {
     using Traits = TDCSGradientEvaluationTraits<GV, GFS>;
+    using RangeDOFVector = typename Traits::RangeDOFVector;
+    using DGFG = Dune::PDELab::DiscreteGridFunctionGradient<GFS, RangeDOFVector>;
+    using GradientType = typename DGFG::Traits::RangeType;
 
   public:
     /**\brief constructor for the fitted case
      */
     explicit TDCSGradientEvaluation(const GFS& gfs, const VC& volumeConductor, const bool current)
+        : volumeConductor_(volumeConductor), current_(current), gfs_(gfs)
+    {
+    }
+
+    virtual std::unique_ptr<DenseMatrix<double>>
+    evaluate(const std::vector<typename Traits::Element>& elements,
+             const std::vector<typename Traits::LocalCoordinate>& localPositions,
+             const DenseMatrix<double>& EvaluationMatrix, const Dune::ParameterTree& config) const override
+    {
+      std::size_t index = 0;
+      auto output = std::make_unique<DenseMatrix<double>>(EvaluationMatrix.rows(),
+                                                          3 * localPositions.size());
+
+      // loop over all electrodes
+#if HAVE_TBB
+      int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+      int grainSize = config.get<int>("grainSize", 1);
+      tbb::task_arena arena(nr_threads);
+      arena.execute([&]{
+        tbb::parallel_for(
+          tbb::blocked_range<std::size_t>(0, EvaluationMatrix.rows(), grainSize),
+          [&](const tbb::blocked_range<std::size_t>& range) {
+            for(size_t i = range.begin(); i != range.end(); ++i) {
+              assembleGradientRow(elements, localPositions, EvaluationMatrix, i, *output);
+            }
+          }
+        );
+      });
+#else
+      for(size_t i = 0; i < EvaluationMatrix.rows(); ++i) {
+        assembleGradientRow(elements, localPositions, EvaluationMatrix, i, *output);
+      }
+#endif
+
+      return output;
+
+    }
+
+  private:
+    
+    void assembleGradientRow(const std::vector<typename Traits::Element>& elements,
+                             const std::vector<typename Traits::LocalCoordinate>& localPositions,
+                             const DenseMatrix<double>& EvaluationMatrix,
+                             size_t rowIndex,
+                             DenseMatrix<double>& output) const
+    {      
+      // get gradient current row
+      RangeDOFVector tdcsPotential(gfs_);
+      extract_matrix_row(EvaluationMatrix, rowIndex, Dune::PDELab::Backend::native(tdcsPotential));
+      DGFG tdcsGradient(gfs_, tdcsPotential);
+      GradientType gradient;
+      
+      // evaluate gradient at all positions specified in the arguments
+      for(size_t j = 0; j < elements.size(); ++j) {
+        tdcsGradient.evaluate(elements[j], localPositions[j], gradient);
+        // correct to direction of current flow
+        gradient *= -1.0;
+        
+        // potentially multiply with conductivity to get current
+        if(current_) {
+          GradientType currentDensity;
+          volumeConductor_.tensor(elements[j]).mv(gradient, currentDensity);
+          gradient = currentDensity;
+        }
+        
+        // write gradient
+        output(rowIndex, 3*j) = gradient[0];
+        output(rowIndex, 3*j + 1) = gradient[1];
+        output(rowIndex, 3*j + 2) = gradient[2];
+      }
+        
+      return;  
+    }
+  
+    const VC& volumeConductor_;
+    const bool current_;
+    const GFS& gfs_;
+  };
+  
+#if HAVE_DUNE_UDG
+template<typename GV, typename GFS>
+  class TDCSGradientEvaluation<GV, GFS, Dune::UDG::SimpleTpmcTriangulation<GV, GV>>  : public TDCSEvaluationInterface<GV, GFS>
+  {
+    using Traits = TDCSGradientEvaluationTraits<GV, GFS>;
+
+  public:
+    /**\brief constructor for the fitted case
+     */
+    explicit TDCSGradientEvaluation(const GFS& gfs, const Dune::UDG::SimpleTpmcTriangulation<GV, GV>& volumeConductor, const bool current)
         : gradientEvaluator_(gfs, volumeConductor, current), current_(current), gfs_(gfs)
     {
     }
@@ -222,7 +310,7 @@ namespace duneuro
     virtual std::unique_ptr<DenseMatrix<double>>
     evaluate(const std::vector<typename Traits::Element>& elements,
              const std::vector<typename Traits::LocalCoordinate>& localPositions,
-             const DenseMatrix<double>& EvaluationMatrix) const override
+             const DenseMatrix<double>& EvaluationMatrix, const Dune::ParameterTree& config) const override
     {
       std::size_t index = 0;
       auto output = std::make_unique<DenseMatrix<double>>(EvaluationMatrix.rows(),
@@ -237,18 +325,18 @@ namespace duneuro
             (*output)(i,3*index + 2) = pot[i][2];
           }
           index++;
-      }
-      
+      }     
 
       return output;
 
     }
 
   private:
-    GradientEvaluator<GV, GFS, VC> gradientEvaluator_;
+    GradientEvaluator<GV, GFS, Dune::UDG::SimpleTpmcTriangulation<GV, GV>> gradientEvaluator_;
     const bool current_;
     const GFS& gfs_;
   };
+#endif
 }
 
 #endif // DUNEURO_TDCS_GRADIENT_EVALUATION_HH
