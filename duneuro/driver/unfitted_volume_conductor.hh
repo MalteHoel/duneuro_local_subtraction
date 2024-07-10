@@ -162,6 +162,13 @@ public:
     return std::make_unique<Function>(
         make_domain_dof_vector(*solver_, 0.0));
   }
+  
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<double>& denseMatrix,
+    size_t row) const override
+  {
+    DUNE_THROW(Dune::NotImplemented, "currently not implemented");
+  }
 
   virtual void setElectrodes(
       const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
@@ -241,98 +248,100 @@ public:
     return ssf.createUnfitted(solver_->functionSpace().getGFS(), *subTriangulation_, config);
   }
   
-    virtual std::unique_ptr<DenseMatrix<double>>
-    computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
-                                DataTree dataTree = DataTree()) override
-    {
-      return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
-                                              dataTree);
-    }
+  virtual std::unique_ptr<DenseMatrix<double>>
+  computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
+                              DataTree dataTree = DataTree()) override
+  {
+    return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
+                                            dataTree);
+  }
 
-    virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
-        const DenseMatrix<double>& EvaluationMatrix,
-        const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-        Dune::ParameterTree config) const override
-    {
-      KDTreeElementSearch<typename Traits::GridView> search(
-          solver_->functionSpace().getGFS().gridView());
-      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
-          positions.size());
-      std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
-      std::size_t index = 0;
-      for (const auto& coord : positions) {
-        auto search_result = search.findEntity(coord);
-        if(!search_result.has_value()) {
-          DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
-        }
-        const auto& element = search_result.value();
-        elements[index] = element;
-        auto local = element.geometry().local(coord);
-        localPositions[index] = local;
-        std::cout << local << std::endl;
-        std::cout << element.geometry().global(local) << std::endl;
-        index++;
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+      const DenseMatrix<double>& EvaluationMatrix,
+      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+      Dune::ParameterTree config) const override
+  {
+    KDTreeElementSearch<typename Traits::GridView> search(
+        solver_->functionSpace().getGFS().gridView());
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
+        positions.size());
+    std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
+    std::size_t index = 0;
+    for (const auto& coord : positions) {
+      auto search_result = search.findEntity(coord);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
       }
-      return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
-                                                   config);
+      const auto& element = search_result.value();
+      elements[index] = element;
+      auto local = element.geometry().local(coord);
+      localPositions[index] = local;
+      std::cout << local << std::endl;
+      std::cout << element.geometry().global(local) << std::endl;
+      index++;
     }
-    virtual std::unique_ptr<DenseMatrix<double>>
-    applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
-                                       Dune::ParameterTree config) const override
+    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
+                                                 config);
+  }
+    
+  virtual std::unique_ptr<DenseMatrix<double>>
+  applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                     Dune::ParameterTree config) const override
+  {
+    unsigned int numberHostCells = 0;
+    for (const auto& element :
+         Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
     {
-      unsigned int numberHostCells = 0;
-      for (const auto& element :
-           Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
+      if (subTriangulation_->isHostCell(element)) {
+        numberHostCells += 1;
+      }
+    }
+    std::size_t offset = 0;
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
+        numberHostCells);
+    std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(numberHostCells);
+    for (const auto& element : Dune::elements(fundamentalGridView_)) {
+      if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
       {
-        if (subTriangulation_->isHostCell(element)) {
-          numberHostCells += 1;
-        }
+        continue;
       }
-      std::size_t offset = 0;
-      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
-          numberHostCells);
-      std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(numberHostCells);
-      for (const auto& element : Dune::elements(fundamentalGridView_)) {
-        if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
-        {
-          continue;
-        }
-        elements[offset] = element;
-        localPositions[offset] = element.geometry().local(element.geometry().center());
-        offset += 1;
-      }
-      return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
-                                                   config);
+      elements[offset] = element;
+      localPositions[offset] = element.geometry().local(element.geometry().center());
+      offset += 1;
     }
+    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
+                                                 config);
+  }
 
-    virtual std::unique_ptr<DenseMatrix<double>> elementStatistics()
+  virtual std::unique_ptr<DenseMatrix<double>> elementStatistics()
+  {
+    unsigned int numberHostCells = 0;
+    for (const auto& element :
+         Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
     {
-      unsigned int numberHostCells = 0;
-      for (const auto& element :
-           Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
-      {
-        if (subTriangulation_->isHostCell(element)) {
-          numberHostCells += 1;
-        }
+      if (subTriangulation_->isHostCell(element)) {
+        numberHostCells += 1;
       }
-      auto elementStatistics =
-          std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
-      std::size_t index = 0;
-      for (const auto& element : Dune::elements(fundamentalGridView_)) {
-        if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
-        {
-          continue;
-        }
-        std::vector<double> z(Traits::GridView::dimension);
-        auto dummy = element.geometry().center();
-        for (unsigned int i = 0; i < Traits::GridView::dimension; ++i) {
-          z[i] = dummy[i];
-        }
-        set_matrix_row(*elementStatistics, index, z);
-        index++;
-      }
-      return elementStatistics;
     }
+    auto elementStatistics =
+        std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
+    std::size_t index = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_)) {
+      if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
+      {
+        continue;
+      }
+      std::vector<double> z(Traits::GridView::dimension);
+      auto dummy = element.geometry().center();
+      for (unsigned int i = 0; i < Traits::GridView::dimension; ++i) {
+        z[i] = dummy[i];
+      }
+      set_matrix_row(*elementStatistics, index, z);
+      index++;
+    }
+    return elementStatistics;
+  }
+  
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>> electrodeCoordinates;

@@ -193,6 +193,27 @@ public:
         make_domain_dof_vector(*solver_, 0.0));
   }
 
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<double>& denseMatrix,
+    size_t row) const override
+  {
+    std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+    auto& dofVector = Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>());
+    
+    if(dofVector.dim() != denseMatrix.cols()) {
+      DUNE_THROW(Dune::Exception, "Dimension of DOF vector (" << dofVector.dim() << ") does not match number of columns in matrix (" << denseMatrix.cols() << ")");
+    }
+    
+    size_t blockSize = dofVector[0].dim();
+    for(size_t block = 0; block < dofVector.N(); ++block) {
+      for(size_t localIndex = 0; localIndex < blockSize; ++localIndex) {
+        dofVector[block][localIndex] = denseMatrix(row, block * blockSize + localIndex);
+      }
+    }
+    
+    return wrapped_function;
+  }
+
   virtual void setElectrodes(
       const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
           &electrodes,
@@ -339,36 +360,40 @@ public:
          return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
     }
  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
-      const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
-    {
-      std::size_t offset = 0;
-      std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(solver_->volumeConductor()->gridView().size(0));
-      std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(solver_->volumeConductor()->gridView().size(0));
-      for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
-        elements[offset] = element;
-        auto local = element.geometry().local(element.geometry().center());
-        localPositions[offset] = local;
-        offset += 1;
-      }
-         return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
+    const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
+  {
+    std::size_t offset = 0;
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(solver_->volumeConductor()->gridView().size(0));
+    std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(solver_->volumeConductor()->gridView().size(0));
+    for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+      elements[offset] = element;
+      auto local = element.geometry().local(element.geometry().center());
+      localPositions[offset] = local;
+      offset += 1;
     }
+    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
+  }
+    
   virtual std::unique_ptr<duneuro::DenseMatrix<double>> elementStatistics()
   {
+  
   auto elementStatistics = std::make_unique<DenseMatrix<double>>(
      solver_->volumeConductor()->gridView().size(0),Traits::VC::GridView::dimension + 2);
   std::size_t offset = 0;
+  
   for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
-  Dune::FieldVector<double, Traits::VC::GridView::dimension> dummy;
-  std::vector<double> z(Traits::VC::GridView::dimension+2);
-  z[0] = volumeConductorStorage_.get()->label(element);
-  z[1] = element.geometry().volume();
-  dummy = element.geometry().center();
-  for(unsigned int i=0; i<Traits::VC::GridView::dimension; ++i) {
-  z[i+2] = dummy[i];
+    Dune::FieldVector<double, Traits::VC::GridView::dimension> dummy;
+    std::vector<double> z(Traits::VC::GridView::dimension+2);
+    z[0] = volumeConductorStorage_.get()->label(element);
+    z[1] = element.geometry().volume();
+    dummy = element.geometry().center();
+    for(unsigned int i=0; i<Traits::VC::GridView::dimension; ++i) {
+    z[i+2] = dummy[i];
+    }
+    set_matrix_row(*elementStatistics,offset,z);
+    offset+=1;
   }
-  set_matrix_row(*elementStatistics,offset,z);
-  offset+=1;
-  }
+  
   return elementStatistics;
   }
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>

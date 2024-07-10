@@ -39,6 +39,18 @@ public:
   virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
 
   /**
+   * This function creates a Function instance from a row of a DenseMatrix.
+   * A funtion is a type erasure object, which under the hood manages a DOF vector.
+   * In the tDCS interface e.g., the potentials are exported as the rows of a matrix,
+   * where each row contains the DOF-vector coefficients of a solution to the tDCS problem.
+   * In some cases it is convenient to interprete these coefficients as a function. This is
+   * done by this function.
+   */
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<FieldType>& denseMatrix,
+    size_t row) const = 0;
+
+  /**
    * \brief solve the eeg forward problem for the given dipole
    *
    * Important: make sure that the given Function object has been created by the
