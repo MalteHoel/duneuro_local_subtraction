@@ -93,7 +93,6 @@ struct UnfittedDriverTraits {
                                     compartments>::SolverBackendType;
 
   using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
-  using TdcsRHSFactory = UnfittedTdcsRHSFactory;
 
   static constexpr bool scaleToBBox() {
     return SelectUnfittedSolver<solverType, dim, degree,
@@ -246,14 +245,6 @@ public:
   virtual std::vector<std::vector<double>> createSourceSpace(const Dune::ParameterTree& config){
     sourceSpaceFactory ssf;
     return ssf.createUnfitted(solver_->functionSpace().getGFS(), *subTriangulation_, config);
-  }
-  
-  virtual std::unique_ptr<DenseMatrix<double>>
-  computeTDCSEvaluationMatrix(const Dune::ParameterTree& config,
-                              DataTree dataTree = DataTree()) override
-  {
-    return tdcsSolver_.tdcsEvaluationMatrix(solverBackend_, *projectedElectrodes_, config,
-                                            dataTree);
   }
 
   virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
@@ -466,7 +457,7 @@ private:
   std::vector<double> conductivities_;
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
-  TDCSSolver<typename Traits::Solver, typename Traits::TdcsRHSFactory,
+  TDCSSolver<typename Traits::Solver,
             typename Traits::SubTriangulation>
       tdcsSolver_;
 };

@@ -88,7 +88,6 @@ struct FittedMEEGDriverTraits {
   using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   using TransferMatrixUser =
       duneuro::TransferMatrixUser<Solver, SourceModelFactory>;
-  using TdcsRHSFactory = FittedTdcsRHSFactory;
 
 };
 
@@ -330,14 +329,6 @@ public:
     sourceSpaceFactory ssf;
     return ssf.createFitted(config);
   }
-
-  virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
-      const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
-    {
-      return tdcsSolver_.tdcsEvaluationMatrix(
-                                    solverBackend_, *electrodeProjection_,
-                                    config, dataTree);
-    }
 
  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
       const DenseMatrix<double>& EvaluationMatrix,
@@ -728,7 +719,7 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
-  TDCSSolver<typename Traits::Solver,typename Traits::TdcsRHSFactory, typename Traits::VC > tdcsSolver_;
+  TDCSSolver<typename Traits::Solver, typename Traits::VC > tdcsSolver_;
 };
 
 } // namespace duneuro

@@ -185,11 +185,18 @@ public:
   computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
  
   /**
-   * \brief compute the tDCS evaluation matrix
+   * \brief compute the tDCS evaluation matrix. Each row of the tDCS evaluation matrix is given by the coefficient vector 
+   *        of the solution to the tDCS problem for a electrode-reference_electrode pair.
+   *        Since (for point electrodes) the tDCS right hand side for an electrode-reference_electrode pair is given
+   *        by b = (b_i), where b_i = psi_i(electrode_pos) - \psi_i(reference_electrode_pos), which is exactly the same right hand side as for the
+   *        EEG transfer matrix, we can simply return the EEG transfer matrix.
    */
-  virtual std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
+  std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
                             const Dune::ParameterTree& config,
-                            DataTree dataTree = DataTree()) = 0;
+                            DataTree dataTree = DataTree())
+  {
+    return computeEEGTransferMatrix(config, dataTree);
+  }
 
   /**
    * \brief evaluate electric potential, field or current density for tDCS
