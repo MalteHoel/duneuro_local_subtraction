@@ -166,7 +166,9 @@ public:
     const DenseMatrix<double>& denseMatrix,
     size_t row) const override
   {
-    DUNE_THROW(Dune::NotImplemented, "currently not implemented");
+    std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+    extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
+    return wrapped_function;
   }
 
   virtual void setElectrodes(

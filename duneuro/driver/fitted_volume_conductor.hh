@@ -197,19 +197,7 @@ public:
     size_t row) const override
   {
     std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
-    auto& dofVector = Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>());
-    
-    if(dofVector.dim() != denseMatrix.cols()) {
-      DUNE_THROW(Dune::Exception, "Dimension of DOF vector (" << dofVector.dim() << ") does not match number of columns in matrix (" << denseMatrix.cols() << ")");
-    }
-    
-    size_t blockSize = dofVector[0].dim();
-    for(size_t block = 0; block < dofVector.N(); ++block) {
-      for(size_t localIndex = 0; localIndex < blockSize; ++localIndex) {
-        dofVector[block][localIndex] = denseMatrix(row, block * blockSize + localIndex);
-      }
-    }
-    
+    extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
     return wrapped_function;
   }
 
