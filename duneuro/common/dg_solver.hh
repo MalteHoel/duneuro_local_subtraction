@@ -40,6 +40,7 @@ namespace duneuro
             class JF>
   struct DGSolverTraits {
     static const int dimension = VC::dim;
+    static const bool isFitted = true;
     using VolumeConductor = VC;
     using GridView = typename VC::GridView;
     using CoordinateFieldType = typename VC::ctype;

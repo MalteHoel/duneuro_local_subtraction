@@ -41,7 +41,6 @@
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
 #include <duneuro/common/kdtree.hh>
-#include <duneuro/tes/tdcs_solver.hh>
 #include <duneuro/eeg/source_space_factory.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
@@ -52,6 +51,7 @@
 #include <dune/pdelab/function/discretegridviewfunction.hh>
 
 #include <duneuro/common/sourcespace_creation_utilities.hh>
+#include <duneuro/common/matrix_evaluator.hh>
 
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
@@ -132,8 +132,7 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
-        eegForwardSolver_(solver_),
-        tdcsSolver_(solver_, volumeConductorStorage_.get(), config_)
+        eegForwardSolver_(solver_)
   {
   }
 
@@ -318,39 +317,26 @@ public:
     return ssf.createFitted(config);
   }
 
- virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
-      const DenseMatrix<double>& EvaluationMatrix,
-      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-      Dune::ParameterTree config) const override 
-    {
-          KDTreeElementSearch<typename Traits::VC::GridView> search_(solver_->functionSpace().getGFS().gridView());
-          std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(positions.size());
-          std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(positions.size());
-          for (int i = 0; i<positions.size(); i++)
-          {
-            auto search_result = search_.findEntity(positions[i]);
-            if(!search_result.has_value()) {
-              DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
-            }
-            const auto& element = search_result.value();
-            elements[i] = element;
-            localPositions[i] = element.geometry().local(positions[i]);
-          }
-         return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
-    }
- virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
-    const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    Dune::ParameterTree config) const override 
   {
-    std::size_t offset = 0;
-    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(solver_->volumeConductor()->gridView().size(0));
-    std::vector<typename Traits::VC::GridView::template Codim<0>::Entity> elements(solver_->volumeConductor()->gridView().size(0));
+    MatrixEvaluator<typename Traits::Solver> matrixEvaluator(*solver_, EvaluationMatrix);
+    matrixEvaluator.bindPositions(positions);
+    return matrixEvaluator.evaluate(config);  
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
+    const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
+  {   
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters;
+    
     for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
-      elements[offset] = element;
-      auto local = element.geometry().local(element.geometry().center());
-      localPositions[offset] = local;
-      offset += 1;
+      elementCenters.push_back(element.geometry().center());
     }
-    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions, config);
+    
+    return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);
   }
     
   virtual std::unique_ptr<duneuro::DenseMatrix<double>> elementStatistics()
@@ -707,7 +693,6 @@ private:
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
   std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
-  TDCSSolver<typename Traits::Solver, typename Traits::VC > tdcsSolver_;
 };
 
 } // namespace duneuro

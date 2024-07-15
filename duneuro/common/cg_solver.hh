@@ -38,6 +38,7 @@ namespace duneuro
             class RF = double, class JF = double>
   struct CGSolverTraits {
     static const int dimension = VC::dim;
+    static const bool isFitted = true;
     using VolumeConductor = VC;
     using GridView = typename VC::GridView;
     using CoordinateFieldType = typename VC::ctype;

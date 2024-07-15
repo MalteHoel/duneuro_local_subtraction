@@ -26,10 +26,12 @@ namespace duneuro
   struct CutFEMSolverTraits {
     using SubTriangulation = ST;
     using GridView = typename ST::BaseT::GridView;
+    using Domain = SimpleTPMCDomain<GridView, GridView>;
     using CoordinateFieldType = typename GridView::ctype;
     using ElementSearch = KDTreeElementSearch<GridView>;
     static const int dimension = GridView::dimension;
     static const int compartments = comps;
+    static const bool isFitted = false;
     using Problem = P;
     using FunctionSpace = CutFEMMultiPhaseSpace<GridView, RF, degree, compartments>;
     using DomainField = DF;
@@ -61,21 +63,24 @@ namespace duneuro
   public:
     using Traits = CutFEMSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
-    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(const typename Traits::Domain& domain,
+                 std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
                  std::shared_ptr<const typename Traits::ElementSearch> search,
                  const Dune::ParameterTree& config)
-        : CutFEMSolver(subTriangulation, search,
+        : CutFEMSolver(domain, subTriangulation, search,
                        std::make_shared<typename Traits::Problem>(
                            config.get<std::vector<double>>("conductivities")),
                        config)
     {
     }
 
-    CutFEMSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+    CutFEMSolver(const typename Traits::Domain& domain,
+                 std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
                  std::shared_ptr<const typename Traits::ElementSearch> search,
                  std::shared_ptr<typename Traits::Problem> problem,
                  const Dune::ParameterTree& config)
-        : subTriangulation_(subTriangulation)
+        : domain_(domain)
+        , subTriangulation_(subTriangulation)
         , search_(search)
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
@@ -128,7 +133,7 @@ namespace duneuro
       return subTriangulation_;
     }
 
-    typename Traits::Problem& problem()
+    const typename Traits::Problem& problem() const
     {
       return *problem_;
     }
@@ -142,8 +147,14 @@ namespace duneuro
     {
       return false;
     }
+    
+    const typename Traits::Domain& domain() const
+    {
+      return domain_;
+    }
 
   private:
+    const typename Traits::Domain& domain_;
     std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<const typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Problem> problem_;

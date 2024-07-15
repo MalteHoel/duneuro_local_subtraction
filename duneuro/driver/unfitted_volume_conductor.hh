@@ -34,8 +34,8 @@
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
-#include <duneuro/tes/tdcs_solver.hh>
 #include <duneuro/eeg/source_space_factory.hh>
+#include <duneuro/common/matrix_evaluator.hh>
 
 namespace duneuro {
 template <int dim> struct SubTriangulationTraits {
@@ -130,15 +130,14 @@ public:
         elementSearch_(std::make_shared<typename Traits::ElementSearch>(
             fundamentalGridView_)),
         solver_(std::make_shared<typename Traits::Solver>(
-            subTriangulation_, elementSearch_, config.sub("solver"))),
+            domain_, subTriangulation_, elementSearch_, config.sub("solver"))),
         solverBackend_(solver_, config.hasSub("solver")
                                     ? config.sub("solver")
                                     : Dune::ParameterTree()),
         eegTransferMatrixSolver_(solver_, config.sub("solver")),
         eegForwardSolver_(solver_),
         conductivities_(
-            config.get<std::vector<double>>("solver.conductivities")),
-        tdcsSolver_(solver_, subTriangulation_, config_)
+            config.get<std::vector<double>>("solver.conductivities"))
  {
   }
   virtual void solveEEGForward(
@@ -254,56 +253,26 @@ public:
       const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
       Dune::ParameterTree config) const override
   {
-    KDTreeElementSearch<typename Traits::GridView> search(
-        solver_->functionSpace().getGFS().gridView());
-    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
-        positions.size());
-    std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(positions.size());
-    std::size_t index = 0;
-    for (const auto& coord : positions) {
-      auto search_result = search.findEntity(coord);
-      if(!search_result.has_value()) {
-        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
-      }
-      const auto& element = search_result.value();
-      elements[index] = element;
-      auto local = element.geometry().local(coord);
-      localPositions[index] = local;
-      std::cout << local << std::endl;
-      std::cout << element.geometry().global(local) << std::endl;
-      index++;
-    }
-    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
-                                                 config);
+    MatrixEvaluator<typename Traits::Solver> matrixEvaluator(*solver_, EvaluationMatrix);
+    matrixEvaluator.bindPositions(positions);
+    return matrixEvaluator.evaluate(config);  
   }
     
   virtual std::unique_ptr<DenseMatrix<double>>
   applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
                                      Dune::ParameterTree config) const override
   {
-    unsigned int numberHostCells = 0;
-    for (const auto& element :
-         Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
-    {
-      if (subTriangulation_->isHostCell(element)) {
-        numberHostCells += 1;
-      }
-    }
-    std::size_t offset = 0;
-    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> localPositions(
-        numberHostCells);
-    std::vector<typename Traits::GridView::template Codim<0>::Entity> elements(numberHostCells);
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters; 
+    
     for (const auto& element : Dune::elements(fundamentalGridView_)) {
       if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
       {
         continue;
       }
-      elements[offset] = element;
-      localPositions[offset] = element.geometry().local(element.geometry().center());
-      offset += 1;
+      elementCenters.push_back(element.geometry().center());
     }
-    return tdcsSolver_.applyTDCSEvaluationMatrix(EvaluationMatrix, elements, localPositions,
-                                                 config);
+    
+    return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);  
   }
 
   virtual std::unique_ptr<DenseMatrix<double>> elementStatistics()
@@ -459,9 +428,6 @@ private:
   std::vector<double> conductivities_;
   std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
   std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
-  TDCSSolver<typename Traits::Solver,
-            typename Traits::SubTriangulation>
-      tdcsSolver_;
 };
 
 } // namespace duneuro
