@@ -332,28 +332,27 @@ public:
     
     return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);
   }
-    
-  virtual std::unique_ptr<duneuro::DenseMatrix<double>> elementStatistics()
+  
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const override
   {
+  std::size_t nrElements = solver_->volumeConductor()->gridView().size(0);
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters(nrElements);
+  std::vector<typename VolumeConductorInterface<dim>::FieldType> elementVolumes(nrElements);
+  std::vector<std::size_t> elementLabels(nrElements);
   
-  auto elementStatistics = std::make_unique<DenseMatrix<double>>(
-     solver_->volumeConductor()->gridView().size(0),Traits::VC::GridView::dimension + 2);
-  std::size_t offset = 0;
-  
+  std::size_t counter = 0;
   for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
-    Dune::FieldVector<double, Traits::VC::GridView::dimension> dummy;
-    std::vector<double> z(Traits::VC::GridView::dimension+2);
-    z[0] = volumeConductorStorage_.get()->label(element);
-    z[1] = element.geometry().volume();
-    dummy = element.geometry().center();
-    for(unsigned int i=0; i<Traits::VC::GridView::dimension; ++i) {
-    z[i+2] = dummy[i];
-    }
-    set_matrix_row(*elementStatistics,offset,z);
-    offset+=1;
+    elementCenters[counter] = element.geometry().center();
+    elementVolumes[counter] = element.geometry().volume();
+    elementLabels[counter] = volumeConductorStorage_.get()->label(element);
+    ++counter;
   }
   
-  return elementStatistics;
+  return {elementCenters, elementVolumes, elementLabels};
   }
   
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>

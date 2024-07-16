@@ -277,33 +277,37 @@ public:
     return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);  
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> elementStatistics()
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const override
   {
     unsigned int numberHostCells = 0;
-    for (const auto& element :
-         Dune::elements(fundamentalGridView_)) // Determine number of Host Cells
+    for (const auto& element : Dune::elements(fundamentalGridView_))
     {
       if (subTriangulation_->isHostCell(element)) {
         numberHostCells += 1;
       }
     }
-    auto elementStatistics =
-        std::make_unique<DenseMatrix<double>>(numberHostCells, Traits::GridView::dimension);
-    std::size_t index = 0;
+    
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters(numberHostCells);
+    std::vector<typename VolumeConductorInterface<dim>::FieldType> elementVolumes(numberHostCells);
+    std::optional<std::vector<std::size_t>> noLabels;
+    
+    std::size_t counter = 0;
     for (const auto& element : Dune::elements(fundamentalGridView_)) {
       if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
       {
         continue;
       }
-      std::vector<double> z(Traits::GridView::dimension);
-      auto dummy = element.geometry().center();
-      for (unsigned int i = 0; i < Traits::GridView::dimension; ++i) {
-        z[i] = dummy[i];
-      }
-      set_matrix_row(*elementStatistics, index, z);
-      index++;
+      
+      elementCenters[counter] = element.geometry().center();
+      elementVolumes[counter] = element.geometry().volume();
+      
+      ++counter;
     }
-    return elementStatistics;
+    
+    return {elementCenters, elementVolumes, noLabels};
   }
   
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>

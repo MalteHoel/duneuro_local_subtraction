@@ -215,9 +215,14 @@ public:
       Dune::ParameterTree config) const = 0;
 
    /**
-     * \brief return the label, volume and center of all mesh elements
+     * \brief return the center, volume and potentially label of all mesh elements.
+     * Note that the label is optional because for unfitted methods, one can not always assign
+     * a unique label to each element.
    */      
-  virtual std::unique_ptr<DenseMatrix<double>> elementStatistics() = 0;
+  virtual std::tuple<std::vector<CoordinateType>,
+                     std::vector<FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const = 0;
           
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
