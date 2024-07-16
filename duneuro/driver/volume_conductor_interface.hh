@@ -175,8 +175,8 @@ public:
 /**
  * \brief create a source space inside the gray matter compartment
  */
-  virtual std::vector<std::vector<FieldType>> 
-  createSourceSpace(const Dune::ParameterTree& config) = 0;
+  virtual std::vector<CoordinateType> 
+  createSourceSpace(const Dune::ParameterTree& config) const = 0;
 
   /**
    * \brief compute the primary B field for a given set of dipoles
@@ -235,46 +235,9 @@ public:
     featureManager_->print_citations();
   }
 
-  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
-    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
-                                   const std::vector<std::size_t> sourceCompartmentsVector,
-                                   const Dune::ParameterTree& config,
-                                   DataTree dataTree = DataTree()) const = 0;
-
-  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-                     std::vector<std::array<std::size_t, 2>>,
-                     typename VolumeConductorInterface<dim>::CoordinateType,
-                     typename VolumeConductorInterface<dim>::CoordinateType,
-                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
-                  const size_t compartmentLabel) const = 0;
-                  
-  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-                     std::vector<std::array<std::size_t, 2>>,
-                     typename VolumeConductorInterface<dim>::CoordinateType,
-                     typename VolumeConductorInterface<dim>::CoordinateType,
-                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
-
   virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
     evaluateFunctionAtPositionsInsideMesh(const Function& function,
                                          const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
-
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-    evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-                                 const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
-
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-    evaluateChiAtPositions(
-      const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-      const Dune::ParameterTree& configSourceModel,
-      const Dune::ParameterTree& configSolver) const = 0;
-      
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
-    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
 
   virtual ~VolumeConductorInterface() {}
 

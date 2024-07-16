@@ -197,7 +197,7 @@ public:
   /**
  * \brief create a source space inside the gray matter compartment
  */
-  virtual std::vector<std::vector<FieldType>> 
+  virtual std::vector<CoordinateType> 
   createSourceSpace(const Dune::ParameterTree& config) {
     return volumeConductor_->createSourceSpace(config);
   }
@@ -259,67 +259,12 @@ public:
   {
     volumeConductor_->print_citations();
   }
-  
-  // construct source space by placing a regular grid and rejecting all positions not contained inside the specified source compartments.
-  // returns a list of source positions and the insertion indices of their containing elements
-  std::pair<std::vector<CoordinateType>, std::vector<size_t>> constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
-                                                             const std::vector<std::size_t> sourceCompartmentsVector,
-                                                             const Dune::ParameterTree& config,
-                                                             DataTree dataTree = DataTree()) const
-  {
-    return volumeConductor_->constructRegularSourceSpace(gridSize, sourceCompartmentsVector, config, dataTree);
-  }
 
-  std::tuple<std::vector<CoordinateType>,
-             std::vector<std::array<std::size_t, 2>>,
-             CoordinateType,
-             CoordinateType,
-             std::array<FieldType, 2>>
-    placeSourcesZ(const FieldType resolution,
-                  const FieldType zHeight, 
-                  const size_t compartmentLabel) const
-  {
-    return volumeConductor_->placeSourcesZ(resolution, zHeight, compartmentLabel);
-  }
-  
-  std::tuple<std::vector<CoordinateType>,
-             std::vector<std::array<std::size_t, 2>>,
-             CoordinateType,
-             CoordinateType,
-             std::array<FieldType, 2>>
-    placePositionsZ(const FieldType resolution,
-                    const FieldType zHeight) const
-  {
-    return volumeConductor_->placePositionsZ(resolution, zHeight);
-  }
-  
   std::vector<FieldType> 
     evaluateFunctionAtPositionsInsideMesh(const Function& function,
                                          const std::vector<CoordinateType>& positions) const
   {
     return volumeConductor_->evaluateFunctionAtPositionsInsideMesh(function, positions);
-  }
-
-  std::vector<FieldType>
-    evaluateUInfinityAtPositions(const DipoleType& dipole,
-                                 const std::vector<CoordinateType>& positions) const
-  {
-    return volumeConductor_->evaluateUInfinityAtPositions(dipole, positions);
-  }
-
-  std::vector<FieldType>
-    evaluateChiAtPositions(const DipoleType& dipole,
-                           const std::vector<CoordinateType>& positions,
-                           const Dune::ParameterTree& configSourceModel,
-                           const Dune::ParameterTree& configSolver) const
-  {
-    return volumeConductor_->evaluateChiAtPositions(dipole, positions, configSourceModel, configSolver);
-  }
-  
-  std::vector<FieldType>
-    evaluateSigmaAtPositions(const std::vector<CoordinateType>& positions) const
-  {
-    return volumeConductor_->evaluateSigmaAtPositions(positions);
   }
 
   ~DriverInterface() {}
