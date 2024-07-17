@@ -101,22 +101,6 @@ namespace duneuro
           }
         );
       });
-      
-      tbb::parallel_for(tbb::blocked_range<std::size_t>(0, megSolver_->numberOfCoils(), grainSize),
-                        [&](const tbb::blocked_range<std::size_t>& range) {
-                          auto& mySolution = solution.local();
-                          for (std::size_t index = range.begin(); index != range.end(); ++index) {
-                            auto coilDT = dataTree.sub("solver.coil_" + std::to_string(index));
-                            for (unsigned int j = 0; j < megSolver_->numberOfProjections(index);
-                                 ++j) {
-                              solve(solverBackend.local().get(), index, j, mySolution,
-                                    rightHandSideVector_.local(), solver_config,
-                                    coilDT.sub("projection_" + std::to_string(j)));
-                              set_matrix_row(*transferMatrix, offsets[index] + j,
-                                             Dune::PDELab::Backend::native(mySolution));
-                            }
-                          }
-                        });
 
       return transferMatrix;
     }
