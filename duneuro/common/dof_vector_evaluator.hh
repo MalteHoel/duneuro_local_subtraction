@@ -1,5 +1,5 @@
-#ifndef DUNEURO_MATRIX_EVALUATOR_HH
-#define DUNEURO_MATRIX_EVALUATOR_HH
+#ifndef DUNEURO_DOF_VECTOR_EVALUATOR_HH
+#define DUNEURO_DOF_VECTOR_EVALUATOR_HH
 
 #include <vector>
 #include <memory>
@@ -7,6 +7,7 @@
 #include <string>
 #include <limits>
 
+#include <dune/common/shared_ptr.hh>
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/gridfunctionspace/gridfunctionspaceutilities.hh>
 
@@ -20,15 +21,16 @@
 
 namespace duneuro {
 
-  /* Some methods in the driver, such as computeTDCSEvaluation matrix, return a DenseMatrix object
-   * with the property that each row of the matrix consists of the coefficients of a DOF vector. This
-   * DOF vector defines a function, which can be evaluated. This class is supposed to perform this 
-   * evaluation. We aim to support the evaluation of the function defined by the DOF vector, its
-   * gradient, and - conductivity * its gradient, which typically corresponds to the electrical
-   * current.
+  /* 
+   * This class is supposed to aid in the evaluation of DOF vectors, given in various forms.
+   * A DOF vector defines a function on the underlying grid. Depending on the question at hand, 
+   * one might now want to evaluation this function, or its derivative, at some predefined positions.
+   * This class implements this evaluation. We aim to support the evaluation of the function itself,
+   * its gradient, and - sigma * gradient of the function (which typically corresponds to the electrical
+   * current).
    */
   template<class Solver>
-  class MatrixEvaluator {
+  class DOFVectorEvaluator {
     using ElementSearch = typename Solver::Traits::ElementSearch;
     using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using GFS = typename FunctionSpace::GFS;
@@ -45,23 +47,67 @@ namespace duneuro {
     using LocalCoordinate = typename ElementGeometry::LocalCoordinate;
   public:
     
-    // Each row in the matrix corresponds to a finite element trial function u.
+    // Each DOF vector corresponds to a finite element trial function u.
     // "direct" means we evaluate u
     // "gradient" means we evaluate grad u
     // "current" means we evaluate - sigma * grad u, where sigma is the conductivity  
     // Note that we interprete the key "potential" to as meaning "direct".
     enum class EvaluationType {direct, gradient, current};
     
-    explicit MatrixEvaluator(const Solver& solver, const Matrix& evaluationMatrix)
+    // Some methods, such as the transfer matrix computation functions and the tDCS
+    // matrix computation function, return the DOF vectors in a native form as actual vectors.
+    // More concretely, they return matrices, where each row contains the coefficients defining a DOF vector.
+    // This constructor is supposed to work with such a matrix.
+    // Note that this class does not take ownership of the evaluationMatrix, and the user is responsible for 
+    // ensuring that the object still exists when calling evaluate()
+    explicit DOFVectorEvaluator(const Solver& solver, const Matrix& evaluationMatrix)
       : solver_(solver)
       , gfs_(solver_.functionSpace().getGFS())
       , elementSearch_(*(solver_.elementSearch()))
       , elementSeeds_(0)
       , localPositions_(0)
       , domainLabels_(0)
-      , evaluationMatrix_(evaluationMatrix)
+      , evaluationMatrixPtr_(&evaluationMatrix)
+      , dofVectorPtrs_(0)
       , positionsBound_(false)
     {
+      if(gfs_.ordering().size() != evaluationMatrix.cols()) {
+        DUNE_THROW(Dune::Exception, "GridFunctionSpace has " << gfs_.ordering().size() << " degrees of freedom, but matrix has " << evaluationMatrix.cols() << " columns");
+      }
+    }
+    
+    // Note that this class does not take ownership of the DOFVector, and the user is responsible for 
+    // ensuring that the object still exists when calling evaluate()
+    explicit DOFVectorEvaluator(const Solver& solver, const DomainDOFVector& dofVector)
+      : solver_(solver)
+      , gfs_(solver.functionSpace().getGFS())
+      , elementSearch_(*(solver_.elementSearch()))
+      , elementSeeds_(0)
+      , localPositions_(0)
+      , domainLabels_(0)
+      , evaluationMatrixPtr_(nullptr)
+      , dofVectorPtrs_(1)
+      , positionsBound_(false)
+    {
+      dofVectorPtrs_[0] = &dofVector;
+    }
+    
+    // Note that this class does not take ownership of the DOFVectors, and the user is responsible for 
+    // ensuring that the objects still exist when calling evaluate()
+    explicit DOFVectorEvaluator(const Solver& solver, const std::vector<DomainDOFVector>& dofVectors)
+      : solver_(solver)
+      , gfs_(solver.functionSpace().getGFS())
+      , elementSearch_(*(solver_.elementSearch()))
+      , elementSeeds_(0)
+      , localPositions_(0)
+      , domainLabels_(0)
+      , evaluationMatrixPtr_(nullptr)
+      , dofVectorPtrs_(dofVectors.size())
+      , positionsBound_(false)
+    {
+      for(std::size_t i = 0; i < dofVectors.size(); ++i) {
+        dofVectorPtrs_[i] = &dofVectors[i];
+      }
     }
     
     void bindPositions(const std::vector<GlobalCoordinate>& globalPositions)
@@ -97,7 +143,7 @@ namespace duneuro {
       return;
     }
 
-    std::unique_ptr<Matrix> evaluate(Dune::ParameterTree& config)
+    std::unique_ptr<Matrix> evaluate(const Dune::ParameterTree& config)
     {
       if(!positionsBound_) {
         DUNE_THROW(Dune::Exception, "you need to bind positions before calling evaluate");
@@ -106,7 +152,7 @@ namespace duneuro {
       EvaluationType evaluationType = evaluationTypeFromString(config.get<std::string>("evaluation_return_type"));
       std::size_t nrValues = valuesPerPosition(evaluationType);
       
-      std::size_t nrRows = evaluationMatrix_.rows();
+      std::size_t nrRows = evaluationMatrixPtr_ ? evaluationMatrixPtr_->rows() : dofVectorPtrs_.size();
       std::size_t nrPositions = elementSeeds_.size();
       
       std::unique_ptr<Matrix> output = std::make_unique<Matrix>(nrRows, nrValues * nrPositions);
@@ -120,14 +166,28 @@ namespace duneuro {
           tbb::blocked_range<std::size_t>(0, nrRows, grainSize),
           [&](const tbb::blocked_range<std::size_t>& range) {
             for(std::size_t i = range.begin(); i != range.end(); ++i) {
-              assembleOutputRow(i, *output, evaluationType);
+              if(evaluationMatrixPtr_) {
+                DomainDOFVector wrappedVector(gfs_);
+                extract_matrix_row(*evaluationMatrixPtr_, i, Dune::PDELab::Backend::native(wrappedVector));
+                assembleOutputRow(wrappedVector, *output, i, evaluationType);
+              }
+              else {
+                assembleOutputRow(*dofVectorPtrs_[i], *output, i, evaluationType);
+              }
             }
           }
         );
       });
 #else
       for(std::size_t i = 0; i < nrRows; ++i) {
-        assembleOutputRow(i, *output, evaluationType);
+        if(evaluationMatrixPtr_) {
+          DomainDOFVector wrappedVector(gfs_);
+          extract_matrix_row(*evaluationMatrixPtr_, i, Dune::PDELab::Backend::native(wrappedVector));
+          assembleOutputRow(wrappedVector, *output, i, evaluationType);
+        }
+        else {
+          assembleOutputRow(*dofVectorPtrs[i], *output, i, evaluationType);
+        }
       }
 #endif
       return output;
@@ -138,11 +198,8 @@ namespace duneuro {
     // fitted case
     template<class SFINAEDummy = Solver>
     std::enable_if_t<Solver::Traits::isFitted && std::is_same_v<SFINAEDummy, Solver>> 
-    assembleOutputRow(std::size_t rowIndex, Matrix& output, EvaluationType evaluationType) const
-    {
-      DomainDOFVector functionCoefficientVector(gfs_);
-      extract_matrix_row(evaluationMatrix_, rowIndex, Dune::PDELab::Backend::native(functionCoefficientVector));
-      
+    assembleOutputRow(const DomainDOFVector& functionCoefficientVector, Matrix& output, std::size_t rowIndex, EvaluationType evaluationType) const
+    {    
       if(evaluationType == EvaluationType::direct) {
         using DGF = Dune::PDELab::DiscreteGridFunction<GFS, DomainDOFVector>;
         using RangeType = typename DGF::Traits::RangeType;
@@ -181,11 +238,8 @@ namespace duneuro {
     // unfitted case
     template<class SFINAEDummy = Solver>
     std::enable_if_t<!Solver::Traits::isFitted && std::is_same_v<SFINAEDummy, Solver>>
-    assembleOutputRow(std::size_t rowIndex, Matrix& output, EvaluationType evaluationType) const
-    {
-      DomainDOFVector functionCoefficientVector(gfs_);
-      extract_matrix_row(evaluationMatrix_, rowIndex, Dune::PDELab::Backend::native(functionCoefficientVector));
-      
+    assembleOutputRow(const DomainDOFVector& functionCoefficientVector, Matrix& output, std::size_t rowIndex, EvaluationType evaluationType) const
+    {      
       // In contrast to the fitted case, there does not seem to be an easy mechanism to wrap DOF vectors in GridFunctions, at least at the point of writing this function.
       // We thus directly assembly the output values from the finite element basis functions.
       using LocalFunctionSpace = typename Dune::PDELab::LocalFunctionSpace<GFS>;
@@ -295,10 +349,11 @@ namespace duneuro {
     std::vector<ElementSeed> elementSeeds_;
     std::vector<LocalCoordinate> localPositions_;
     std::vector<std::size_t> domainLabels_;
-    const Matrix& evaluationMatrix_;
+    const Matrix* evaluationMatrixPtr_;
+    std::vector<const DomainDOFVector*> dofVectorPtrs_;
     bool positionsBound_;
   };
 
 
 } // namespace duneuro
-#endif // DUNEURO_MATRIX_EVALUATOR_HH
+#endif // DUNEURO_DOF_VECTOR_EVALUATOR_HH

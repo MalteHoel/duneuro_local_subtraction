@@ -42,7 +42,7 @@
 #include <duneuro/meg/meg_solver_interface.hh>
 #include <duneuro/common/kdtree.hh>
 #include <duneuro/common/source_space_factory.hh>
-#include <duneuro/common/matrix_evaluator.hh>
+#include <duneuro/common/dof_vector_evaluator.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -311,26 +311,39 @@ public:
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
-    const DenseMatrix<double>& EvaluationMatrix,
+  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+    const Function& function,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-    Dune::ParameterTree config) const override 
+    const Dune::ParameterTree& config) const override
   {
-    MatrixEvaluator<typename Traits::Solver> matrixEvaluator(*solver_, EvaluationMatrix);
-    matrixEvaluator.bindPositions(positions);
-    return matrixEvaluator.evaluate(config);  
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
-    const DenseMatrix<double>& EvaluationMatrix, Dune::ParameterTree config) const override 
-  {   
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override 
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, EvaluationMatrix);
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);  
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(
+    const DenseMatrix<double>& EvaluationMatrix, 
+    const Dune::ParameterTree& config) const override 
+  {
     std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters;
     
     for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
       elementCenters.push_back(element.geometry().center());
     }
     
-    return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);
+    return evaluateMultipleFunctionsAtPositions(EvaluationMatrix, elementCenters, config);
   }
   
   
@@ -388,39 +401,6 @@ public:
       *(volumeConductorStorage_.get()),
       *elementSearch_,
       config));
-  }
-  
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
-    const Function& function,
-    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-  {
-    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-    using DOFVector = typename Traits::DomainDOFVector;
-    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
-    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
-    
-    size_t nr_positions = positions.size();
-    std::vector<Scalar> functionValues(nr_positions);
-    
-    DiscreteGridFunction discreteFunction(solver_->functionSpace().getGFS(), function.cast<DOFVector>());
-    LocalFunction localDiscreteFunction(localFunction(discreteFunction));
-    
-    for(size_t i = 0; i < nr_positions; ++i) {
-      // localize current positions
-      const Coordinate& currentPosition = positions[i];
-      auto searchResult = elementSearch_->findEntity(currentPosition);
-      
-      if(!searchResult.has_value()) {
-        DUNE_THROW(Dune::Exception, "position " << currentPosition << " not contained in volume conductor");
-      }
-      
-      // bind local function to current element
-      localDiscreteFunction.bind(searchResult.value());
-      functionValues[i] = localDiscreteFunction(searchResult.value().geometry().local(currentPosition));
-    }
-    
-    return functionValues;
   }
 
 private:

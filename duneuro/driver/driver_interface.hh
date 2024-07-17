@@ -203,36 +203,58 @@ public:
   }
 
   /**
-   * \brief compute the tDCS evaluation matrix
+   * \brief Solve the tDCS forward problem.
+   * The tDCS forward problem is solved for each electrode specified via setElectrodes().
+   * Concretely, if the electrodes are are numbered e_0, ..., e_{N - 1}, then the output will be a N x nrDofs matrix,
+   * where the i-th row corresponds to the solution of the tDCS forward problem with a current injection pattern given by
+   * j = \delta_{e_i} - \delta_{e_0}
+   * Concrete values of the tDCS solutions (resp. their gradients and currents) at positions of interest 
+   * can be obtained via evaluateMultipleFunctionsAtPositions() or evaluateMultipleFunctionsAtElementCenters().
+   * Note that for the 0-th row, we have j = 0, and hence the corresponding row in the output will be 0.0 in every entry.
    */
 
   std::unique_ptr<DenseMatrix<double>>
-  computeTDCSEvaluationMatrix(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+  solveTDCSForward(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
   {
-    return volumeConductor_->computeTDCSEvaluationMatrix(config, dataTree);
-  }
-    
-  /**
-   * \brief evaluate electric potential, field or current density for tDCS
-   *  by applying the evaluation matrix
-   */
-  std::unique_ptr<DenseMatrix<double>>
-  applyTDCSEvaluationMatrix(const DenseMatrix<double>& EvaluationMatrix,
-                            const std::vector<CoordinateType>& positions,
-                            Dune::ParameterTree config) const
-  {
-    return volumeConductor_->applyTDCSEvaluationMatrix(EvaluationMatrix, positions, config);
+    return volumeConductor_->solveTDCSForward(config, dataTree);
   }
 
   /**
-   * \brief evaluate electric potential, field or current density for tDCS
-   *  by applying the evaluation matrix at the element centers
+   * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
    */
-  std::unique_ptr<DenseMatrix<double>>
-  applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
-                                     Dune::ParameterTree config) const
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateFunctionAtPositions(const Function& function,
+                              const std::vector<CoordinateType>& positions,
+                              const Dune::ParameterTree& config) const
   {
-    return volumeConductor_->applyTDCSEvaluationMatrixAtCenters(EvaluationMatrix, config);
+    return volumeConductor_->evaluateFunctionAtPositions(function, positions, config);
+  }
+  
+  /**
+   * \brief evaluate multiple functions at predefined global positions.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(const DenseMatrix<double>& EvaluationMatrix,
+                                       const std::vector<CoordinateType>& positions,
+                                       const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->evaluateMultipleFunctionsAtPositions(EvaluationMatrix, positions, config);
+  }
+  
+  /**
+   * \brief evaluate multiple functions the centers of the mesh elements.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                            const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->evaluateMultipleFunctionsAtElementCenters(EvaluationMatrix, config);
   }
 
   /**
@@ -266,13 +288,6 @@ public:
   void print_citations()
   {
     volumeConductor_->print_citations();
-  }
-
-  std::vector<FieldType> 
-    evaluateFunctionAtPositionsInsideMesh(const Function& function,
-                                         const std::vector<CoordinateType>& positions) const
-  {
-    return volumeConductor_->evaluateFunctionAtPositionsInsideMesh(function, positions);
   }
 
   ~DriverInterface() {}

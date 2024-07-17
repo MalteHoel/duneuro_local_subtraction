@@ -185,13 +185,13 @@ public:
   computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
  
   /**
-   * \brief compute the tDCS evaluation matrix. Each row of the tDCS evaluation matrix is given by the coefficient vector 
+   * \brief compute the tDCS forward solution matrix. Each row of the tDCS evaluation matrix is given by the coefficient vector 
    *        of the solution to the tDCS problem for a electrode-reference_electrode pair.
    *        Since (for point electrodes) the tDCS right hand side for an electrode-reference_electrode pair is given
    *        by b = (b_i), where b_i = psi_i(electrode_pos) - \psi_i(reference_electrode_pos), which is exactly the same right hand side as for the
    *        EEG transfer matrix, we can simply return the EEG transfer matrix.
    */
-  std::unique_ptr<DenseMatrix<double>> computeTDCSEvaluationMatrix(
+  std::unique_ptr<DenseMatrix<double>> solveTDCSForward(
                             const Dune::ParameterTree& config,
                             DataTree dataTree = DataTree())
   {
@@ -199,20 +199,33 @@ public:
   }
 
   /**
-   * \brief evaluate electric potential, field or current density for tDCS
-   *  by applying the evaluation matrix
+   * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
    */
-  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
-      const DenseMatrix<double>& EvaluationMatrix,
-      const std::vector<CoordinateType>& positions,
-      Dune::ParameterTree config) const = 0;
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateFunctionAtPositions(const Function& function,
+                              const std::vector<CoordinateType>& positions,
+                              const Dune::ParameterTree& config) const = 0;
+  
   /**
-   * \brief evaluate electric potential, field or current density for tDCS
-   *  by applying the evaluation matrix at the element centers
-   */  
-  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrixAtCenters(
-      const DenseMatrix<double>& EvaluationMatrix,
-      Dune::ParameterTree config) const = 0;
+   * \brief evaluate multiple functions at predefined global positions.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(const DenseMatrix<double>& EvaluationMatrix,
+                                       const std::vector<CoordinateType>& positions,
+                                       const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief evaluate multiple functions the centers of the mesh elements.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                            const Dune::ParameterTree& config) const = 0;
 
    /**
      * \brief return the center, volume and potentially label of all mesh elements.
@@ -239,10 +252,6 @@ public:
   {
     featureManager_->print_citations();
   }
-
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-    evaluateFunctionAtPositionsInsideMesh(const Function& function,
-                                         const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
 
   virtual ~VolumeConductorInterface() {}
 

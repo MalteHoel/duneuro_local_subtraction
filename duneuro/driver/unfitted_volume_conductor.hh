@@ -35,7 +35,7 @@
 #include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
 #include <duneuro/common/source_space_factory.hh>
-#include <duneuro/common/matrix_evaluator.hh>
+#include <duneuro/common/dof_vector_evaluator.hh>
 
 namespace duneuro {
 template <int dim> struct SubTriangulationTraits {
@@ -250,19 +250,31 @@ public:
     return SourceSpaceFactory::placePositionsInUnfittedMesh(solver_->functionSpace().getGFS(), *subTriangulation_, config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> applyTDCSEvaluationMatrix(
-      const DenseMatrix<double>& EvaluationMatrix,
-      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-      Dune::ParameterTree config) const override
+  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override
   {
-    MatrixEvaluator<typename Traits::Solver> matrixEvaluator(*solver_, EvaluationMatrix);
-    matrixEvaluator.bindPositions(positions);
-    return matrixEvaluator.evaluate(config);  
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override 
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, EvaluationMatrix);
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);  
   }
     
   virtual std::unique_ptr<DenseMatrix<double>>
-  applyTDCSEvaluationMatrixAtCenters(const DenseMatrix<double>& EvaluationMatrix,
-                                     Dune::ParameterTree config) const override
+  evaluateMultipleFunctionsAtElementCenters(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const Dune::ParameterTree& config) const override
   {
     std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters; 
     
@@ -274,7 +286,7 @@ public:
       elementCenters.push_back(element.geometry().center());
     }
     
-    return applyTDCSEvaluationMatrix(EvaluationMatrix, elementCenters, config);  
+    return evaluateMultipleFunctionsAtPositions(EvaluationMatrix, elementCenters, config);  
   }
 
   virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
@@ -338,13 +350,6 @@ public:
     const Dune::ParameterTree& config) const override
   {
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
-  }
-
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
-    const Function& function,
-    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-  {
-    DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
   }
 
 private:
