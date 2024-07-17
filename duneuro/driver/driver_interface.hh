@@ -195,7 +195,7 @@ public:
   }
 
   /**
- * \brief create a source space inside the gray matter compartment
+ * \brief create a source space inside specified compartments
  */
   std::vector<CoordinateType> 
   createSourceSpace(const Dune::ParameterTree& config) {
