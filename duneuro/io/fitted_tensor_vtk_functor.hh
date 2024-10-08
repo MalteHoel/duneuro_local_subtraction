@@ -1,6 +1,8 @@
 #ifndef DUNEURO_FITTED_TENSOR_VTK_FUNCTOR_HH
 #define DUNEURO_FITTED_TENSOR_VTK_FUNCTOR_HH
 
+#include <cmath>
+
 #include <dune/grid/io/file/vtk/function.hh>
 
 #if HAVE_EIGEN
@@ -47,6 +49,105 @@ namespace duneuro
     std::shared_ptr<const VC> volumeConductor_;
   };
 
+  /**
+   * \brief vtk function representing a complete conductivity tensor
+   *
+   * Given a fitted volume conductor, this function evaluates the (piecewise constant) conductivity 
+   * tensor on each element and then forwards it to the VTK writer.
+   */
+   template <class VC>
+   class FittedTensorFunctor : public Dune::VTKFunction<typename VC::GridView>
+   {
+   public:
+    using GV = typename VC::GridView;
+    using ctype = typename GV::ctype;
+    enum {dim = GV::dimension};
+    using Entity = typename GV::template Codim<0>::Entity;
+    
+    FittedTensorFunctor(std::shared_ptr<const VC> volumeConductor)
+      : volumeConductor_(volumeConductor)
+    {
+    }
+    
+    double evaluate(int component, const Entity& e, const Dune::FieldVector<ctype, dim>&) const
+    {
+      int row = component / dim;
+      int col = component % dim;
+      auto tensor = volumeConductor_->tensor(e);
+      return tensor[row][col];
+    }
+    
+    int ncomps() const
+    {
+      return dim * dim;
+    }
+    
+    std::string name() const
+    {
+      return "conductivity_tensor";
+    }
+   
+   private:
+    std::shared_ptr<const VC> volumeConductor_;
+   };
+   
+ /**
+   * \brief vtk function representing the fractional anisotropy
+   *
+   * Given a fitted volume conductor, this function evaluates the (piecewise constant) conductivity 
+   * tensor on each element and then computes its fractional anisotropy.
+   */ 
+   template <class VC>
+   class FittedTensorFractionalAnisotropyFunctor : public Dune::VTKFunction<typename VC::GridView>
+   {
+   public:
+    using GV = typename VC::GridView;
+    using ctype = typename GV::ctype;
+    enum {dim = GV::dimension};
+    using Entity = typename GV::template Codim<0>::Entity;
+    
+    FittedTensorFractionalAnisotropyFunctor(std::shared_ptr<const VC> volumeConductor)
+      : volumeConductor_(volumeConductor)
+    {
+    }
+    
+    /* Let D be a nonzero symmetric positive semidefinite tensor, with eigenvalues lambda_1, lambda_2, and lambda_3. Then The fractional anisotropy can be computed via
+     *  FA(D) = sqrt((1/2) * (3 - Trace(D)^2/Trace(D^2)))
+     * see e.g. https://en.wikipedia.org/wiki/Fractional_anisotropy.
+     * Then, 0 <= FA(D) <= 1, with 0 = FA(D) if, and only if, D is a multiple of the identity matrix (i.e. isotropic), and FA(D) = 1 if, and only if, exactly one of the eigenvalues
+     * is non-zero.
+     */
+    double evaluate(int, const Entity& e, const Dune::FieldVector<ctype, dim>&) const
+    {
+      auto tensor = volumeConductor_->tensor(e);
+      auto squared_tensor = tensor * tensor;
+      
+      double tensor_trace = 0.0;
+      double squared_tensor_trace = 0.0;
+      
+      for(size_t i = 0; i < dim; ++i) {
+        tensor_trace += tensor[i][i];
+        squared_tensor_trace += squared_tensor[i][i]; 
+      }
+      
+      
+      return std::sqrt(0.5 * (3.0 - (tensor_trace * tensor_trace)/squared_tensor_trace));
+    }
+    
+    int ncomps() const
+    {
+      return 1;
+    }
+    
+    std::string name() const
+    {
+      return "fractional_anisotropy";
+    }
+   
+   private:
+    std::shared_ptr<const VC> volumeConductor_;
+   };
+
 #if HAVE_EIGEN
   /**
    * \brief vtk function representing a conductivity tensor
@@ -57,7 +158,7 @@ namespace duneuro
    * the result of this functor.
    */
   template <class VC>
-  class FittedTensorFunctor : public Dune::VTKFunction<typename VC::GridView>
+  class FittedTensorEigenvectorFunctor : public Dune::VTKFunction<typename VC::GridView>
   {
   public:
     using GV = typename VC::GridView;
@@ -65,7 +166,7 @@ namespace duneuro
     enum { dim = GV::dimension };
     using Entity = typename GV::template Codim<0>::Entity;
 
-    FittedTensorFunctor(std::shared_ptr<const VC> volumeConductor, unsigned int vectorIndex)
+    FittedTensorEigenvectorFunctor(std::shared_ptr<const VC> volumeConductor, unsigned int vectorIndex)
         : volumeConductor_(volumeConductor), cachedValues_(VC::dim), vectorIndex_(vectorIndex)
     {
     }

@@ -52,14 +52,17 @@ namespace duneuro {
       , gfs_(solver_.functionSpace().getGFS())
       , writer_(solver.volumeConductor()->gridView())
     {
+      writer_.addCellData(std::make_shared<FittedLabelFunctor<VolumeConductor>>(solver_.volumeConductor()));
       writer_.addCellData(std::make_shared<FittedTensorNormFunctor<VolumeConductor>>(solver_.volumeConductor()));
-#if HAVE_EIGEN
       if(visualizeAnisotropy) {
+        writer_.addCellData(std::make_shared<FittedTensorFunctor<VolumeConductor>>(solver_.volumeConductor()));
+        writer_.addCellData(std::make_shared<FittedTensorFractionalAnisotropyFunctor<VolumeConductor>>(solver_.volumeConductor()));
+#if HAVE_EIGEN
         for (unsigned int i = 0; i < dim; ++i) {
-          writer_.addCellData(std::make_shared<FittedTensorFunctor<VolumeConductor>>(solver_.volumeConductor(), i));
+          writer_.addCellData(std::make_shared<FittedTensorEigenvectorFunctor<VolumeConductor>>(solver_.volumeConductor(), i));
         }
-      }
 #endif
+      }
     }
     
     virtual void addVertexData(const Function& function, const std::string& name) override
