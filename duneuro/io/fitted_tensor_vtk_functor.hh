@@ -2,6 +2,7 @@
 #define DUNEURO_FITTED_TENSOR_VTK_FUNCTOR_HH
 
 #include <cmath>
+#include <algorithm>
 
 #include <dune/grid/io/file/vtk/function.hh>
 
@@ -130,8 +131,13 @@ namespace duneuro
         squared_tensor_trace += squared_tensor[i][i]; 
       }
       
+      double fa_squared = 0.5 * (3.0 - (tensor_trace * tensor_trace)/squared_tensor_trace);
       
-      return std::sqrt(0.5 * (3.0 - (tensor_trace * tensor_trace)/squared_tensor_trace));
+      // in exact arithmetic, one has 0 <= FA <= 1. Due to rounding errors, we might go slightly
+      // outside of this range. To prevent this, we clip the squared FA to the interval [0, 1].
+      double clipped_fa_squared = std::max(std::min(fa_squared, 1.0), 0.0);
+      
+      return std::sqrt(clipped_fa_squared);
     }
     
     int ncomps() const
