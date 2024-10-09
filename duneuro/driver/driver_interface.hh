@@ -181,7 +181,7 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) {
-    return volumeConductor_->applyMEGTransfer(transferMatrix, dipole, config,
+    return volumeConductor_->applyMEGTransfer(transferMatrix, dipole, config, 
                                               dataTree);
   }
   
@@ -272,6 +272,31 @@ public:
   
   std::vector<CoordinateType> getProjectedElectrodes() const {
     return volumeConductor_->getProjectedElectrodes();
+  }
+  
+  /**
+   * During conductivity calibration, one needs to compute the leadfield at some fixed position for different
+   * values of some tissue conductivity (e.g. for different skull conductivities). This function computes the corresponding leadfields
+   *  params:
+   *    position            :   position inside the head where to compute the leadfield
+   *    conductivity_range  :   different values for which a forward simulation is to be performed. 
+   *                            Note that we assume that the conductivity to be calibtrated is isotropic.
+   *    tissue_label        :   the label of the tissue whose conductivity is to be calibrated
+   *    covarying_labels    :   when the conductivity of the tissue given by tissue_label is changed, the conductivities of
+   *                            the tissues specified by the labels in this vector are also changed, in such a way that the ratio
+   *                            between the changed conductivities stays constant. This can e.g. be used if you want to calibrate the skull
+   *                            conductivity and want to keep the conductivity ratio between skull compacta and skull spongiosa fixed.
+   *
+   *  returns:
+   *    a vector whose i-th entry is the N x 3 EEG-leadfield at the predefind position, computed using conductivity_range[i]  
+   */
+  std::vector<DenseMatrix<FieldType>>
+  calibrationScan(const CoordinateType& position, 
+                  const std::vector<FieldType>& conductivity_range, 
+                  std::size_t tissue_label, 
+                  const std::vector<std::size_t>& covarying_labels) const
+  {
+    volumeConductor_->calibrationScan(position, conductivity_range, tissue_label, covarying_labels);
   }
 
   /**

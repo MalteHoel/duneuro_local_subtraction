@@ -239,6 +239,12 @@ public:
           
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
+  virtual std::vector<DenseMatrix<double>>
+  calibrationScan(const CoordinateType& position,
+                  const std::vector<FieldType>& conductivity_range,
+                  std::size_t tissue_label,
+                  const std::vector<std::size_t>& covarying_labels) const = 0;
+
   /**
    * \brief obtain different statistics of the driver
    *
