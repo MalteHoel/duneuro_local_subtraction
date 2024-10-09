@@ -160,7 +160,7 @@ public:
     if(compartmentLabels.size() == 0) {
       DUNE_THROW(Dune::Exception, "please specify at least one source compartment");
     }
-    std::cout << "Enforcing Venant condition during source space creation" << std::endl;
+    
     std::array<Scalar, dim> stepSizes;
     for(std::size_t i = 0; i < dim; ++i) {
       stepSizes[i] = gridSize;
@@ -207,6 +207,7 @@ public:
       placedPositions = placePositionsOnRegularGridWithFilter(lowerLeft, upperRight, stepSizes, compartmentFilter);
     }
     else {
+      std::cout << "Enforcing Venant condition during source space creation" << std::endl;
       KDTree<typename VC::GridView, typename VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
       std::set<size_t> compartmentLabelSet(compartmentLabels.begin(), compartmentLabels.end());
       auto venantVertexIndices = volumeConductor.venantVertices(compartmentLabelSet);
