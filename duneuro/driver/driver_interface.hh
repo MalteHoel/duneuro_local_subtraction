@@ -296,7 +296,7 @@ public:
                   std::size_t tissue_label, 
                   const std::vector<std::size_t>& covarying_labels) const
   {
-    volumeConductor_->calibrationScan(position, conductivity_range, tissue_label, covarying_labels);
+    return volumeConductor_->calibrationScan(position, conductivity_range, tissue_label, covarying_labels);
   }
 
   /**

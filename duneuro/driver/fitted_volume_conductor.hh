@@ -409,7 +409,15 @@ public:
                   std::size_t tissue_label,
                   const std::vector<std::size_t>& covarying_labels) const override
   {
-    DUNE_THROW(Dune::Exception, "calibration scan not implemented for fitted volume conductors");
+    {
+      std::cout << "Before creation" << std::endl;
+      VolumeConductorProxy<typename Traits::VC> vcProxy(volumeConductorStorage_.get());
+      std::cout << "After creation" << std::endl;
+    }
+    
+    std::cout << "After destruction" << std::endl;
+    
+    return {};
   }
 
 private:

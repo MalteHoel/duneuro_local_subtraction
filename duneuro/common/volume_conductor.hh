@@ -15,6 +15,9 @@
 
 namespace duneuro
 {
+  // forward declaration of template class
+  template<class VC> class VolumeConductorProxy;
+
   template <class G>
   class VolumeConductor
   {
@@ -198,7 +201,99 @@ namespace duneuro
     bool hasInsertionIndices_;
     std::vector<std::size_t> elementInsertionIndices_;
     std::vector<std::size_t> vertexInsertionIndices_;
+    
+    friend class VolumeConductorProxy<VolumeConductor<G>>;
   };
+  
+  /* the purpose of the proxy class below is to modify some behaviour of the volume conductor,
+   * e.g. the assignment of conductivity to elements, without changing the underlying volume
+   * conductor object
+   */
+  template <class VolumeConductor>
+  class VolumeConductorProxy
+  {
+  public:
+    using VC = VolumeConductor;
+    using GridType = typename VC::GridType;
+    using ctype = typename VC::ctype;
+    using EntityType = typename VC::EntityType;
+    using VertexType = typename VC::VertexType;
+    using TensorType = typename VC::TensorType;
+    using GridView = typename VC::GridView;
+    using VertexIndex = typename VC::VertexIndex;
+  
+    VolumeConductorProxy(std::shared_ptr<VC> trueVolumeConductor)
+      : trueVolumeConductorPtr_(trueVolumeConductor)
+      , shadowingTensors_((*trueVolumeConductor).tensors_)
+    {
+      for(size_t i = 0; i < shadowingTensors_.size(); ++i) {
+        std::cout << "Tensor " << i << ": \n" << shadowingTensors_[i] << std::endl;
+      }
+    }
+    
+    // adapted methods
+    const TensorType& tensor(const EntityType& entity) const
+    {
+      return trueVolumeConductorPtr_->tensor(entity);
+    }
+    
+    // methods simply forwarding to the underlying true volume conductor
+    
+    const GridType& grid() const
+    {
+      return trueVolumeConductorPtr_->grid();
+    }
+    
+    GridType& grid()
+    {
+      return trueVolumeConductorPtr_->grid();
+    }
+    
+    const GridView& gridView() const
+    {
+      return trueVolumeConductorPtr_->gridView();
+    }
+    
+    std::size_t label(const EntityType& entity) const
+    {
+      return trueVolumeConductorPtr_->label(entity);
+    }
+    
+    std::size_t insertionIndex(const EntityType& entity) const
+    {
+      return trueVolumeConductorPtr_->insertionIndex(entity);
+    }
+    
+    std::size_t vertexInsertionIndex(const VertexType& vertex) const
+    {
+      return trueVolumeConductorPtr_->vertexInsertionIndex(vertex);
+    }
+    
+    GridType* releaseGrid()
+    {
+      return trueVolumeConductorPtr_->releaseGrid();
+    }
+    
+    void computeElementNeighborhoodMap()
+    {
+      trueVolumeConductorPtr_->trueVolumeConductorPtr_->computeElementNeighborhoodMap();
+    }
+    
+    std::shared_ptr<ElementNeighborhoodMap<GridView>> elementNeighborhoodMap() const
+    {
+      return trueVolumeConductorPtr_->elementNeighborhoodMap();
+    }
+    
+    std::set<VertexIndex> venantVertices(const std::set<std::size_t>& sourceCompartments) const
+    {
+      return trueVolumeConductorPtr_->venantVertices(sourceCompartments);
+    }
+    
+  private:
+    const std::shared_ptr<VolumeConductor> trueVolumeConductorPtr_;
+    std::vector<TensorType> shadowingTensors_;
+  };
+
 }
 
 #endif // DUNEURO_VOLUMECONDUCTOR_HH
