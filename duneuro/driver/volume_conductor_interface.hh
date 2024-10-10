@@ -243,7 +243,7 @@ public:
   calibrationScan(const CoordinateType& position,
                   const std::vector<FieldType>& conductivity_range,
                   std::size_t tissue_label,
-                  const std::vector<std::size_t>& covarying_labels) const = 0;
+                  const std::vector<std::size_t>& covarying_labels) = 0;
 
   /**
    * \brief obtain different statistics of the driver

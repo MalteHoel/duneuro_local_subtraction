@@ -5,6 +5,9 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <algorithm>
+#include <limits>
+#include <cmath>
 
 #include <dune/common/fmatrix.hh>
 #include <dune/common/fvector.hh>
@@ -215,6 +218,7 @@ namespace duneuro
   public:
     using VC = VolumeConductor;
     using GridType = typename VC::GridType;
+    enum {dim = VC::dim};
     using ctype = typename VC::ctype;
     using EntityType = typename VC::EntityType;
     using VertexType = typename VC::VertexType;
@@ -224,17 +228,91 @@ namespace duneuro
   
     VolumeConductorProxy(std::shared_ptr<VC> trueVolumeConductor)
       : trueVolumeConductorPtr_(trueVolumeConductor)
-      , shadowingTensors_((*trueVolumeConductor).tensors_)
+      , shadowedLabels_(0)
+      , shadowingTensors_(0)
     {
-      for(size_t i = 0; i < shadowingTensors_.size(); ++i) {
-        std::cout << "Tensor " << i << ": \n" << shadowingTensors_[i] << std::endl;
+    }
+    
+    // check if conductivity tensor is isotropic
+    bool is_isotropic(const TensorType& tensor)
+    {
+      ctype tol = 100 * std::numeric_limits<ctype>::epsilon() * tensor[0][0];
+      for(std::size_t i = 0; i < dim; ++i) {
+        for(std::size_t j = 0; j < dim; ++j) {
+          if(i != j) {
+            if(std::abs(tensor[i][j]) > tol) {
+              return false;
+            }
+          }
+          else {
+            if(std::abs(tensor[i][i] - tensor[0][0]) > tol) {
+              return false;
+            }
+          }
+        }
       }
+      
+      return true;
+    }
+
+    // shadow the conductivity of certain labels while keeping the corresponding ratios fixed
+    void setShadowedTensors(ctype shadowingConductivity, std::size_t shadowedLabel, const std::vector<std::size_t>& covaryingLabels)
+    {
+      // reset current shadowing state
+      shadowedLabels_.clear();
+      shadowingTensors_.clear();
+      
+      const TensorType& shadowedTensor = (*trueVolumeConductorPtr_).tensors_[shadowedLabel];
+      
+      if(!is_isotropic(shadowedTensor)) {
+        DUNE_THROW(Dune::Exception, "tensor of label " << shadowedTensor << " is not isotropic");
+      }
+      
+      shadowedLabels_.push_back(shadowedLabel);
+      
+      std::size_t nrCovaryingLabels = covaryingLabels.size();
+      std::vector<ctype> shadowingConductivities(nrCovaryingLabels + 1);
+      shadowingConductivities[0] = shadowingConductivity;
+      
+      for(std::size_t i = 0; i < nrCovaryingLabels; ++i) {
+        const TensorType& covaryingTensor = (*trueVolumeConductorPtr_).tensors_[covaryingLabels[i]];
+        
+        if(!is_isotropic(covaryingTensor)) {
+          DUNE_THROW(Dune::Exception, "tensor of label " << covaryingLabels[i] << " is not isotropic");
+        }
+        
+        ctype ratio = covaryingTensor[0][0] / shadowedTensor[0][0];
+        shadowingConductivities[1 + i] = ratio * shadowingConductivities[0];
+        shadowedLabels_.push_back(covaryingLabels[i]);
+      }
+      
+      for(std::size_t i = 0; i < 1 + nrCovaryingLabels; ++i) {
+        TensorType tensor;
+        for(std::size_t m = 0; m < dim; ++m) {
+          for(std::size_t n = 0; n < dim; ++n) {
+            tensor[m][n] = m == n ? shadowingConductivities[i] : 0.0;
+          }
+        }
+        shadowingTensors_.push_back(tensor);
+      }
+      
+      return;
     }
     
     // adapted methods
     const TensorType& tensor(const EntityType& entity) const
     {
-      return trueVolumeConductorPtr_->tensor(entity);
+      std::size_t label = (*trueVolumeConductorPtr_).labels_[(*trueVolumeConductorPtr_).elementMapper_.index(entity)];
+      
+      // check if label is shadowed
+      for(std::size_t i = 0; i < shadowedLabels_.size(); ++i) {
+        if(label == shadowedLabels_[i]) {
+          return shadowingTensors_[i];
+        }
+      }
+      
+      // if label is not shadowed, return the default value
+      return (*trueVolumeConductorPtr_).tensors_[label];
     }
     
     // methods simply forwarding to the underlying true volume conductor
@@ -291,6 +369,7 @@ namespace duneuro
     
   private:
     const std::shared_ptr<VolumeConductor> trueVolumeConductorPtr_;
+    std::vector<std::size_t> shadowedLabels_;
     std::vector<TensorType> shadowingTensors_;
   };
 

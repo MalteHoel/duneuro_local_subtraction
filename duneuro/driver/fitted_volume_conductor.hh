@@ -407,17 +407,55 @@ public:
   calibrationScan(const typename VolumeConductorInterface<dim>::CoordinateType& position,
                   const std::vector<typename VolumeConductorInterface<dim>::FieldType>& conductivity_range,
                   std::size_t tissue_label,
-                  const std::vector<std::size_t>& covarying_labels) const override
+                  const std::vector<std::size_t>& covarying_labels) override
   {
-    {
-      std::cout << "Before creation" << std::endl;
-      VolumeConductorProxy<typename Traits::VC> vcProxy(volumeConductorStorage_.get());
-      std::cout << "After creation" << std::endl;
+    using VCProxy = VolumeConductorProxy<typename Traits::VC>;
+    using SolverProxy = typename SelectFittedSolver<solverType, VCProxy, elementType, degree>::SolverType;
+    using SolverBackendProxy = typename SelectFittedSolver<solverType, VCProxy, elementType, degree>::SolverBackendType;
+    using SourceModelFactoryProxy = typename SelectFittedSolver<solverType, VCProxy, elementType, degree>::SourceModelFactoryType;
+    using EEGForwardSolverProxy = EEGForwardSolver<SolverProxy, SourceModelFactoryProxy>;
+    
+    std::size_t nrElectrodes = projectedGlobalElectrodes_.size();
+    std::size_t nrConductivities = conductivity_range.size();
+    
+    // set up datastructe for output leadfields
+    std::vector<DenseMatrix<double>> eegLeadfields;
+    for(std::size_t i = 0; i < nrConductivities; ++i) {
+      eegLeadfields.push_back(DenseMatrix<double>(nrElectrodes, dim));
     }
     
-    std::cout << "After destruction" << std::endl;
+    for(std::size_t i = 0; i < nrConductivities; ++i) {
+      // set up solver infrastructure
+      std::shared_ptr<VCProxy> vcProxyPtr = std::make_shared<VCProxy>(volumeConductorStorage_.get());
+      vcProxyPtr->setShadowedTensors(conductivity_range[i], tissue_label, covarying_labels);
+      std::shared_ptr<SolverProxy> solverProxyPtr = std::make_shared<SolverProxy>(vcProxyPtr, elementSearch_, config_.hasSub("solver") ? config_.sub("solver") : Dune::ParameterTree());
+      tbb::enumerable_thread_specific<SolverBackendProxy> solverBackendProxy(solverProxyPtr, config_.hasSub("solver") ? config_.sub("solver") : Dune::ParameterTree());
+      EEGForwardSolverProxy eegSolverProxy(solverProxyPtr);
+      
+      // solve forward problem for dipole moment in unit direction
+      for(std::size_t k = 0; k < dim; ++k) {
+        // set up unit moment
+        typename VolumeConductorInterface<dim>::CoordinateType unit_moment;
+        for(std::size_t l = 0; l < dim; ++l) {
+          unit_moment[l] = l == k ? 1.0 : 0.0; 
+        }
+        
+        typename VolumeConductorInterface<dim>::DipoleType dipole(position, unit_moment);
+        std::unique_ptr<Function> forwardSolutionStorage = this->makeDomainFunction();
+        this->solveEEGForward_impl(dipole, *forwardSolutionStorage, config_, config_, eegSolverProxy, *solverProxyPtr, solverBackendProxy, DataTree());
+        if(config_.get<bool>("subtract_mean")) {
+          subtract_mean(*solverProxyPtr, (*forwardSolutionStorage).cast<typename Traits::DomainDOFVector>());
+        }
+        
+        std::vector<double> electrodeValues = this->evaluateAtElectrodes(*forwardSolutionStorage);
+        
+        for(std::size_t j = 0; j < nrElectrodes; ++j) {
+          eegLeadfields[i](j, k) = electrodeValues[j];
+        }
+      }
+    }
     
-    return {};
+    return eegLeadfields;
   }
 
 private:

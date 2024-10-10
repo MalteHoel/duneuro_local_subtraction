@@ -326,7 +326,7 @@ public:
   calibrationScan(const typename VolumeConductorInterface<dim>::CoordinateType& position,
                   const std::vector<typename VolumeConductorInterface<dim>::FieldType>& conductivity_range,
                   std::size_t tissue_label,
-                  const std::vector<std::size_t>& covarying_labels) const override
+                  const std::vector<std::size_t>& covarying_labels) override
   {
     DUNE_THROW(Dune::Exception, "calibration scan not implemented for unfitted volume conductors");
   }
