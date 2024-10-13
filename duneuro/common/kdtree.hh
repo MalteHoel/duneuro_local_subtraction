@@ -294,6 +294,7 @@ namespace duneuro
      */
     std::optional<Entity> findEntity(const GlobalCoordinate& global, bool fallback = true, int verbosity = 0) const
     {
+      // first simply go down to a leaf in the kd tree
       EntitySeed seed = tree_.find(global);
       std::optional<Entity> containingEntity = edgeHopping_.findEntity(global, gridView_.grid().entity(seed));
       if(containingEntity.has_value()) {

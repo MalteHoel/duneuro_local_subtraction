@@ -51,6 +51,8 @@
 #include <dune/functions/gridfunctions/gridviewfunction.hh>
 #include <dune/pdelab/function/discretegridviewfunction.hh>
 
+#include <duneuro/common/sourcespace_creation_utilities.hh>
+
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
 struct SelectFittedSolver;
@@ -506,6 +508,270 @@ public:
 #endif
 
     return eegLeadfields;
+  }
+
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, negative gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const override
+  {
+    using ScalarType = typename VolumeConductorInterface<dim>::FieldType;
+    using VectorType = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using TensorType = typename Traits::VC::TensorType;
+    
+    auto volumeConductorPtr = volumeConductorStorage_.get();
+    const auto& gridView = volumeConductorPtr->gridView();
+    const auto& indexSet = gridView.indexSet();
+    size_t nr_nodes = indexSet.size(dim);
+    size_t nr_elements = indexSet.size(0);
+    const auto& tensors = volumeConductorPtr->tensors();
+    size_t nr_tensors = tensors.size();
+    
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> nodes(nr_nodes);
+    std::vector<std::vector<size_t>> elementArray(nr_elements);
+    std::vector<size_t> labels(nr_elements);
+    std::vector<typename VolumeConductorInterface<dim>::FieldType> conductivities(nr_tensors);
+    
+    // first write out nodes
+    for(const auto& vertex : vertices(gridView)) {
+      nodes[indexSet.index(vertex)] = vertex.geometry().corner(0);
+    }
+    
+    // now write out elements and their labels
+    for(const auto& element : elements(gridView)) {
+      auto element_index = indexSet.index(element);
+      size_t nr_vertices = element.subEntities(dim);
+      elementArray[element_index].resize(nr_vertices);
+      for(size_t i = 0; i < nr_vertices; ++i) {
+        elementArray[element_index][i] = indexSet.subIndex(element, i, dim);
+      }
+      labels[element_index] = volumeConductorPtr->label(element);
+    }
+    
+    // finally write out tensors (currently as scalars)
+    // TODO : generalize to anisotropic conductivities
+    for(size_t i = 0; i < nr_tensors; ++i) {
+      conductivities[i] = tensors[i][0][0];
+    }
+    
+    // if a function is given, evaluate it and its derivative and write it out
+    std::vector<ScalarType> functionAtNodes(nr_nodes);
+    std::vector<VectorType> functionNegativeGradientAtElementCenters(nr_elements);
+    std::vector<VectorType> functionCurrentAtElementCenters(nr_elements);
+    
+    if(functionPtr) {
+      DiscreteGridFunction function(solver_->functionSpace().getGFS(), functionPtr->cast<DOFVector>());
+      LocalFunction function_local = localFunction(function);
+      LocalDerivativeFunction function_derivative_local = localFunction(derivative(function));
+      
+      for(const auto& element : elements(gridView)) {
+        function_local.bind(element);
+        function_derivative_local.bind(element);
+        
+        // look up value of gradient at element center
+        auto element_center_local = element.geometry().local(element.geometry().center());
+        auto element_index = indexSet.index(element);
+        auto gradient = function_derivative_local(element_center_local)[0];
+        functionNegativeGradientAtElementCenters[element_index] = -gradient;
+        VectorType current;
+        TensorType sigma = volumeConductorPtr->tensor(element);
+        sigma.mv(-gradient, current);
+        functionCurrentAtElementCenters[element_index] = current;
+        
+        // look up value of function at vertices
+        for(size_t i = 0; i < element.subEntities(dim); ++i) {
+          auto vertex = element.template subEntity<dim>(i);
+          auto vertexIndex = indexSet.index(vertex);
+          auto local_vertex_pos = element.geometry().local(vertex.geometry().corner(0));
+          functionAtNodes[vertexIndex] = function_local(local_vertex_pos);
+        }
+      } 
+    }
+    
+    return {nodes, elementArray, labels, conductivities, functionAtNodes, functionNegativeGradientAtElementCenters, functionCurrentAtElementCenters};
+  }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const override
+  {
+    auto mesh = exportVolumeConductorAndFunction();
+    return {std::get<0>(mesh), std::get<1>(mesh), std::get<2>(mesh), std::get<3>(mesh)};
+  }
+  
+  virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+  {
+    using ScalarType = typename VolumeConductorInterface<dim>::FieldType;
+    using VectorType = typename VolumeConductorInterface<dim>::CoordinateType;
+    using DOFVector = typename Traits::DomainDOFVector;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
+    enum {diffOrder = 1};
+    using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector, diffOrder>;
+    using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
+    using TensorType = typename Traits::VC::TensorType;
+    
+    DiscreteGridFunction function(solver_->functionSpace().getGFS(), eegSolution.cast<DOFVector>());
+    LocalDerivativeFunction function_derivative_local = localFunction(derivative(function));
+    
+    ScalarType dissipatedPower = 0.0; 
+    for(const auto& element : elements(volumeConductorStorage_.get()->gridView())) {
+      function_derivative_local.bind(element);
+      
+      auto element_center_local = element.geometry().local(element.geometry().center());
+      auto gradient = function_derivative_local(element_center_local)[0];
+      VectorType current;
+      TensorType sigma = volumeConductorStorage_.get()->tensor(element);
+      sigma.mv(-gradient, current);
+      
+      ScalarType element_volume = (1.0 / 6.0) * element.geometry().integrationElement(element_center_local);
+      dissipatedPower += ((-gradient) * current) * element_volume;
+    }
+    
+    return dissipatedPower;
+  }
+  
+  // construct a volumetric source space by first constructing a regular grid of a given step size, 
+  // and then removing all positions that are not contained in the specified source compartments
+  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
+    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                   const std::vector<std::size_t> sourceCompartmentsVector,
+                                   const Dune::ParameterTree& config,
+                                   DataTree dataTree = DataTree()) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    
+    // gather source compartments in set
+    std::set<std::size_t> sourceCompartments(sourceCompartmentsVector.begin(), sourceCompartmentsVector.end());
+    
+    auto volumeConductorPtr = volumeConductorStorage_.get();
+    const auto& gridView = volumeConductorPtr->gridView();
+    
+    std::vector<Scalar> lower_limits(dim, std::numeric_limits<Scalar>::max());
+    std::vector<Scalar> upper_limits(dim, std::numeric_limits<Scalar>::min());
+    
+    // get bounding box of specified source compartments
+    for(const auto& element : elements(gridView)) {
+      if(sourceCompartments.find(volumeConductorPtr->label(element)) != sourceCompartments.end()) {
+        for(int i = 0; i < element.geometry().corners(); ++i) {
+          Coordinate corner = element.geometry().corner(i);
+          for(int k = 0; k < dim; ++k) {
+            if(corner[k] < lower_limits[k]) {
+              lower_limits[k] = corner[k];
+            }
+            if(corner[k] > upper_limits[k]) {
+              upper_limits[k] = corner[k];
+            }
+          } // loop over dimensions  
+        } // loop over corners
+      }
+      else {
+        continue;
+      }
+    } // loop over elements
+    
+    std::cout << "Bounding box of source compartments:\n" << "x-min : " << lower_limits[0] << ", x-max : " << upper_limits[0] << "\n"
+                                                          << "y-min : " << lower_limits[1] << ", y-max : " << upper_limits[1] << "\n"
+                                                          << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2]
+                                                          << std::endl;
+    
+    /*
+     * Step 1 : Place a regular grid and reject all points not contained in the source compartments
+     */
+    
+    // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
+    // on tissue interfaces
+    
+    // nr_steps[i] contains the step numer when lower_limits[i] + nr_steps[i] * gridSize >= upper_limits[i] is true for the first time. 
+    // We stop scanning one step before this happens.
+    std::vector<int> nr_steps(dim);
+    for(int i = 0; i < dim; ++i) {
+      nr_steps[i] = static_cast<int>(std::ceil((upper_limits[i] - lower_limits[i]) / gridSize));
+    }
+    
+    std::vector<Coordinate> candidatePositions;
+    std::vector<size_t> candidatePositionsElementInsertionIndices;
+    
+    Coordinate current_position;
+    for(int x_step = 1; x_step < nr_steps[0]; ++x_step) {
+      for(int y_step = 1; y_step < nr_steps[1]; ++y_step) {
+        for(int z_step = 1;  z_step < nr_steps[2]; ++z_step) {
+          // get coordinates of current point
+          current_position[0] = lower_limits[0] + x_step * gridSize;
+          current_position[1] = lower_limits[1] + y_step * gridSize;
+          current_position[2] = lower_limits[2] + z_step * gridSize;
+          
+          // get element of current point
+          auto search_result = elementSearch_->findEntity(current_position);
+          
+          // only add point if it is contained inside a source compartment
+          if(!search_result.has_value() || sourceCompartments.find(volumeConductorPtr->label(search_result.value())) == sourceCompartments.end()) {
+            continue;
+          }
+          else {
+            candidatePositions.push_back(current_position);
+            candidatePositionsElementInsertionIndices.push_back(volumeConductorPtr->insertionIndex(search_result.value()));
+          }
+        } // loop over z coord
+      } // loop over y coord
+    } // loop over x coord
+    
+    std::cout << "Source positions before Venant condition: " << candidatePositions.size() << std::endl;
+    
+    /*
+     * Step 2 : Reject all positions not fulfilling the Venant condition
+     */
+    
+    KDTree<typename Traits::VC::GridView, typename Traits::VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
+    auto venantVertexIndices = volumeConductorPtr->venantVertices(sourceCompartments);
+    std::vector<Coordinate> positions;
+    std::vector<size_t> elementInsertionIndices;
+    
+    for(int i = 0; i < candidatePositions.size(); ++i) {
+      auto nearest_neighbor_vertex_seed = nodeTree.nearestNeighbor(candidatePositions[i]).first;
+      auto nearest_neighbor_vertex_index = volumeConductorPtr->vertexIndex(nearest_neighbor_vertex_seed);
+      
+      if(venantVertexIndices.find(nearest_neighbor_vertex_index) != venantVertexIndices.end()) {
+        positions.push_back(candidatePositions[i]);
+        elementInsertionIndices.push_back(candidatePositionsElementInsertionIndices[i]);
+      }
+    }
+    
+    std::cout << "Source positions after Venant condition: " << positions.size() << std::endl;
+    
+    return {positions, elementInsertionIndices};
+  }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
+                  const size_t compartmentLabel) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    std::array<Scalar, 2> stepSizes{resolution, resolution};
+    return placeSourcesOnZSlice<typename Traits::VC,
+                                typename VolumeConductorInterface<dim>::CoordinateType,
+                                typename Traits::ElementSearch,
+                                dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, compartmentLabel, *elementSearch_);
   }
 
 private:

@@ -361,6 +361,58 @@ public:
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
 
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const override
+  {
+    DUNE_THROW(Dune::Exception, "exporting mesh and function is only possible for fitted volume conductor");
+  }
+  
+  // export the underlying mesh
+  // structure : nodes, elements, labels, conductivities
+  // only available for fitted volume conductor
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const override
+  {
+    DUNE_THROW(Dune::Exception, "exporting mesh is only possible for fitted volume conductor");
+  }
+  
+   virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const override
+   {
+    DUNE_THROW(Dune::Exception, "computing power is only possible for fitted volume conductor");
+   }
+   
+   virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
+    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                   const std::vector<std::size_t> sourceCompartmentsVector,
+                                   const Dune::ParameterTree& config,
+                                   DataTree dataTree = DataTree()) const override
+  {
+    DUNE_THROW(Dune::Exception, "source space construction is only implemented for fitted volume conductors");
+  }
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
+                  const size_t compartmentLabel) const override
+  {
+    DUNE_THROW(Dune::Exception, "source placement is only implemented for fitted volume conductors");
+  }
+
 private:
   void checkElectrodes() const {
     if (!projectedElectrodes_) {

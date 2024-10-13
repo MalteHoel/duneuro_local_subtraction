@@ -106,8 +106,8 @@ namespace duneuro
         }
       }
       if (boundaryIntersectionFound) {
+        // coordinate is outside of the grid, or grid is not convex
         return {};
-        //DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
       }
       else {
         return current;

@@ -55,6 +55,11 @@ namespace duneuro
         factory.insertElement(gt, element);
       }
       std::unique_ptr<G> grid(factory.createGrid());
+      if(refinements > 0) {
+        std::cout << "vertices before refinement : " << grid->leafGridView().size(dim) << "\n";
+        std::cout << "elements before refinement : " << grid->leafGridView().size(0) << "\n";
+      }
+      dataTree.set("gridRefinements", refinements);
       grid->globalRefine(refinements);
       timer.stop();
       dataTree.set("time_creating_grid", timer.lastElapsed());

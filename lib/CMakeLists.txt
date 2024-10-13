@@ -5,6 +5,7 @@ set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/fitted
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/driver_3d.cc)
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/fitted_volume_conductor_3d.cc)
 
+set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/inverse/inverse_solver.cc)
 
 if (dune-udg_FOUND)
   #set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/meeg/unfitted_meeg_driver_2d.cc)

@@ -259,6 +259,44 @@ public:
     featureManager_->print_citations();
   }
 
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, negative gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const = 0;
+
+  // export the underlying mesh
+  // structure : nodes, elements, labels, conductivities
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const = 0;
+
+
+  // compute the electrical power dissipation of a given EEG forwared solution
+  virtual typename VolumeConductorInterface<dim>::FieldType computePower(const Function& eegSolution) const = 0;
+
+  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
+    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                   const std::vector<std::size_t> sourceCompartmentsVector,
+                                   const Dune::ParameterTree& config,
+                                   DataTree dataTree = DataTree()) const = 0;
+
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
+                  const size_t compartmentLabel) const = 0;
+
   virtual ~VolumeConductorInterface() {}
 
 protected:

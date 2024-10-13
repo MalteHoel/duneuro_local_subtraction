@@ -315,6 +315,57 @@ public:
     volumeConductor_->print_citations();
   }
 
+  // export the underlying volume conductor and potentially function data associated to this volume conductor
+  // structure : nodes, elements, labels, conductivities, function values at nodes, gradient of function at element centers, current (i.e. -conductivity * gradient) at element centers  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::CoordinateType>>
+    exportVolumeConductorAndFunction(const Function* const functionPtr = nullptr) const
+  {
+    return volumeConductor_->exportVolumeConductorAndFunction(functionPtr);
+  }
+
+  std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, 
+                     std::vector<std::vector<size_t>>, 
+                     std::vector<size_t>, 
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>>
+    exportVolumeConductor() const
+  {
+    return volumeConductor_->exportVolumeConductor();
+  }
+  
+  // compute the electrical power dissipation of a given EEG forwared solution
+  FieldType computePower(const Function& eegSolution) const
+  {
+    return volumeConductor_->computePower(eegSolution);
+  }
+  
+  // construct source space by placing a regular grid and rejecting all positions not contained inside the specified source compartments.
+  // returns a list of source positions and the insertion indices of their containing elements
+  std::pair<std::vector<CoordinateType>, std::vector<size_t>> constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
+                                                             const std::vector<std::size_t> sourceCompartmentsVector,
+                                                             const Dune::ParameterTree& config,
+                                                             DataTree dataTree = DataTree()) const
+  {
+    return volumeConductor_->constructRegularSourceSpace(gridSize, sourceCompartmentsVector, config, dataTree);
+  }
+
+  std::tuple<std::vector<CoordinateType>,
+             std::vector<std::array<std::size_t, 2>>,
+             CoordinateType,
+             CoordinateType,
+             std::array<FieldType, 2>>
+    placeSourcesZ(const FieldType resolution,
+                  const FieldType zHeight, 
+                  const size_t compartmentLabel) const
+  {
+    return volumeConductor_->placeSourcesZ(resolution, zHeight, compartmentLabel);
+  }
+
   ~DriverInterface() {}
 
 private:
