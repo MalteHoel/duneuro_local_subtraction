@@ -420,18 +420,15 @@ public:
     using SourceModelFactoryProxy = typename SelectFittedSolver<solverType, VCProxy, elementType, degree>::SourceModelFactoryType;
     using EEGForwardSolverProxy = EEGForwardSolver<SolverProxy, SourceModelFactoryProxy>;
     
+    DataTree dataTree;
+    
     // set up solver infrastructure
     std::shared_ptr<VCProxy> vcProxyPtr = std::make_shared<VCProxy>(volumeConductorStorage_.get());
     vcProxyPtr->setShadowedTensors(conductivity_range[current_index], tissue_label, covarying_labels);
     std::shared_ptr<SolverProxy> solverProxyPtr = std::make_shared<SolverProxy>(vcProxyPtr, elementSearch_, config_.hasSub("solver") ? config_.sub("solver") : Dune::ParameterTree());
-#if HAVE_TBB
-    // in principle, there is no reason for this being an enumerable_thread_specific at this specific point. But it is, as far as I can tell, the easiest way to coopt the existing
-    // solver infrastructure for a calibration scan using different conductivities.
-    tbb::enumerable_thread_specific<SolverBackendProxy> solverBackendProxy(solverProxyPtr, config_.hasSub("solver") ? config_.sub("solver") : Dune::ParameterTree());
-#else
     SolverBackendProxy solverBackendProxy(solverProxyPtr, config_.hasSub("solver") ? config_.sub("solver") : Dune::ParameterTree());
-#endif
     EEGForwardSolverProxy eegSolverProxy(solverProxyPtr);
+    eegSolverProxy.setSourceModel(config_.sub("source_model"), config_.sub("solver"), dataTree);
     
     std::size_t nrElectrodes = projectedGlobalElectrodes_.size();
     
@@ -442,17 +439,18 @@ public:
       for(std::size_t l = 0; l < dim; ++l) {
         unit_moment[l] = l == k ? 1.0 : 0.0; 
       }
-      
       typename VolumeConductorInterface<dim>::DipoleType dipole(position, unit_moment);
-      std::unique_ptr<Function> forwardSolutionStorage = this->makeDomainFunction();
-      this->solveEEGForward_impl(dipole, *forwardSolutionStorage, config_, config_, eegSolverProxy, *solverProxyPtr, solverBackendProxy, DataTree());
+      eegSolverProxy.bind(dipole, dataTree);
       
-      if(config_.get<bool>("subtract_mean")) {
-        subtract_mean(*solverProxyPtr, (*forwardSolutionStorage).cast<typename Traits::DomainDOFVector>());
+      // compute forward solution
+      std::unique_ptr<Function> forwardSolutionStorage = this->makeDomainFunction();
+      eegSolverProxy.solve(solverBackendProxy.get(), forwardSolutionStorage->cast<typename Traits::DomainDOFVector>(), config_, dataTree);
+      if(config_.get<bool>("post_process")) {
+        eegSolverProxy.postProcessSolution(forwardSolutionStorage->cast<typename Traits::DomainDOFVector>());
       }
       
+      // get and export potential at elctrodes
       std::vector<double> electrodeValues = this->evaluateAtElectrodes(*forwardSolutionStorage);
-      
       for(std::size_t j = 0; j < nrElectrodes; ++j) {
         output_leadfields[current_index](j, k) = electrodeValues[j];
       }
