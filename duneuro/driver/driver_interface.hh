@@ -207,7 +207,9 @@ public:
    * The tDCS forward problem is solved for each electrode specified via setElectrodes().
    * Concretely, if the electrodes are are numbered e_0, ..., e_{N - 1}, then the output will be a N x nrDofs matrix,
    * where the i-th row corresponds to the solution of the tDCS forward problem with a current injection pattern given by
-   * j = \delta_{e_i} - \delta_{e_0}
+   * <j, n> = \delta_{x_0} - \delta_{x_i},
+   * where n is the unit outer normal. Thus, the i-th row describes a stimulation where current is flowing out of the head at the reference electrode
+   * and into the head at the i-th electrode with unit strength. 
    * Concrete values of the tDCS solutions (resp. their gradients and currents) at positions of interest 
    * can be obtained via evaluateMultipleFunctionsAtPositions() or evaluateMultipleFunctionsAtElementCenters().
    * Note that for the 0-th row, we have j = 0, and hence the corresponding row in the output will be 0.0 in every entry.
