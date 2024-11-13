@@ -26,7 +26,8 @@ namespace duneuro {
     virtual void addVertexData(const Function& function, const std::string& name) = 0;
     virtual void addVertexDataGradient(const Function& function, const std::string& name) = 0;
     virtual void addCellData(const Function& function, const std::string& name) = 0;
-    virtual void addCellDataGradient(const Function& funciton, const std::string& name) = 0;
+    virtual void addCellDataGradient(const Function& function, const std::string& name) = 0;
+    virtual void addCellDataCurrentDensity(const Function& function, const std::string& name) = 0;
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) = 0;
     
     virtual ~VolumeConductorVTKWriterInterface() {}
@@ -39,6 +40,7 @@ namespace duneuro {
   public:
     using VolumeConductor = typename Solver::Traits::VolumeConductor;
     enum {dim = VolumeConductor::dim};
+    using FunctionSpace = typename Solver::Traits::FunctionSpace;
     using DOFVector = typename Solver::Traits::DomainDOFVector;
     using GridFunctionSpace = typename Solver::Traits::FunctionSpace::GFS;
     using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridFunction<GridFunctionSpace, DOFVector>;
@@ -46,6 +48,7 @@ namespace duneuro {
     using DGFGradient = typename Dune::PDELab::DiscreteGridFunctionGradient<GridFunctionSpace, DOFVector>;
     using VTKGradientAdapter = typename Dune::PDELab::VTKGridFunctionAdapter<DGFGradient>;
     using Writer = VTKWriter<typename Solver::Traits::GridView>;
+    using CDFunctor = CurrentDensityVTKFunctor<FunctionSpace, VolumeConductor>;
   
     VolumeConductorVTKWriter(const Solver& solver, bool visualizeAnisotropy)
       : solver_(solver)
@@ -91,6 +94,12 @@ namespace duneuro {
       std::shared_ptr<DGFGradient> gridFunctionPtr = std::make_shared<DGFGradient>(gfs_, function.cast<DOFVector>());
       std::shared_ptr<VTKGradientAdapter> vtkFunctionPtr = std::make_shared<VTKGradientAdapter>(gridFunctionPtr, name);
       writer_.addCellData(vtkFunctionPtr);
+    }
+    
+    virtual void addCellDataCurrentDensity(const Function& function, const std::string& name) override
+    {
+      std::shared_ptr<CDFunctor> currentDensityFunctorPtr = std::make_shared<CDFunctor>(solver_.functionSpace(), *(solver_.volumeConductor()), function.cast<DOFVector>());
+      writer_.addCellData(currentDensityFunctorPtr);
     }
     
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) override
@@ -156,6 +165,11 @@ namespace duneuro {
     virtual void addCellDataGradient(const Function& function, const std::string& name)
     {
       DUNE_THROW(Dune::Exception, "adding cell data gradient is currently not supported for unfitted volume conductors, use vertex data gradient instead");
+    }
+    
+    virtual void addCellDataCurrentDensity(const Function& function, const std::string& name)
+    {
+      DUNE_THROW(Dune::Exception, "writing cell data current density is currently only implemented in the fitted case.");
     }
     
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
