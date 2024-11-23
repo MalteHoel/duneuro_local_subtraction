@@ -1,6 +1,12 @@
 #ifndef DUNEURO_CG_SOLVER_HH
 #define DUNEURO_CG_SOLVER_HH
 
+#include <dune/common/math.hh>
+#include <dune/common/version.hh>
+#ifndef DUNE_VERSION_NEWER
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GT(a,b,c)
+#endif
+
 #include <dune/pdelab/backend/istl.hh>
 #include <dune/pdelab/localoperator/convectiondiffusionfem.hh>
 
@@ -78,7 +84,11 @@ namespace duneuro
         , localOperator_(problem_, config.get<unsigned int>("intorderadd", 0))
         , assembler_(functionSpace_, localOperator_, elementType == ElementType::hexahedron ?
                                                          (1 << VC::dim) + 1 :
+#if DUNE_VERSION_NEWER(DUNE_LOCALFUNCTIONS, 2, 10)
+                                                         Dune::power(3, int(VC::dim)))
+#else
                                                          Dune::StaticPower<3, VC::dim>::power)
+#endif
         , linearSolver_(assembler_.getGO(), config)
     {
       dataTree.set("degree", degree);
