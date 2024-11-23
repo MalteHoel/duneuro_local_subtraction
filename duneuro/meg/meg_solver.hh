@@ -84,12 +84,12 @@ namespace duneuro
           "flux"));
     }
 
-    virtual std::size_t numberOfCoils() const
+    virtual std::size_t numberOfCoils() const override
     {
       return numberOfCoils_;
     }
 
-    virtual std::size_t numberOfProjections(std::size_t coil) const
+    virtual std::size_t numberOfProjections(std::size_t coil) const override
     {
       return numberOfProjections_[coil];
     }

@@ -76,7 +76,7 @@ namespace duneuro
       interpolatedDOFs_ = solveMomentSystem(*patch_, dofs, dipole);
     }
 
-    virtual void assembleRightHandSide(VectorType& vector) const
+    virtual void assembleRightHandSide(VectorType& vector) const override
     {
       LFS lfs(gfs_);
       Cache cache(lfs);

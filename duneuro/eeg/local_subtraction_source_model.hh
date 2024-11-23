@@ -261,7 +261,7 @@ namespace duneuro
 
     virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
                                 const std::vector<std::vector<CoordinateType>>& projections,
-                                std::vector<typename V::field_type>& fluxes) const
+                                std::vector<typename V::field_type>& fluxes) const override
     {
       if constexpr(continuityType == ContinuityType::continuous) {
         fluxFromPatch(coils, projections, fluxes);
