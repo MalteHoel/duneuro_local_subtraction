@@ -11,6 +11,10 @@
 #include <duneuro/common/p1gradientfem.hh>
 #include <duneuro/common/q1gradientfem.hh>
 
+#ifndef DUNE_VERSION_NEWER
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GT(a,b,c)
+#endif
+
 namespace {
   template<int d, int k>
   static constexpr unsigned int monomialsize ()
