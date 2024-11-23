@@ -23,6 +23,10 @@
 #include <dune/pdelab/localoperator/idefault.hh> // provides InstationaryLocalOperatorDefaultMethods
 #include <dune/pdelab/localoperator/pattern.hh> // provides Full*Pattern
 
+#ifndef DUNE_UNUSED
+#define DUNE_UNUSED(a) a
+#endif
+
 namespace duneuro
 {
   /**
