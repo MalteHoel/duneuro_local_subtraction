@@ -7,6 +7,10 @@
 #include <vector>
 
 #include <dune/common/iteratorrange.hh>
+#include <dune/common/version.hh>
+#ifndef DUNE_VERSION_NEWER
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GT(a,b,c)
+#endif
 
 #include <dune/geometry/type.hh>
 
@@ -35,7 +39,11 @@ namespace duneuro
     using HostIntersection = typename GV::Traits::Intersection;
     using Intersection = IntersectionWrapper<HostIntersection>;
     using IntersectionIterator = typename std::vector<Intersection>::const_iterator;
+#if DUNE_VERSION_GT(DUNE_LOCALFUNCTIONS, 2, 9)
+    using CollectiveCommunication = typename GV::Traits::Communication;
+#else
     using CollectiveCommunication = typename GV::Traits::CollectiveCommunication;
+#endif
     using size_type = std::size_t;
     using dim_type = int;
     using Index = typename BaseIndexSet::IndexType;
