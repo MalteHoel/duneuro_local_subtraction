@@ -186,7 +186,7 @@ namespace duneuro {
           assembleOutputRow(wrappedVector, *output, i, evaluationType);
         }
         else {
-          assembleOutputRow(*dofVectorPtrs[i], *output, i, evaluationType);
+          assembleOutputRow(*dofVectorPtrs_[i], *output, i, evaluationType);
         }
       }
 #endif

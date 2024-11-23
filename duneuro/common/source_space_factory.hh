@@ -94,8 +94,8 @@ public:
 #else
     CoordinateType candidate;
     if constexpr(dim == 2) {
-      for(size_t i_x = 0; i_x < x_steps; ++i_x) {
-        for(size_t i_y = 0; i_y < y_steps; ++i_y) {
+      for(size_t i_x = 0; i_x < steps[0]; ++i_x) {
+        for(size_t i_y = 0; i_y < steps[1]; ++i_y) {
           candidate[0] = lowerLeftCorner[0] + i_x * stepSizes[0];
           candidate[1] = lowerLeftCorner[0] + i_y * stepSizes[0];
           
