@@ -53,7 +53,19 @@ namespace duneuro
     {
     }
 
-    template <class Domain, class Range>
+    // Dune chnaged the interface from evaluate to a more natural operator()
+    // we support both, to stay backwards compatible
+    using Range = Dune::FieldVector<double,1>;
+
+    template <class Domain>
+    Range operator() (const Domain& x) const
+    {
+      Range y;
+      evaluate(x, y);
+      return y;
+    }
+
+    template <class Domain>
     void evaluate(const Domain& x, Range& y) const
     {
       // find the intersection that x lies in
@@ -74,7 +86,9 @@ namespace duneuro
       DUNE_THROW(Dune::Exception, "no intersection found");
     }
 
-    template <class I, class Domain, class Range>
+  private:
+
+    template <class I, class Domain>
     void evaluate(const I& intersection, const Domain& x_intersection_local, Range& y) const
     {
       using RF = typename Dune::FieldTraits<Range>::field_type;
@@ -133,7 +147,6 @@ namespace duneuro
       y -= normal;
     }
 
-  private:
     std::shared_ptr<const VC> volumeConductor_;
     const ENP& edgeNormProvider_;
     double penalty_;
