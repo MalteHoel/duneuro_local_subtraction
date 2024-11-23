@@ -3,8 +3,6 @@
 
 #include <memory>
 
-#include <dune/common/std/utility.hh>
-
 #include <duneuro/common/flags.hh>
 
 #include<memory>
