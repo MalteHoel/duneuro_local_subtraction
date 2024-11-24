@@ -12,7 +12,7 @@
 #include <duneuro/common/q1gradientfem.hh>
 
 #ifndef DUNE_VERSION_NEWER
-#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GT(a,b,c)
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GTE(a,b,c)
 #endif
 
 namespace {

@@ -4,7 +4,7 @@
 #include <dune/common/math.hh>
 #include <dune/common/version.hh>
 #ifndef DUNE_VERSION_NEWER
-#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GT(a,b,c)
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GTE(a,b,c)
 #endif
 
 #include <dune/pdelab/backend/istl.hh>
