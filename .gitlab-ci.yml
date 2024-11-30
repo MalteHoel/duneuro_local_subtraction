@@ -1,21 +1,9 @@
 ---
 
-image: registry.dune-project.org/docker/ci/dune-pdelab-deps:git
-
-only-conforming:
+test-job:
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
   before_script:
-    - duneci-install-module https://gitlab.dune-project.org/pdelab/dune-pdelab.git
-  script: duneci-standard-test
-  tags: ["cutcell-ci"]
-
-full:
-  before_script:
-    - pip -v install git+https://github.com/tpmc/tpmc.git
-    - export DUNECI_CMAKE_FLAGS="-DTPMC_PREFIX=$(pip show tpmc | grep ^Location | sed -e 's/^Location. //')"
-    - echo "TPMC flags"; env | grep DUNECI_CMAKE_FLAGS
-    - find $(pip show tpmc | grep ^Location | sed -e 's/^Location. //')
-    - duneci-install-module https://gitlab.dune-project.org/extensions/dune-tpmc.git
-    - duneci-install-module https://gitlab.dune-project.org/pdelab/dune-pdelab.git
-    - duneci-install-module "https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.dune-project.org/cutcell/dune-udg.git"
-  script: duneci-standard-test
-  tags: ["cutcell-ci"]
+    - mkdir -p /duneci/modules
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - /duneci/modules/dune-common/bin/dunecontrol
