@@ -1,9 +1,23 @@
 ---
 
+stages:
+  - .pre
+  - build
+
 test-job:
-  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  stage: build
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
   before_script:
     - mkdir -p /duneci/modules
   script:
     - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - /duneci/modules/dune-common/bin/dunecontrol
+    - /duneci/modules/dune-common/bin/dunecontrol all
+
+reuse:
+  stage: .pre
+  image:
+    name: docker.io/fsfe/reuse:latest
+    entrypoint: [""]
+  tags: [duneci]
+  script:
+    - reuse lint
