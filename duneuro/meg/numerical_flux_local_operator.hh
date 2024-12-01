@@ -15,6 +15,7 @@
 #include <dune/pdelab/localoperator/pattern.hh> // provides Full*Pattern
 
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 
 namespace duneuro
 {
