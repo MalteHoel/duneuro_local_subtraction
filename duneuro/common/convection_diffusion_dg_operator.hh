@@ -25,10 +25,6 @@
 #include <dune/pdelab/localoperator/idefault.hh> // provides InstationaryLocalOperatorDefaultMethods
 #include <dune/pdelab/localoperator/pattern.hh> // provides Full*Pattern
 
-#ifndef DUNE_UNUSED
-#define DUNE_UNUSED(a) a
-#endif
-
 namespace duneuro
 {
   /**
@@ -302,8 +298,8 @@ namespace duneuro
 
     // jacobian of volume term
     template <typename EG, typename LFSU, typename X, typename LFSV, typename M>
-    void jacobian_volume(const EG& eg, const LFSU& lfsu, const X& DUNE_UNUSED(x),
-                         const LFSV& DUNE_UNUSED(lfsv), M& mat) const
+    void jacobian_volume(const EG& eg, const LFSU& lfsu, [[maybe_unused]] const X& x,
+                         [[maybe_unused]] const LFSV& lfsv, M& mat) const
     {
       // domain and range field type
       typedef Dune::FiniteElementInterfaceSwitch<typename LFSU::Traits::FiniteElementType> FESwitch;
@@ -504,10 +500,10 @@ namespace duneuro
 
     // jacobian of skeleton term
     template <typename IG, typename LFSU, typename X, typename LFSV, typename M>
-    void jacobian_skeleton(const IG& ig, const LFSU& lfsu_s, const X& DUNE_UNUSED(x_s),
-                           const LFSV& DUNE_UNUSED(lfsv_s), const LFSU& lfsu_n,
-                           const X& DUNE_UNUSED(x_n), const LFSV& DUNE_UNUSED(lfsv_n), M& mat_ss,
-                           M& mat_sn, M& mat_ns, M& mat_nn) const
+    void jacobian_skeleton(const IG& ig, const LFSU& lfsu_s, [[maybe_unused]] const X& x_s,
+                           [[maybe_unused]] const LFSV& lfsv_s, const LFSU& lfsu_n,
+                           [[maybe_unused]] const X& x_n, [[maybe_unused]] const LFSV& lfsv_n, 
+                           M& mat_ss, M& mat_sn, M& mat_ns, M& mat_nn) const
     {
       // domain and range field type
       typedef Dune::FiniteElementInterfaceSwitch<typename LFSV::Traits::FiniteElementType> FESwitch;

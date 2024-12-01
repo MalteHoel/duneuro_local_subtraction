@@ -65,9 +65,9 @@ namespace duneuro
   {
   public:
     template <class IG, class T>
-    PenaltyFluxWeights<typename IG::ctype> operator()(const IG& DUNE_UNUSED(intersection),
-                                                      const T& DUNE_UNUSED(insideTensor),
-                                                      const T& DUNE_UNUSED(outsideTensor)) const
+    PenaltyFluxWeights<typename IG::ctype> operator()([[maybe_unused]] const IG& intersection,
+                                                      [[maybe_unused]] const T& insideTensor,
+                                                      [[maybe_unused]] const T& outsideTensor) const
     {
       using DF = typename IG::ctype;
       PenaltyFluxWeights<DF> result;
