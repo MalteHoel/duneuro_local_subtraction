@@ -13,4 +13,4 @@ Here, "name" assigns a label for the dependency dependency, "repository" is a li
 
 We want add some comments.
 
-1. The purpose of "branch" and "commithash" is to provide one example of a matching dependency version. Generally, some other versions of the corresponding DUNE module will also work (and are even explicitely supported). Please refer to the DUNEuro gitlab page for further information ( https://gitlab.dune-project.org/duneuro/duneuro ).
+1. The purpose of "branch" and "commithash" is to provide one example of a matching dependency version. Generally, some other versions of the corresponding DUNE module will also work (and are even explicitly supported). Please refer to the DUNEuro gitlab page for further information ( https://gitlab.dune-project.org/duneuro/duneuro ).

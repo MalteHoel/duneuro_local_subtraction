@@ -28,7 +28,7 @@ namespace duneuro {
     virtual void addVertexData(const Function& function, const std::string& name) = 0;
     virtual void addVertexDataGradient(const Function& function, const std::string& name) = 0;
     virtual void addCellData(const Function& function, const std::string& name) = 0;
-    virtual void addCellDataGradient(const Function& funciton, const std::string& name) = 0;
+    virtual void addCellDataGradient(const Function& function, const std::string& name) = 0;
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) = 0;
     
     virtual ~VolumeConductorVTKWriterInterface() {}

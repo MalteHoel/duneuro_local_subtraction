@@ -196,7 +196,7 @@ namespace duneuro
             root = root.father();
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(root)];
           if (pe - offset >= tensors.size()) {
-            DUNE_THROW(Dune::Exception, "physical entitiy of element "
+            DUNE_THROW(Dune::Exception, "physical entity of element "
                                             << factory.insertionIndex(root) << " is " << pe
                                             << " but only " << tensors.size()
                                             << " tensors have been read");

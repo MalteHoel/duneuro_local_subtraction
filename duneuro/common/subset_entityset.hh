@@ -273,7 +273,7 @@ namespace duneuro
     }
 
     /*
-      we assume that SubEntitySet might change so rapidly that they are only the same iif they are the same object
+      we assume that SubEntitySet might change so rapidly that they are only the same if they are the same object
     */
     bool operator != (const SubSetEntitySet& other) const
     {

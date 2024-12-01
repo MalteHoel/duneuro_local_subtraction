@@ -41,7 +41,7 @@ bool is_a_projection(EPI<GV>& projection,
                 << " twice: " << projectedTwice << std::endl;
       return false;
     } else {
-      std::cout << "Projection successfull. Difference: " << diff.two_norm() << std::endl;
+      std::cout << "Projection successful. Difference: " << diff.two_norm() << std::endl;
       std::cout << "original: " << electrodes[i] << " once: " << projectedOnce[i]
                 << " twice: " << projectedTwice << std::endl;
     }

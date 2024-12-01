@@ -67,7 +67,7 @@ int run(bool useJacobian)
   using DGFG = Dune::PDELab::DiscreteGridFunctionGradient<typename FS::GFS, typename FS::DOF>;
   DGFG dgfg(fs.getGFS(), dof);
 
-  // test succesfull, if the l2difference between the physical flux and the gradient is small
+  // test successful, if the l2difference between the physical flux and the gradient is small
   return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
 }
 

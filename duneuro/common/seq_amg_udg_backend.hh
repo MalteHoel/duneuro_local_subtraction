@@ -81,7 +81,7 @@ namespace duneuro
           for (int r = 0; r < N; ++r) {
             for (int c = 0; c < M; ++c) {
               if (!predicate((*col)[r][c])) {
-                std::cout << "predicate \"" << name << "\" not fullfilled at block (" << row.index()
+                std::cout << "predicate \"" << name << "\" not fulfilled at block (" << row.index()
                           << "," << col.index() << ") entry (" << r << "," << c
                           << "): " << (*col)[r][c] << "\n";
               }

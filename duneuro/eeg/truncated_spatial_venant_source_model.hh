@@ -142,7 +142,7 @@ namespace duneuro
     }
 
     /**
-     * \brief commpute the moment vector of the source term
+     * \brief compute the moment vector of the source term
      */
     Eigen::VectorXd
     assembleMomentVector(const std::vector<std::array<unsigned int, dim>>& multiIndices,

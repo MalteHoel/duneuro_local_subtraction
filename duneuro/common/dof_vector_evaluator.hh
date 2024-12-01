@@ -53,7 +53,7 @@ namespace duneuro {
     // "direct" means we evaluate u
     // "gradient" means we evaluate grad u
     // "current" means we evaluate - sigma * grad u, where sigma is the conductivity  
-    // Note that we interprete the key "potential" to as meaning "direct".
+    // Note that we interpret the key "potential" to as meaning "direct".
     enum class EvaluationType {direct, gradient, current};
     
     // Some methods, such as the transfer matrix computation functions and the tDCS

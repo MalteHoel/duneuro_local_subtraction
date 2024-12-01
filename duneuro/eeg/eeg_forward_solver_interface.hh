@@ -15,7 +15,7 @@ namespace duneuro
    * \brief Interface for solving the eeg forward problem.
    *
    * Every class which solves the eeg forward problem in a discrete function space should be derived
-   * from this class. A specialization of EEGForwardSolverTraits has to be provided wich contains at
+   * from this class. A specialization of EEGForwardSolverTraits has to be provided which contains at
    * least the types `DomainDOFVector` and `CoordinateFieldType` and the constant `dimension`.
    */
   template <class Impl, class T>

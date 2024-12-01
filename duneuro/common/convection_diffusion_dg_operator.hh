@@ -138,7 +138,7 @@ namespace duneuro
  * \todo Don't assume continuity of the velocity field b (-> extension of the
  *       original SWIPG scheme), use averaging for skeleton velocity field
  *       evaluation and upwinding at the spots marked by (**).
- * \todo Replace paramter useOutflowBoundaryConditionAndItsFluxOnInflow?
+ * \todo Replace parameter useOutflowBoundaryConditionAndItsFluxOnInflow?
  *       Idea: replace
  *       Dune::PDELab::ConvectionDiffusionBoundaryConditions::Outflow by
  *       Dune::PDELab::ConvectionDiffusionBoundaryConditions::InOutFlow,

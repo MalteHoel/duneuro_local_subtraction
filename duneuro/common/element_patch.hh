@@ -163,13 +163,13 @@ namespace duneuro
       {
         transitionElements_ = std::make_shared<std::vector<Element>>();
 
-        // we essentially need to perfrom one additional vertex
+        // we essentially need to perform one additional vertex
         // extension and simply store the new elements inside the
         // array
 
         // we first get all elements that share a vertex with one
         // element in the current patch. Note that candidates get
-        // included mutliple times
+        // included multiple times
         std::vector<Element> candidates;
         for(const auto& element : elements_) {
           elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));

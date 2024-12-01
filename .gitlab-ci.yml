@@ -16,11 +16,22 @@ test-job:
     - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
     - /duneci/modules/dune-common/bin/dunecontrol all
 
+
+# Check spelling
+code-spelling-check:
+  stage: .pre
+  image: registry.dune-project.org/docker/ci/debian:11
+  tags: [duneuroci-spelling-check]
+  script:
+   - codespell
+     --ignore-words-list nin,elemente
+
+# Check licensing
 reuse:
   stage: .pre
   image:
     name: docker.io/fsfe/reuse:latest
     entrypoint: [""]
-  tags: [duneci]
+  tags: [duneuroci-license-check]
   script:
     - reuse lint

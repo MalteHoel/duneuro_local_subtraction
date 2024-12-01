@@ -369,7 +369,7 @@ namespace duneuro {
     std::array<Scalar, number_of_edges> edge_lengths;
     std::array<Coordinate, number_of_edges> normed_differences;
     Coordinate u;
-    Coordinate w; // vector normal to the plane, choosen in such a way that the differences defined before define a counterclockwise orientation on the triangle boundary
+    Coordinate w; // vector normal to the plane, chosen in such a way that the differences defined before define a counterclockwise orientation on the triangle boundary
     Coordinate v;
     std::array<Coordinate, number_of_edges> m; // clockwise normals to the edges of the triangle in the plane defined by the triangle
     Scalar u_3; // transformed x-coordinate of corner_3

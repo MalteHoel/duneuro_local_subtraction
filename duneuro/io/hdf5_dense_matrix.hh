@@ -96,7 +96,7 @@ namespace duneuro
       hsize_t cols = matrix.cols();
 
       // note: Eigen stores entry column wise, hdf row wise, swap the entries,
-      // rember that the stored output is now transposed
+      // remember that the stored output is now transposed
       hsize_t dims[] = {cols, rows};
       H5::DataSpace dataSpace(2, dims);
 
