@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_EEG_LOCAL_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
 #define DUNEURO_EEG_LOCAL_SUBTRACTION_CG_P1_LOCAL_OPERATOR_HH
 

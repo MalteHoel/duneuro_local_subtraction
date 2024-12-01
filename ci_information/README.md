@@ -1,3 +1,8 @@
+<!--
+# SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+# SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
+-->
+
 # CI Information
 
 DUNEuro depends on other DUNE modules. Different versions of DUNEuro target different versions of DUNE modules. The file "dune_dependencies.csv" is supposed to define a setup of DUNE modules that works for the present DUNEuro version. The file is structured as follows.
