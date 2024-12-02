@@ -56,9 +56,9 @@ namespace duneuro
     {
     }
 
-    // Dune chnaged the interface from evaluate to a more natural operator()
+    // Dune changed the interface from evaluate to a more natural operator()
     // we support both, to stay backwards compatible
-    using Range = Dune::FieldVector<double,1>;
+    using Range = Dune::FieldVector<double,VC::dim>;
 
     template <class Domain>
     Range operator() (const Domain& x) const
@@ -103,21 +103,21 @@ namespace duneuro
       BasisSwitch::gradient(basis_, intersection.inside().geometry(), x_inside, gradphi_inside);
 
       tensor_.mv(gradphi_inside[localBasisIndex_][0], y);
-
+      
       // note: the following is only considering neumann boundary conditions. For Dirichlet
       // conditions on a boundary intersection, the jump has to be considered as well
       auto normal = intersection.centerUnitOuterNormal();
       // compute weights
       RF omega_s;
       RF harmonic_average;
-      Range An_F_s;
+      typename Traits::RangeType An_F_s;
       tensor_.mv(normal, An_F_s);
       switch (weights_) {
         case PenaltyFluxWeightsTypes::tensorOnly:
         {
           auto tensorOutside =
             intersection.neighbor() ? volumeConductor_->tensor(intersection.outside()) : tensor_;
-          Range An_F_n;
+          typename Traits::RangeType An_F_n;
           tensorOutside.mv(normal, An_F_n);
           const RF delta_s = (An_F_s * normal);
           const RF delta_n = (An_F_n * normal);
