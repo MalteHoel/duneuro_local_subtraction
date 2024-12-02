@@ -72,7 +72,7 @@ code-spelling-check:
   tags: [duneuroci-spelling-check]
   script:
    - codespell
-     --ignore-words-list nin,elemente
+     --ignore-words-list nin,elemente --skip="./.git/logs/*"
 
 # Check licensing
 reuse:
