@@ -5,17 +5,65 @@
 
 stages:
   - .pre
-  - build
+  - build_and_test
 
-test-job:
-  stage: build
+ubuntu:24.04_gcc-14-23_noTBB:
+  stage: build_and_test
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
   before_script:
     - mkdir -p /duneci/modules
   script:
     - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - /duneci/modules/dune-common/bin/dunecontrol all
+    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - duneci-standard-test
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: gcc-14-23
 
+ubuntu:24.04_gcc-14-23:
+  stage: build_and_test
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  before_script:
+    - mkdir -p /duneci/modules
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - duneci-standard-test
+  variables:
+    DUNECI_TOOLCHAIN: gcc-14-23
+
+ubuntu:24.04_clang-18-23_noTBB:
+  stage: build_and_test
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  before_script:
+    - mkdir -p /duneci/modules
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - duneci-standard-test
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: clang-18-23
+
+ubuntu:24.04_clang-18-23:
+  stage: build_and_test
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  before_script:
+    - mkdir -p /duneci/modules
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - duneci-standard-test
+  variables:
+    DUNECI_TOOLCHAIN: clang-18-23
 
 # Check spelling
 code-spelling-check:
