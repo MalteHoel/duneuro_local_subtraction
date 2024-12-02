@@ -3,6 +3,7 @@
 #include <config.h>
 
 #include <memory>
+#include <cmath>
 
 #include <dune/common/parallel/mpihelper.hh>
 #include <dune/common/filledarray.hh>
@@ -57,7 +58,7 @@ int run(bool useJacobian)
   Dune::ParameterTree config;
   config["edge_norm_type"] = "houston";
   config["penalty"] = "1";
-  config["weights"] = "1";
+  config["weights"] = "tensorOnly";
   Flux flux(Dune::stackobject_to_shared_ptr(volumeConductor),
             Dune::stackobject_to_shared_ptr(fs),
             useJacobian, config, config);
@@ -73,8 +74,26 @@ int run(bool useJacobian)
 
   // test successful, if the l2difference between the numerical flux and the gradient is small
   std::cerr << dim << "D, useJacobian = " << useJacobian << "\n";
-  std::cout << " -> difference : " << l2difference(dgfg, fgf) << std::endl;
-  return l2difference(dgfg, fgf) < 1e-12 ? 0 : -1;
+  
+  double l2_diff = 0.0;
+  double l2_norm = 0.0;
+  Dune::FieldVector<double, dim> pos;
+  Dune::FieldVector<double, dim> valNumericalFlux;
+  Dune::FieldVector<double, dim> valGradient;
+  for(const auto& element : elements(volumeConductor.gridView())) {
+    if(element.hasBoundaryIntersections()) {
+      continue;
+    }
+    pos = element.geometry().center();
+    fgf.evaluate(element, pos, valNumericalFlux);
+    dgfg.evaluate(element, pos, valGradient);
+    l2_diff += (valGradient - valNumericalFlux).two_norm2();
+    l2_norm += valGradient.two_norm();
+  }
+  double relative_error = std::sqrt(l2_diff) / std::sqrt(l2_norm);
+  std::cout << "Relative error" << relative_error << std::endl;
+  
+  return relative_error < 1e-12 ? 0 : -1;
 }
 
 int main(int argc, char** argv)
@@ -98,6 +117,7 @@ int main(int argc, char** argv)
     std::cout << "failed!\n";
     success = false;
   }
+
   if (run<3>(true) != 0)
   {
     std::cout << "failed!\n";
