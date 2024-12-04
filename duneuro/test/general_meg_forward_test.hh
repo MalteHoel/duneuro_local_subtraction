@@ -63,8 +63,6 @@ Scalar run_general_meg_forward_test(const Dune::ParameterTree& config)
     }
   }
   
-  std::size_t nrFluxes;
-  
   // Solve forward problem
   std::vector<Dipole<Scalar, dim>> dipoles = duneuro::DipoleReader<Scalar, dim>::read(dipoleFilename);
   Dipole<Scalar, dim> dipole = dipoles[0];
