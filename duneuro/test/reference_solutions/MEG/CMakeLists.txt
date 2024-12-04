@@ -1,0 +1,7 @@
+set(MEG_REFERENCE_DATA
+  meg_local_subtraction_reference_solution_cg_tet.txt
+  meg_subtraction_reference_solution_cg_tet.txt
+  meg_multipolar_venant_reference_solution_cg_tet.txt
+  meg_partial_integration_reference_solution_cg_tet.txt)
+
+dune_symlink_to_source_files(FILES ${MEG_REFERENCE_DATA})

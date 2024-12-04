@@ -7,9 +7,12 @@ stages:
   - .pre
   - build_and_test
 
-ubuntu:24.04_gcc-14-23_noTBB:
+########################
+# Common
+########################
+
+.common_build:
   stage: build_and_test
-  image: registry.dune-project.org/docker/ci/ubuntu:24.04
   before_script:
     - mkdir -p /duneci/modules
   script:
@@ -18,52 +21,101 @@ ubuntu:24.04_gcc-14-23_noTBB:
     - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
     - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
     - duneci-standard-test
+
+########################
+# Ubuntu 24.04 tests
+########################
+
+ubuntu:24.04_gcc-14-23_noTBB:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-14-23
 
 ubuntu:24.04_gcc-14-23:
-  stage: build_and_test
+  extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
-  before_script:
-    - mkdir -p /duneci/modules
-  script:
-    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
-    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
-    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
-    - duneci-standard-test
   variables:
     DUNECI_TOOLCHAIN: gcc-14-23
 
 ubuntu:24.04_clang-18-23_noTBB:
-  stage: build_and_test
+  extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
-  before_script:
-    - mkdir -p /duneci/modules
-  script:
-    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
-    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
-    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
-    - duneci-standard-test
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-18-23
 
 ubuntu:24.04_clang-18-23:
-  stage: build_and_test
+  extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
-  before_script:
-    - mkdir -p /duneci/modules
-  script:
-    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts all
-    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
-    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
-    - duneci-standard-test
   variables:
     DUNECI_TOOLCHAIN: clang-18-23
+
+########################
+# Ubuntu 22.04 tests
+########################
+
+ubuntu:22.04_gcc-11-20_noTBB:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: gcc-11-20
+
+ubuntu:22.04_gcc-11-20:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  variables:
+    DUNECI_TOOLCHAIN: gcc-11-20
+
+ubuntu:22.04_clang-14-20_noTBB:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: clang-14-20
+
+ubuntu:22.04_clang-14-20:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
+
+########################
+# Debian 12 tests
+########################
+
+debian:12_gcc-12-20_noTBB:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/debian:12
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: gcc-12-20
+
+debian:12_gcc-12-20:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/debian:12
+  variables:
+    DUNECI_TOOLCHAIN: gcc-12-20
+
+debian:12_clang-14-20_noTBB:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/debian:12
+  variables:
+    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_TOOLCHAIN: clang-14-20
+
+debian:12_clang-14-20:
+  extends: .common_build
+  image: registry.dune-project.org/docker/ci/debian:12
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
+
+
+########################
+# .pre stage tests
+########################
 
 # Check spelling
 code-spelling-check:
