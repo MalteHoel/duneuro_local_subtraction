@@ -120,7 +120,7 @@ debian:12_clang-14-20:
 # Check spelling
 code-spelling-check:
   stage: .pre
-  image: registry.dune-project.org/docker/ci/debian:11
+  image: registry.dune-project.org/docker/ci/debian:12
   tags: [duneuroci-spelling-check]
   script:
    - codespell
