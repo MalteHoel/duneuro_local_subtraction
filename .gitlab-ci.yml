@@ -124,7 +124,7 @@ code-spelling-check:
   tags: [duneuroci-spelling-check]
   script:
    - codespell
-     --ignore-words-list nin,elemente --skip="./.git/logs/*"
+     --ignore-words-list nin,elemente --skip="./.git/*"
 
 # Check licensing
 reuse:

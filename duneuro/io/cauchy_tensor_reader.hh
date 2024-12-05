@@ -107,7 +107,7 @@ namespace duneuro
     {
       std::ifstream stream(filename);
       if (!stream) {
-        DUNE_THROW(Dune::IOError, "file " << filename << " could not be opended");
+        DUNE_THROW(Dune::IOError, "file " << filename << " could not be opened");
       }
       readTensorValueFile(stream, output);
     }

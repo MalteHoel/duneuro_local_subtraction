@@ -289,7 +289,7 @@ namespace duneuro
         Dune::FieldVector<RF, dim> Agradu(0.0);
         A.umv(gradu, Agradu);
 
-        // integrate (A grad u - bu)*grad phi_i + c*u*phi_i
+        // integrate (A * grad(u) - b * u)*grad(phi_i) + c*u*phi_i
         const RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
         for (size_type i = 0; i < lfsv.size(); i++)
           r.accumulate(lfsv, i, Agradu * gradphi[i][0] * factor);
@@ -347,7 +347,7 @@ namespace duneuro
           // A.mv(gradphi[i],Agradphi[i]);
           A.mv(gradphi[i][0], Agradphi[i]);
 
-        // integrate (A grad u - bu)*grad phi_i + c*u*phi_i
+        // integrate (A * grad(u) - b * u)*grad(phi_i) + c*u*phi_i
         const RF factor = qp.weight() * eg.geometry().integrationElement(qp.position());
         for (size_type j = 0; j < lfsu.size(); j++)
           for (size_type i = 0; i < lfsu.size(); i++)
