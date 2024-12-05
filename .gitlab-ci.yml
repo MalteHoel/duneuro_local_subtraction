@@ -29,6 +29,7 @@ stages:
 ubuntu:24.04_gcc-14-23_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-14-23
@@ -36,12 +37,14 @@ ubuntu:24.04_gcc-14-23_noTBB:
 ubuntu:24.04_gcc-14-23:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_TOOLCHAIN: gcc-14-23
 
 ubuntu:24.04_clang-18-23_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-18-23
@@ -49,6 +52,7 @@ ubuntu:24.04_clang-18-23_noTBB:
 ubuntu:24.04_clang-18-23:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_TOOLCHAIN: clang-18-23
 
@@ -59,6 +63,7 @@ ubuntu:24.04_clang-18-23:
 ubuntu:22.04_gcc-11-20_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-11-20
@@ -66,12 +71,14 @@ ubuntu:22.04_gcc-11-20_noTBB:
 ubuntu:22.04_gcc-11-20:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_TOOLCHAIN: gcc-11-20
 
 ubuntu:22.04_clang-14-20_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-14-20
@@ -79,6 +86,7 @@ ubuntu:22.04_clang-14-20_noTBB:
 ubuntu:22.04_clang-14-20:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
 
@@ -89,6 +97,7 @@ ubuntu:22.04_clang-14-20:
 debian:12_gcc-12-20_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-12-20
@@ -96,12 +105,14 @@ debian:12_gcc-12-20_noTBB:
 debian:12_gcc-12-20:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
   variables:
     DUNECI_TOOLCHAIN: gcc-12-20
 
 debian:12_clang-14-20_noTBB:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
   variables:
     DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-14-20
@@ -109,6 +120,7 @@ debian:12_clang-14-20_noTBB:
 debian:12_clang-14-20:
   extends: .common_build
   image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
 
