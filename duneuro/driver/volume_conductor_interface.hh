@@ -7,6 +7,7 @@
 #include <tbb/tbb.h>
 #endif
 
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/dense_matrix.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
