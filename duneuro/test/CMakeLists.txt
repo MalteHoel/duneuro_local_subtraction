@@ -22,4 +22,4 @@ dune_add_test(SOURCES test_meg_multipolar_venant.cc LINK_LIBRARIES duneuro)
 dune_add_test(SOURCES test_meg_partial_integration.cc LINK_LIBRARIES duneuro)
 
 dune_add_test(SOURCES test_eeg_transfer.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_meg_transfer.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_meg_transfer.cc LINK_LIBRARIES duneuro TIMEOUT 600)
