@@ -12,20 +12,11 @@ int main(int argc, char** argv)
   
   Dune::ParameterTree config;
   
-  config["referenceFilename"] = "reference_solutions/MEG/meg_local_subtraction_reference_solution_cg_tet.txt";
+  config["referenceFilename"] = "reference_solutions/MEG/CG/meg_partial_integration_reference_solution_cg_tet.txt";
   
   double threshold = 1e-4;
   
-  config["driver.source_model.type"] = "local_subtraction";
-  config["driver.source_model.intorderadd_eeg_patch"] = "0";
-  config["driver.source_model.intorderadd_eeg_boundary"] = "0";
-  config["driver.source_model.intorderadd_eeg_transition"] = "0";
-  config["driver.source_model.intorder_meg_patch"] = "0";
-  config["driver.source_model.intorder_meg_boundary"] = "6";
-  config["driver.source_model.intorder_meg_transition"] = "5";
-  config["driver.source_model.restrict"] = "false";
-  config["driver.source_model.initialization"] = "single_element";
-  config["driver.source_model.extensions"] = "vertex vertex";
+  config["driver.source_model.type"] = "partial_integration";
   
   config["electrodesFilename"] = "example_data/tet_electrodes.txt";
   config["dipoleFilename"] = "example_data/tet_dipole.txt";

@@ -12,7 +12,7 @@ int main(int argc, char** argv)
   
   Dune::ParameterTree config;
   
-  config["referenceFilename"] = "reference_solutions/EEG/eeg_partial_integration_reference_solution_cg_tet.txt";
+  config["referenceFilename"] = "reference_solutions/EEG/CG/eeg_partial_integration_reference_solution_cg_tet.txt";
   
   double threshold = 1e-5;
   

@@ -4,7 +4,7 @@
 
 #include <dune/common/parametertree.hh>
 
-#include <duneuro/test/general_meg_forward_test.hh>
+#include <duneuro/test/general_eeg_forward_test.hh>
 
 int main(int argc, char** argv)
 {
@@ -12,16 +12,13 @@ int main(int argc, char** argv)
   
   Dune::ParameterTree config;
   
-  config["referenceFilename"] = "reference_solutions/MEG/meg_multipolar_venant_reference_solution_cg_tet.txt";
+  config["referenceFilename"] = "reference_solutions/EEG/CG/eeg_subtraction_reference_solution_cg_tet.txt";
   
-  double threshold = 1e-4;
+  double threshold = 1e-5;
   
-  config["driver.source_model.type"] = "multipolar_venant";
-  config["driver.source_model.referenceLength"] = "20";
-  config["driver.source_model.weightingExponent"] = "1";
-  config["driver.source_model.relaxationFactor"] = "1e-6";
-  config["driver.source_model.restrict"] = "true";
-  config["driver.source_model.initialization"] = "closest_vertex"; 
+  config["driver.source_model.type"] = "subtraction";
+  config["driver.source_model.intorderadd"] = "0";
+  config["driver.source_model.intorderadd_lb"] = "0";
   
   config["electrodesFilename"] = "example_data/tet_electrodes.txt";
   config["dipoleFilename"] = "example_data/tet_dipole.txt";
@@ -36,14 +33,13 @@ int main(int argc, char** argv)
   config["driver.type"] = "fitted";
   config["driver.solver_type"] = "cg";
   config["driver.element_type"] = "tetrahedron";
-  config["driver.post_process"] = "false";
+  config["driver.post_process"] = "true";
   config["driver.subtract_mean"] = "true";
-  config["driver.post_process_meg"] = "true";
   
-  config["driver.meg.type"] = "physical";
-  config["driver.meg.intorderadd"] = "5";
+  config["electrodes.type"] = "closest_subentity_center";
+  config["electrodes.codims"] = "3";
   
-  double relError = duneuro::run_general_meg_forward_test<3, double>(config);
+  double relError = duneuro::run_general_eeg_forward_test<3, double>(config);
   std::cout << "Relative Error: " << relError << std::endl;
   
   relError < threshold ? std::exit(EXIT_SUCCESS) : std::exit(EXIT_FAILURE);

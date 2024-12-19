@@ -11,15 +11,24 @@ dune_add_test(SOURCES test_electrode_projection.cc LINK_LIBRARIES duneuro)
 dune_add_test(SOURCES test_numerical_flux.cc)
 dune_add_test(SOURCES test_physical_flux.cc)
 
-dune_add_test(SOURCES test_eeg_local_subtraction.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_eeg_subtraction.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_eeg_multipolar_venant.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_eeg_partial_integration.cc LINK_LIBRARIES duneuro)
+# CG forward tests
+dune_add_test(SOURCES test_eeg_cg_local_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_eeg_cg_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_eeg_cg_multipolar_venant.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_eeg_cg_partial_integration.cc LINK_LIBRARIES duneuro)
 
-dune_add_test(SOURCES test_meg_local_subtraction.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_meg_subtraction.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_meg_multipolar_venant.cc LINK_LIBRARIES duneuro)
-dune_add_test(SOURCES test_meg_partial_integration.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_meg_cg_local_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_meg_cg_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_meg_cg_multipolar_venant.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_meg_cg_partial_integration.cc LINK_LIBRARIES duneuro)
 
+# DG forward tests
+dune_add_test(SOURCES test_eeg_dg_local_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_eeg_dg_subtraction.cc LINK_LIBRARIES duneuro)
+dune_add_test(SOURCES test_eeg_dg_partial_integration.cc LINK_LIBRARIES duneuro)
+
+dune_add_test(SOURCES test_meg_dg_partial_integration_physical_flux.cc LINK_LIBRARIES duneuro)
+
+# Transfer matrix tests
 dune_add_test(SOURCES test_eeg_transfer.cc LINK_LIBRARIES duneuro)
 dune_add_test(SOURCES test_meg_transfer.cc LINK_LIBRARIES duneuro TIMEOUT 600)
