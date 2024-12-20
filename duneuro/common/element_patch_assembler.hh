@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <dune/common/parametertree.hh>
+#include <dune/grid/common/scsgmapper.hh>
 #include <duneuro/common/element_patch.hh>
 
 namespace duneuro
@@ -36,6 +37,7 @@ namespace duneuro
         , volumeConductor_(volumeConductor)
         , functionSpace_(fs)
         , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
+        , elementMapper_(volumeConductor_->gridView())
         , config_(config)
         , lfs_inside(functionSpace_->getGFS())
         , cache_inside(lfs_inside)
@@ -51,6 +53,7 @@ namespace duneuro
                                              *search_, pos, config_);
       // extract patch elements
       patchElements_ = elementPatch->elements();
+      patchElementIndices_ = elementPatch->elementIndices();
       dataTree.set("elements", patchElements_.size());
 
       // extract patch boundary intersection
@@ -106,6 +109,56 @@ namespace duneuro
           auto index = cache_outside.containerIndex(i);
           vector[index] += v_outside(lfs_outside,i);
         }
+      }
+    }
+    
+    template<typename Vector, typename LOP>
+    void assemblePatchSkeleton(Vector& vector, const LOP& lop) const
+    {
+      for(const auto& element : patchElements_) {
+        for(const auto& intersection : Dune::intersections(volumeConductor_->gridView(), element)) {
+          // an intersection is part of the patch skeleton if, and only if, there exists an outside element, 
+          // and this element is also contained in the patch 
+          if(intersection.boundary() || !patchElementIndices_.contains(elementMapper_.index(intersection.outside()))) {
+            continue;
+          }
+          
+          std::size_t insideIndex = elementMapper_.index(intersection.inside());
+          std::size_t outsideIndex = elementMapper_.index(intersection.outside());
+          
+          // we only want to visit each skeleton intersection once
+          if(outsideIndex > insideIndex) {
+            continue;
+          }
+          
+          // initialize local trial and test spaces
+          lfs_inside.bind(intersection.inside());
+          cache_inside.update();
+          
+          lfs_outside.bind(intersection.outside());
+          cache_outside.update();
+          
+          v_inside.assign(cache_inside.size(), 0.0);
+          v_outside.assign(cache_outside.size(), 0.0);
+          
+          // create geometry wrapper
+          Dune::PDELab::IntersectionGeometry<typename GridView::Intersection> ig(intersection, 0);
+          
+          // call local operator
+          auto view_inside = v_inside.weightedAccumulationView(1.0);
+          auto view_outside = v_outside.weightedAccumulationView(1.0);
+          lop.lambda_patch_skeleton(ig, lfs_inside, lfs_outside, view_inside, view_outside);
+          
+          // copy back to main vector
+          for (unsigned int i = 0; i < cache_inside.size(); i++) {
+            auto index = cache_inside.containerIndex(i);
+            vector[index] += v_inside(lfs_inside,i);
+          }
+          for (unsigned int i = 0; i < cache_outside.size(); i++) {
+            auto index = cache_outside.containerIndex(i);
+            vector[index] += v_outside(lfs_outside,i);
+          }
+        } 
       }
     }
     
@@ -175,6 +228,7 @@ namespace duneuro
     std::shared_ptr<const SearchType> search_;
     std::shared_ptr<const FS> functionSpace_;
     std::shared_ptr<ElementNeighborhoodMap<typename VC::GridView>> elementNeighborhoodMap_;
+    Dune::SingleCodimSingleGeomTypeMapper<GV, 0> elementMapper_;
     Dune::ParameterTree config_;
 
     mutable LFS lfs_inside;
@@ -183,6 +237,7 @@ namespace duneuro
     mutable LFSCache cache_outside;
     
     std::vector<Element> patchElements_;
+    std::set<std::size_t> patchElementIndices_;
     std::vector<Intersection> patchBoundaryIntersections_;
     std::vector<Element> transitionElements_;
   };

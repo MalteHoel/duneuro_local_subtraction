@@ -20,21 +20,18 @@
 
 #include <duneuro/common/convection_diffusion_dg_operator.hh>
 #include <duneuro/common/edge_norm_provider.hh>
+#include <duneuro/common/penalty_flux_weighting.hh>
 #include <duneuro/common/element_patch.hh>
-#include <duneuro/common/entityset_volume_conductor.hh>
 #include <duneuro/common/element_patch_assembler.hh>
 #include <duneuro/common/logged_timer.hh>
-#include <duneuro/common/penalty_flux_weighting.hh>
-#include <duneuro/common/sub_function_space.hh>
-#include <duneuro/common/subset_entityset.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/subtraction_dg_default_parameter.hh>
 #include <duneuro/eeg/subtraction_dg_operator.hh>
 #include <duneuro/eeg/local_subtraction_dg_local_operator.hh>
 #include <duneuro/eeg/local_subtraction_cg_local_operator.hh>
-#include <duneuro/eeg/analytic_utilities.hh>
 #include <duneuro/eeg/local_subtraction_cg_p1_local_operator.hh>
 #include <duneuro/common/flags.hh>
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/distance_utilities.hh>
 
 namespace duneuro
@@ -51,29 +48,19 @@ namespace duneuro
     using CoordinateType = typename BaseT::CoordinateType;
     using VectorType = typename BaseT::VectorType;
     using SearchType = typename BaseT::SearchType;
-    using HostGridView = typename VC::GridView;
-    using SubEntitySet = SubSetEntitySet<HostGridView>;
-    using SubVolumeConductor = EntitySetVolumeConductor<SubEntitySet>;
-    using SUBFS = SubFunctionSpace<FS, SubVolumeConductor>;
-    using Problem =
-        SubtractionDGDefaultParameter<SubEntitySet, typename V::field_type, SubVolumeConductor>;
+    using GridView = typename VC::GridView;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = FittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting>;
-    using DOF = typename SUBFS::DOF;
-    using AS = Dune::PDELab::GalerkinGlobalAssembler<SUBFS, LOP, Dune::SolverCategory::sequential>;
-    using SubLFS = Dune::PDELab::LocalFunctionSpace<typename SUBFS::GFS>;
-    using SubLFSCache = Dune::PDELab::LFSIndexCache<SubLFS>;
-    using HostLFS = Dune::PDELab::LocalFunctionSpace<typename FS::GFS>;
-    using HostLFSCache = Dune::PDELab::LFSIndexCache<HostLFS>;
-    using HostProblem = SubtractionDGDefaultParameter<HostGridView, typename V::field_type, VC>;
+    using LFS = Dune::PDELab::LocalFunctionSpace<typename FS::GFS>;
+    using LFSCache = Dune::PDELab::LFSIndexCache<LFS>;
+    using Problem = SubtractionDGDefaultParameter<GridView, typename V::field_type, VC>;
     using DOFVector = Dune::PDELab::Backend::Vector<typename FS::GFS, typename FS::NT>;
     using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename FS::GFS, DOFVector>;
     using LocalFunction = typename DiscreteGridFunction::LocalFunction;
     enum {diffOrder = 1};
     using DerivativeGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename DiscreteGridFunction::GridFunctionSpace, DOFVector, diffOrder>;
     using LocalDerivativeFunction = typename DerivativeGridFunction::LocalFunction;
-    using Tensor = typename HostProblem::Traits::PermTensorType;
+    using Tensor = typename Problem::Traits::PermTensorType;
 
     LocalSubtractionSourceModel(std::shared_ptr<const VC> volumeConductor,
                                 std::shared_ptr<const FS> fs,
@@ -96,6 +83,7 @@ namespace duneuro
         , intorder_meg_transition_(config.get<unsigned int>("intorder_meg_transition", 5))
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
+        , sourceElementIsotropic_(false)
     {
     }
 
@@ -104,6 +92,7 @@ namespace duneuro
     {
       LoggedTimer timer(dataTree);
       BaseT::bind(dipole, dataTree);
+      sourceElementIsotropic_ = is_isotropic(volumeConductor_->tensor(this->dipoleElement()));
       timer.lap("bind_base");
 
       // build patch
@@ -111,153 +100,96 @@ namespace duneuro
       timer.lap("bind_patch_assembler");
     
       // setup of problem parameters (everything related to the evaluation of u_infinity, its gradient and sigma_infinity)
-      hostProblem_ = std::make_shared<HostProblem>(volumeConductor_->gridView(), volumeConductor_);
-      hostProblem_->bind(this->dipoleElement(), this->localDipolePosition(),
-                         this->dipole().moment());
+      problem_ = std::make_shared<Problem>(volumeConductor_->gridView(), volumeConductor_);
+      problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
+                         
+      // create chi function
+      LFS lfs(functionSpace_->getGFS());
+      LFSCache indexMapper(lfs);
 
-      if constexpr(continuityType == ContinuityType::discontinuous)
-      {
-        SubEntitySet subEntitySet(volumeConductor_->gridView(), patchAssembler_.patchElements());
-        timer.lap("create_sub_entity_set");
+      // we first create the underlying vector containing the coefficients of chi when written in the FEM basis
+      chiBasisCoefficientsPtr_ = std::make_shared<DOFVector>(functionSpace_->getGFS(), 0.0);
 
-        // extract conductivity tensors to create a local volume conductor
-        Dune::MultipleCodimMultipleGeomTypeMapper<SubEntitySet>
-            mapper(subEntitySet, Dune::mcmgElementLayout());
-        std::vector<typename VC::TensorType> tensors(mapper.size());
-        for (const auto& subElement : patchAssembler_.patchElements()) {
-          tensors[mapper.index(subElement)] = volumeConductor_->tensor(subElement);
-        }
-        timer.lap("extract_sub_tensors");
-
-        // create sub grid volume conductor
-        subVolumeConductor_ = std::make_shared<SubVolumeConductor>(subEntitySet, tensors);
-        timer.lap("sub_volume_conductor");
-
-        problem_ = std::make_shared<Problem>(subVolumeConductor_->entitySet(), subVolumeConductor_);
-        problem_->bind(this->dipoleElement(), this->localDipolePosition(), this->dipole().moment());
-        lop_ = std::make_shared<LOP>(*problem_, weighting_, config_.get<unsigned int>("intorderadd_eeg_patch"),
-                                     config_.get<unsigned int>("intorderadd_eeg_boundary"));
-        subFS_ = std::make_shared<SUBFS>(subVolumeConductor_);
-        dataTree.set("sub_dofs", subFS_->getGFS().size());
-        x_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
-        r_ = std::make_shared<DOF>(subFS_->getGFS(), 0.0);
-        assembler_ = std::make_shared<AS>(*subFS_, *lop_, 1);
-        timer.lap("sub_problem");
-        timer.stop("bind_accumulated");
-        // note: maybe invert normal in boundary condition of subtraction operator??
-      }
-      else if(continuityType == ContinuityType::continuous)
-      {
-        // create chi function
-        HostLFS lfs(functionSpace_->getGFS());
-        HostLFSCache indexMapper(lfs);
-
-        // we first create the underlying vector containing the coefficients of chi when written in the FEM basis
-        chiBasisCoefficientsPtr_ = std::make_shared<DOFVector>(functionSpace_->getGFS(), 0.0);
-
-        // we now iterate over the inner region and set all coefficients corresponding to DOFs of elements contained in the inner region to 1.0
-        for(const auto& element : patchAssembler_.patchElements()) {
+      // we now iterate over the inner region and set all coefficients corresponding to DOFs of elements contained in the inner region to 1.0
+      for(const auto& element : patchAssembler_.patchElements()) {
           // bind local finite element space
-          lfs.bind(element);
-          indexMapper.update();
+        lfs.bind(element);
+        indexMapper.update();
 
-          for(size_t i = 0; i < indexMapper.size(); ++i) {
-            auto index = indexMapper.containerIndex(i);
-            (*chiBasisCoefficientsPtr_)[index] = 1.0;
-          } // end inner for loop
-        } //end outer for loop
+        for(size_t i = 0; i < indexMapper.size(); ++i) {
+          auto index = indexMapper.containerIndex(i);
+          (*chiBasisCoefficientsPtr_)[index] = 1.0;
+        } // end inner for loop
+      } //end outer for loop
 
-        // we can now wrap chi into a grid function
-        chiFunctionPtr_ = std::make_shared<DiscreteGridFunction>(functionSpace_->getGFS(), *chiBasisCoefficientsPtr_);
-      } // end if
+      // we can now wrap chi into a grid function
+      chiFunctionPtr_ = std::make_shared<DiscreteGridFunction>(functionSpace_->getGFS(), *chiBasisCoefficientsPtr_);
     } // end bind
 
+    // choose local operator and call assembler
     virtual void assembleRightHandSide(VectorType& vector) const override
     {
       if constexpr(continuityType == ContinuityType::discontinuous)
       {
-        assembleLocalDefaultSubtraction(vector);
-        using LOP = LocalSubtractionDGLocalOperator<HostProblem, EdgeNormProvider, PenaltyFluxWeighting>;
-        LOP lop2(*hostProblem_, edgeNormProvider_, weighting_, penalty_, intorderadd_eeg_boundary_);
-        patchAssembler_.assemblePatchBoundary(vector, lop2);
+        LocalSubtractionDGLocalOperator<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting> lop_dg(*problem_, edgeNormProvider_, weighting_, penalty_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_);
+        this->assembleRightHandSide(vector, lop_dg);
       }
       else if(continuityType == ContinuityType::continuous)
       {
-        using LOP = typename std::conditional<isP1FEM<FS>::value && dim == 3,
-                                              LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, HostProblem>,
-                                              LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, HostProblem>>::type;
-        LOP cg_local_operator(volumeConductor_, chiFunctionPtr_, *hostProblem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
-        patchAssembler_.assemblePatchVolume(vector, cg_local_operator);
-        patchAssembler_.assemblePatchBoundary(vector, cg_local_operator);
-        patchAssembler_.assembleTransitionVolume(vector, cg_local_operator);
+        if(isP1FEM<FS>::value && dim == 3 && sourceElementIsotropic_) {
+          /* note that even though this branch is never taken if dim != 3, the conditional below is necessary for compilation. The reason for this is that,
+           * even though this branch is never taken for dim == 2, the compiler still tries to instantiate the branch. This leads to a compilation error, since
+           * the CGP1 local operator explicitly assumes that coordinates have three components. The conditional makes the branch well-formed for dim == 2.
+           */
+          using LOP = std::conditional<dim == 3, 
+                                       LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, Problem>, 
+                                       LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, Problem>>::type;
+          LOP lop_cg_analytic(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
+          this->assembleRightHandSide(vector, lop_cg_analytic);
+        }
+        else {
+          LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, Problem> lop_cg_numeric(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
+          this->assembleRightHandSide(vector, lop_cg_numeric);
+        }
       }
     }
 
     virtual void postProcessSolution(VectorType& vector) const override
     {
-      if constexpr(continuityType == ContinuityType::discontinuous)
-      {
-        *x_ = 0.0;
-        Dune::PDELab::interpolate(problem_->get_u_infty(), (*assembler_)->trialGridFunctionSpace(),
-                                  *x_);
+      LFS lfs(functionSpace_->getGFS());
+      LFSCache indexMapper(lfs);
 
-        SubLFS sublfs(subFS_->getGFS());
-        SubLFSCache subcache(sublfs);
-        HostLFS hostlfs(functionSpace_->getGFS());
-        HostLFSCache hostcache(hostlfs);
-        for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
-          sublfs.bind(e);
-          subcache.update();
-          hostlfs.bind(e);
-          hostcache.update();
-          for (unsigned int i = 0; i < hostcache.size(); ++i) {
-            vector[hostcache.containerIndex(i)] += (*x_)[subcache.containerIndex(i)];
+      // wrap u infinity in GridViewFunction, enabling local interpolation
+      auto u_inf = [this] (const CoordinateType& globalCoord) -> CoordinateField {return problem_->get_u_infty(globalCoord);};
+      auto gridFunctionUInfinity = Dune::Functions::makeGridViewFunction(u_inf, volumeConductor_->gridView());
+      auto localUInfinity = localFunction(gridFunctionUInfinity);
+
+      std::unordered_set<typename LFSCache::ContainerIndex> visited_dofs;
+      for(const auto& element : patchAssembler_.patchElements()) {
+        localUInfinity.bind(element);
+        lfs.bind(element);
+        indexMapper.update();
+        std::vector<CoordinateField> u_infinity_interpolation(indexMapper.size());
+        lfs.finiteElement().localInterpolation().interpolate(localUInfinity, u_infinity_interpolation);
+
+        for(size_t i = 0; i < indexMapper.size(); ++i) {
+          auto container_index = indexMapper.containerIndex(i);
+          if(visited_dofs.count(container_index) == 0) {
+            visited_dofs.insert(container_index);
+            vector[container_index] += u_infinity_interpolation[i];
           }
         }
-      }
-      else if(continuityType == ContinuityType::continuous)
-      {
-        HostLFS lfs(functionSpace_->getGFS());
-        HostLFSCache indexMapper(lfs);
-
-        // wrap u infinity in GridViewFunction, enabling local interpolation
-        auto u_inf = [this] (const CoordinateType& globalCoord) -> CoordinateField {return hostProblem_->get_u_infty(globalCoord);};
-        auto gridFunctionUInfinity = Dune::Functions::makeGridViewFunction(u_inf, volumeConductor_->gridView());
-        auto localUInfinity = localFunction(gridFunctionUInfinity);
-
-        std::unordered_set<typename HostLFSCache::ContainerIndex> visited_dofs;
-        for(const auto& element : patchAssembler_.patchElements()) {
-          localUInfinity.bind(element);
-          lfs.bind(element);
-          indexMapper.update();
-          std::vector<CoordinateField> u_infinity_interpolation(indexMapper.size());
-          lfs.finiteElement().localInterpolation().interpolate(localUInfinity, u_infinity_interpolation);
-
-          for(size_t i = 0; i < indexMapper.size(); ++i) {
-            auto container_index = indexMapper.containerIndex(i);
-            if(visited_dofs.count(container_index) == 0) {
-              visited_dofs.insert(container_index);
-              vector[container_index] += u_infinity_interpolation[i];
-            }
-          }
-        } // end loop over patch elements
-      }
+      } // end loop over patch elements
     } // end postProcessSolution
 
     virtual void
-    postProcessSolution(const std::vector<ProjectedElectrode<HostGridView>>& electrodes,
+    postProcessSolution(const std::vector<ProjectedElectrode<GridView>>& electrodes,
                         std::vector<typename VectorType::field_type>& vector) const override
     {
-      if constexpr(continuityType == ContinuityType::continuous) {
-        LocalFunction chi_local = localFunction(*chiFunctionPtr_);
-        for(size_t i = 0; i < electrodes.size(); ++i) {
-          chi_local.bind(electrodes[i].element);
-          vector[i] += chi_local(electrodes[i].localPosition) * hostProblem_->get_u_infty(electrodes[i].element.geometry().global(electrodes[i].localPosition));
-        }
-      }
-      else {
-        // assume patch does not intersect the boundary
-        std::cout << "WARNING: Postprocessing for DG local subtraction approach currently assumes that the patch does not touch the boundary. Please make sure that this is the case." << std::endl;
+      LocalFunction chi_local = localFunction(*chiFunctionPtr_);
+      for(size_t i = 0; i < electrodes.size(); ++i) {
+        chi_local.bind(electrodes[i].element);
+        vector[i] += chi_local(electrodes[i].localPosition) * problem_->get_u_infty(electrodes[i].element.geometry().global(electrodes[i].localPosition));
       }
     }
 
@@ -266,6 +198,10 @@ namespace duneuro
                                 std::vector<typename V::field_type>& fluxes) const override
     {
       if constexpr(continuityType == ContinuityType::continuous) {
+        if(!sourceElementIsotropic_) {
+          DUNE_THROW(Dune::Exception, "MEG postprocessing for the local subtraction approach is based on the boundary subtraction approach, which was derived under the assumption of an isotropic conductivity in the source element. If you want to use source space anisotropy for MEG, please use Venant or partial integration source models for now.");
+        }
+        
         fluxFromPatch(coils, projections, fluxes);
         fluxFromPatchBoundary(coils, projections, fluxes);
         fluxFromTransition(coils, projections, fluxes);
@@ -286,14 +222,7 @@ namespace duneuro
   private:
     std::shared_ptr<const VC> volumeConductor_;
     std::shared_ptr<const FS> functionSpace_;
-    std::shared_ptr<SubVolumeConductor> subVolumeConductor_;
     std::shared_ptr<Problem> problem_;
-    std::shared_ptr<HostProblem> hostProblem_;
-    std::shared_ptr<LOP> lop_;
-    std::shared_ptr<SUBFS> subFS_;
-    std::shared_ptr<AS> assembler_;
-    std::shared_ptr<DOF> x_;
-    std::shared_ptr<DOF> r_;
     Dune::ParameterTree config_;
     ElementPatchAssembler<VC, FS> patchAssembler_;
     EdgeNormProvider edgeNormProvider_;
@@ -307,30 +236,26 @@ namespace duneuro
     double penalty_;
     std::shared_ptr<DOFVector> chiBasisCoefficientsPtr_;
     std::shared_ptr<DiscreteGridFunction> chiFunctionPtr_;
-    
-    bool useAnalyticRHS_;
+    bool sourceElementIsotropic_;
 
-    void assembleLocalDefaultSubtraction(VectorType& vector) const
+    template<class LOP>
+    void assembleRightHandSide(VectorType& vector, const LOP& lop) const
     {
-      *x_ = 0.0;
-      *r_ = 0.0;
-      (*assembler_)->residual(*x_, *r_);
-      *r_ *= -1.;
-
-      SubLFS sublfs(subFS_->getGFS());
-      SubLFSCache subcache(sublfs);
-      HostLFS hostlfs(functionSpace_->getGFS());
-      HostLFSCache hostcache(hostlfs);
-      for (const auto& e : Dune::elements(subVolumeConductor_->entitySet())) {
-        sublfs.bind(e);
-        subcache.update();
-        hostlfs.bind(e);
-        hostcache.update();
-        for (unsigned int i = 0; i < hostcache.size(); ++i) {
-          vector[hostcache.containerIndex(i)] = (*r_)[subcache.containerIndex(i)];
-        }
+      patchAssembler_.assemblePatchVolume(vector, lop);
+      patchAssembler_.assemblePatchBoundary(vector, lop);
+      
+      if constexpr(continuityType == ContinuityType::continuous) {
+        patchAssembler_.assembleTransitionVolume(vector, lop);
+      }
+      
+      if constexpr(continuityType == ContinuityType::discontinuous) {
+        patchAssembler_.assemblePatchSkeleton(vector, lop);
       }
     }
+
+    /*
+     * CODE FOR MEG POSTPROCESSING
+     */
 
     // For tetrahedral elements, we choose the integration order based on the ratio d/a, where d is the distance of the dipole position from the
     // element, and a is the maximal edge length. We choose the integration order as described in the supplementary material of the local subtraction paper. 
@@ -382,7 +307,7 @@ namespace duneuro
                        std::vector<typename V::field_type>& fluxes) const
     {
       using GradientType = typename InfinityPotentialGradient<typename VC::GridView, CoordinateField>::RangeType;
-      Tensor sigma_infinity = hostProblem_->get_sigma_infty();
+      Tensor sigma_infinity = problem_->get_sigma_infty();
 
       // loop over all patch elements and assemble local integrals
       for(const auto& element : patchAssembler_.patchElements()) {
@@ -408,7 +333,7 @@ namespace duneuro
           auto integration_factor = elem_geo.integrationElement(local_position) * quad_point.weight();
 
           // compute sigma_corr grad(u_infinity) * weight
-          GradientType grad_u_infinity = hostProblem_->get_grad_u_infty(global_position);
+          GradientType grad_u_infinity = problem_->get_grad_u_infty(global_position);
           GradientType sigma_corr_grad_u_infinity;
           sigma_corr.mv(grad_u_infinity, sigma_corr_grad_u_infinity);
           sigma_corr_grad_u_infinity *= integration_factor;
@@ -467,10 +392,10 @@ namespace duneuro
 
           // compute u_infinity * grad_chi
           GradientType u_infinity_grad_chi = grad_chi_local(local_position)[0];
-          u_infinity_grad_chi *= hostProblem_->get_u_infty(global_position);
+          u_infinity_grad_chi *= problem_->get_u_infty(global_position);
 
           // compute chi * grad_u_infinity
-          GradientType chi_grad_u_infinity = hostProblem_->get_grad_u_infty(global_position);
+          GradientType chi_grad_u_infinity = problem_->get_grad_u_infty(global_position);
           chi_grad_u_infinity *= chi_local(local_position);
 
           // compute LHS of cross product
@@ -514,7 +439,7 @@ namespace duneuro
         // get intersection geometry
         const auto& intersection_geo = intersection.geometry();
 
-        Tensor sigma_infinity = hostProblem_->get_sigma_infty();
+        Tensor sigma_infinity = problem_->get_sigma_infty();
 
         // choose quadrature rule
         Dune::GeometryType geo_type = intersection_geo.type();
@@ -529,7 +454,7 @@ namespace duneuro
 
           // compute sigma_infinity_u_infinity
           // NOTE : assumes isotropic sigma_infinity
-          auto sigma_infinity_u_infinity = sigma_infinity[0][0] * hostProblem_->get_u_infty(global_position);
+          auto sigma_infinity_u_infinity = sigma_infinity[0][0] * problem_->get_u_infty(global_position);
           sigma_infinity_u_infinity *= integration_factor;
 
           // loop over coils and projections

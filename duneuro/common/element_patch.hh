@@ -123,6 +123,11 @@ namespace duneuro
     {
       return elements_;
     }
+    
+    const std::set<std::size_t>& elementIndices() const
+    {
+      return elementIndices_;
+    }
 
     bool contains(const Element& element) const
     {

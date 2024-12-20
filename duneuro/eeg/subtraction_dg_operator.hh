@@ -29,7 +29,7 @@ namespace duneuro
     using SubtractionDGLambda<FunctionSpace, PROBLEMDATA, PenaltyFluxWeighting>::lambda_skeleton;
 
     /*** Constructor ***/
-    SubtractionDG(PROBLEMDATA& problem_, const PenaltyFluxWeighting& weighting_,
+    SubtractionDG(const PROBLEMDATA& problem_, const PenaltyFluxWeighting& weighting_,
                   unsigned int intorderadd_ = 0, unsigned int intorderadd_lb_ = 0)
         : SubtractionDGLambda<FunctionSpace, PROBLEMDATA, PenaltyFluxWeighting>(problem_, weighting_, intorderadd_,
                                                                  intorderadd_lb_)

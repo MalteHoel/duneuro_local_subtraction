@@ -3,27 +3,85 @@
 #ifndef DUNEURO_EEG_LOCAL_SUBTRACTION_DG_LOCAL_OPERATOR_HH
 #define DUNEURO_EEG_LOCAL_SUBTRACTION_DG_LOCAL_OPERATOR_HH
 
+#include <duneuro/eeg/subtraction_dg_operator.hh>
+
 namespace duneuro {
 
-  template <typename Problem, typename EdgeNormProvider, typename PenaltyFluxWeighting>
+  template <class FS, typename Problem, typename EdgeNormProvider, typename PenaltyFluxWeighting>
   class LocalSubtractionDGLocalOperator
   {
   public:
+    using FullSubtractionLOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting>;
+    
     LocalSubtractionDGLocalOperator(const Problem& problem,
       const EdgeNormProvider& edgenormprovider,
       const PenaltyFluxWeighting& weighting,
       double penalty,
-      unsigned int intorderadd_lb)
+      unsigned int intorderadd_eeg_patch,
+      unsigned int intorderadd_eeg_boundary)
       : problem_(problem)
       , edgeNormProvider_(edgenormprovider)
       , weighting_(weighting)
       , penalty_(penalty)
-      , intorderadd_lb_(intorderadd_lb)
+      , intorderadd_eeg_patch_(intorderadd_eeg_patch)
+      , intorderadd_eeg_boundary_(intorderadd_eeg_boundary)
+      , fullSubtractionLOP_(problem_, weighting_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_)
     {}
-
+  
+    /* Let v denote a test function. On the patch volume, we then need to assemble
+     * \int_{\Omega_inf} -<sigma_corr * grad(u_inf), grad(v)> dV
+     * This is, on each element, exactly the same term as for the full subtraction approach. We hence just forward the call
+     * The subtraction dg local operator is implemented in such a way that it assembles 
+     * the negative of the corresponding FEM right hand side, and we hence need to flip 
+     * the corresponding computed values.
+     */
+    template<typename EG, typename LFSV, typename R>
+    void lambda_patch_volume(const EG& eg, const LFSV& lfsv, R& r) const
+    {
+      fullSubtractionLOP_.lambda_volume(eg, lfsv, r);
+      for(int i = 0; i < lfsv.size(); ++i) {
+        r.container()(lfsv, i) *= -1;
+      }
+    }
+  
+    /* Let v denote a test function. On the patch skeleton, we then need to assemble
+     * \int_{skeleton} <{sigma_corr * grad(u_inf), [[v]]}> dS
+     * This is, on each skeleton intersection, exactly the same term as for the full subtraction approach. We hence just forward the call.
+     * The subtraction dg local operator is implemented in such a way that it assembles 
+     * the negative of the corresponding FEM right hand side, and we hence need to flip 
+     * the corresponding computed values. 
+     */
+    template<typename IG, typename LFSV, typename R>
+    void lambda_patch_skeleton(const IG& ig, const LFSV& lfsv_s, const LFSV& lfsv_n, R& r_s, R& r_n) const
+    {
+      fullSubtractionLOP_.lambda_skeleton(ig, lfsv_s, lfsv_n, r_s, r_n);
+      
+      for(int i = 0; i < lfsv_s.size(); ++i) {
+        r_s.container()(lfsv_s, i) *= -1;
+      }
+      for(int i = 0; i < lfsv_n.size(); ++i) {
+        r_n.container()(lfsv_n, i) *= -1;
+      }
+    }
+  
+    /* Let v denote a test function. On the patch boundary, we then need to assemble
+     * \int_{\partial \Omega_inf} -v * <sigma_inf * grad(u_inf), eta> + <{sigma * grad(chi * u_inf)}, [[v]]> - penalty_factor * <[[v]], [[chi * u_inf]]> dS
+     * The first summand above is on each face the same as the corresponding term in the ordinary DG subtraction approach. We can thus assemble its 
+     * contribution by calling the local operator of the full subtraction approach, and only need to assemble the remaining two summands
+     * The subtraction dg local operator is implemented in such a way that it assembles 
+     * the negative of the corresponding FEM right hand side, and we hence need to flip 
+     * the corresponding computed values. 
+     */
     template <typename IG, typename LFS, typename LV>
     void lambda_patch_boundary(const IG& ig, const LFS& lfs_inside, const LFS& lfs_outside, LV& v_inside, LV& v_outside) const
     {
+      // first assemble "full subtraction" contribution
+      fullSubtractionLOP_.lambda_boundary(ig, lfs_inside, v_inside);
+      for(int i = 0; i < lfs_inside.size(); ++i) {
+        v_inside.container()(lfs_inside, i) *= -1;
+      }
+      
+      // now assemble additional "local subtraction" contribution
       using FESwitch =
           Dune::FiniteElementInterfaceSwitch<typename LFS::Traits::FiniteElementType>;
       using BasisSwitch = Dune::BasisInterfaceSwitch<typename FESwitch::Basis>;
@@ -57,7 +115,7 @@ namespace duneuro {
       const RF penalty_factor =
           (penalty_ / h_F) * weights.penaltyWeight * degree * (degree + dim - 1);
 
-      const int intorder = intorderadd_lb_ + 2 * degree;
+      const int intorder = intorderadd_eeg_boundary_ + 2 * degree;
 
       std::vector<RangeType> phi_s(lfs_inside.size());
       std::vector<RangeType> phi_n(lfs_outside.size());
@@ -118,7 +176,9 @@ namespace duneuro {
     EdgeNormProvider edgeNormProvider_;
     const PenaltyFluxWeighting weighting_;
     double penalty_;
-    unsigned int intorderadd_lb_;
+    unsigned int intorderadd_eeg_patch_;
+    unsigned int intorderadd_eeg_boundary_;
+    const FullSubtractionLOP fullSubtractionLOP_;
   };
 } //namespace duneuro
 
