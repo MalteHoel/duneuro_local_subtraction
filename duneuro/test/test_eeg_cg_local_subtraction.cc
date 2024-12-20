@@ -14,7 +14,7 @@ int main(int argc, char** argv)
   
   config["referenceFilename"] = "reference_solutions/EEG/CG/eeg_local_subtraction_reference_solution_cg_tet.txt";
   
-  double threshold = 1e-4;
+  double threshold = 1e-8;
   
   config["driver.source_model.type"] = "local_subtraction";
   config["driver.source_model.intorderadd_eeg_patch"] = "0";
@@ -25,7 +25,7 @@ int main(int argc, char** argv)
   config["driver.source_model.extensions"] = "vertex vertex";
   
   config["electrodesFilename"] = "example_data/tet_electrodes.txt";
-  config["dipoleFilename"] = "example_data/tet_dipole.txt";
+  config["dipoleFilename"] = "example_data/tet_dipole_superficial.txt";
   
   config["driver.volume_conductor.grid.filename"] = "example_data/tet_mesh.msh";
   config["driver.volume_conductor.tensors.filename"] = "example_data/tet_conductivities.txt";

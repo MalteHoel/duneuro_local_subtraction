@@ -28,7 +28,7 @@ int main(int argc, char** argv)
   config["driver.source_model.extensions"] = "vertex vertex";
   
   config["electrodesFilename"] = "example_data/tet_electrodes.txt";
-  config["dipoleFilename"] = "example_data/tet_dipole.txt";
+  config["dipoleFilename"] = "example_data/tet_dipole_superficial.txt";
   
   config["driver.volume_conductor.grid.filename"] = "example_data/tet_mesh.msh";
   config["driver.volume_conductor.tensors.filename"] = "example_data/tet_conductivities.txt";
