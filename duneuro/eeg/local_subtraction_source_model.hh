@@ -141,9 +141,9 @@ namespace duneuro
            * even though this branch is never taken for dim == 2, the compiler still tries to instantiate the branch. This leads to a compilation error, since
            * the CGP1 local operator explicitly assumes that coordinates have three components. The conditional makes the branch well-formed for dim == 2.
            */
-          using LOP = std::conditional<dim == 3, 
-                                       LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, Problem>, 
-                                       LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, Problem>>::type;
+          using LOP = typename std::conditional<dim == 3, 
+            LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, Problem>, 
+            LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, Problem>>::type;
           LOP lop_cg_analytic(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
           this->assembleRightHandSide(vector, lop_cg_analytic);
         }
