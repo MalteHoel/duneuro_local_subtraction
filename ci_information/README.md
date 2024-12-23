@@ -9,8 +9,13 @@ DUNEuro depends on other DUNE modules. Different versions of DUNEuro target diff
 
 name,repository,description,commithash
 
-Here, "name" assigns a label for the dependency dependency, "repository" is a link to a git repository, "branch" specifies which branch of the repository is supposed to be cloned, and "commithash" specifies the concrete commit hash of the DUNE module this DUNEuro version targets.
+Here, "name" assigns a label for the dependency, "repository" is a link to a git repository, "branch" specifies which branch of the repository is supposed to be cloned, and "commithash" specifies the concrete commit hash of the DUNE module this DUNEuro version targets.
 
 We want add some comments.
 
 1. The purpose of "branch" and "commithash" is to provide one example of a matching dependency version. Generally, some other versions of the corresponding DUNE module will also work (and are even explicitly supported). Please refer to the DUNEuro gitlab page for further information ( https://gitlab.dune-project.org/duneuro/duneuro ).
+2. For convenience, DUNEuro offers the option to compile bindings to Python and Matlab. The corresponding repositories are described in "bindings.csv", and can be cloned via "get\_python\_bindings.py" and "get\_matlab\_bindings.py". The structure of "bindings.csv" is identical to the structure of "dune_dependencies.csv".
+3. To compile duneuro, you can use the "dunecontrol" utility. This is a shell script contained in dune-common/bin. If your working directory contains the cloned DUNE and DUNEuro repositories, you can start the compilation with
+  dune-common/bin/dunecontrol --opts=OPTS\_FILE --builddir=BUILD\_PATH all
+Here, OPTS\_FILE is a file containing compilation options. This directory contains an exemplary OPTS\_FILE ("config\_release.opts"). BUILD\_PATH is the directory where the compiled code will be put.
+4. For the Matlab bindings, you might need to supply the directory to your Matlab installation in the environment variable "Matlab\_ROOT\_DIR".
