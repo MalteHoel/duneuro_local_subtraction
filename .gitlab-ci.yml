@@ -6,6 +6,7 @@
 stages:
   - .pre
   - build_and_test
+  - binding_tests
 
 ########################
 # Common
@@ -124,6 +125,23 @@ debian:12_clang-14-20:
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
 
+
+########################
+# binding_tests
+########################
+
+ubuntu:22.04_python_bindings:
+  stage: binding_tests
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - python3 ci_information/get_python_bindings.py --outputbasedir /duneci/modules
+    - /duneci/modules/dune-common/bin/dunecontrol --opts=/duneci/dune.opts --builddir=/duneci/modules/build all
+    - cd /duneci/modules/build/duneuro-py
+    - ctest
+  variables:
+    DUNECI_TOOLCHAIN: gcc-11-20
 
 ########################
 # .pre stage tests
