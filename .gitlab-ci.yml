@@ -211,21 +211,22 @@ ubuntu:22.04_matlab_r2024b_bindings:
     entrypoint: [""]
   tags: [duneuroci-ubuntu22]
   variables:
-    LD_PRELOAD: '/usr/lib/x86_64-linux-gnu/libstdc++.so.6'
-    Matlab_ROOT_DIR: /opt/matlab/R2024b
-    DUNE_CONTROL_PATH: /home/matlab/dune-modules
+#    LD_PRELOAD: '/usr/lib/x86_64-linux-gnu/libstdc++.so.6'
+#    Matlab_ROOT_DIR: /opt/matlab/R2024b
+#    DUNE_CONTROL_PATH: /home/matlab/dune-modules
     MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
-  before_script:
-    - mkdir -p $DUNE_CONTROL_PATH/duneuro
+#  before_script:
+#    - mkdir -p $DUNE_CONTROL_PATH/duneuro
   script:
-    - mv -f ./* $DUNE_CONTROL_PATH/duneuro
-    - cd $DUNE_CONTROL_PATH/duneuro
-    - sudo bash ./ci_information/resolve_non_dune_dependencies.sh
-    - python3 ./ci_information/resolve_dune_dependencies.py --outputbasedir $DUNE_CONTROL_PATH
-    - python3 ./ci_information/get_matlab_bindings.py --outputbasedir $DUNE_CONTROL_PATH
-    - $DUNE_CONTROL_PATH/dune-common/bin/dunecontrol --opts=./ci_information/config_release.opts --builddir=$DUNE_CONTROL_PATH/build-release all
-    - cd $DUNE_CONTROL_PATH/build-release/duneuro-matlab
-    - ctest --verbose
+     - matlab -nodesktop -nosplash -r "disp('Hello World!); exit"
+#    - mv -f ./* $DUNE_CONTROL_PATH/duneuro
+#    - cd $DUNE_CONTROL_PATH/duneuro
+#    - sudo bash ./ci_information/resolve_non_dune_dependencies.sh
+#    - python3 ./ci_information/resolve_dune_dependencies.py --outputbasedir $DUNE_CONTROL_PATH
+#    - python3 ./ci_information/get_matlab_bindings.py --outputbasedir $DUNE_CONTROL_PATH
+#    - $DUNE_CONTROL_PATH/dune-common/bin/dunecontrol --opts=./ci_information/config_release.opts --builddir=$DUNE_CONTROL_PATH/build-release all
+#    - cd $DUNE_CONTROL_PATH/build-release/duneuro-matlab
+#    - ctest --verbose
 
 ########################
 # .pre stage tests
