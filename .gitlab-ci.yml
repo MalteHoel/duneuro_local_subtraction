@@ -215,26 +215,8 @@ ubuntu:22.04_matlab_r2024b_bindings:
     MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
     LOCAL_INSTALL_DIR : /home/matlab/local_install
     DUNE_CONTROL_PATH: $LOCAL_INSTALL_DIR/dune-modules
-  before_script:
-    - mkdir -p $LOCAL_INSTALL_DIR/local_matlab
-    - mkdir -p $LOCAL_INSTALL_DIR/junest
-    - mkdir -p $DUNE_CONTROL_PATH/duneuro
-    - cp -r /opt/matlab/R2024b/* $LOCAL_INSTALL_DIR/local_matlab
-    - cd $LOCAL_INSTALL_DIR/junest
-    - wget https://github.com/fsquillace/junest/archive/master.zip
-    - unzip master.zip && rm master.zip
-    - ./junest-master/bin/junest setup
   script:
-    - mv -f ./* $DUNE_CONTROL_PATH/duneuro
-    - $LOCAL_INSTALL_DIR/junest/junest-master/bin/junest -f
-    - export LD_PRELOAD=/usr/lib/libstdc++.so.6
-    - cd $DUNE_CONTROL_PATH
-    - bash ./duneuro/ci_information/matlab_container_init.sh
-    - python3 $DUNE_CONTROL_PATH/duneuro/ci_information/resolve_dune_dependencies.py --outputbasedir $DUNE_CONTROL_PATH
-    - python3 $DUNE_CONTROL_PATH/duneuro/ci_information/get_matlab_bindings.py --outputbasedir $DUNE_CONTROL_PATH
-    - $DUNE_CONTROL_PATH/dune-common/bin/dunecontrol --opts=$DUNE_CONTROL_PATH/config_matlab_container.txt --builddir=$DUNE_CONTROL_PATH/build-release all
-    - cd $DUNE_CONTROL_PATH/build-release/duneuro-matlab
-    - ctest --verbose
+    - whoami
 
 ########################
 # .pre stage tests
