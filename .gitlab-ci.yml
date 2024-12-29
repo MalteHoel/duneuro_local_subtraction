@@ -225,7 +225,7 @@ ubuntu:22.04_matlab_r2024b_bindings:
     - cd $LOCAL_INSTALL_DIR/junest
     - wget https://github.com/fsquillace/junest/archive/master.zip
     - unzip master.zip && rm master.zip
-    - wget -O junest_image.tar.gz '$JUNEST_IMAGE_LOCATION'
+    - wget -O junest_image.tar.gz $JUNEST_IMAGE_LOCATION
     - ./junest-master/bin/junest setup --from-file ./junest_image.tar.gz
     - export PATH=$PATH:$LOCAL_INSTALL_DIR/junest/junest-master/bin:$JUNEST_HOME/usr/bin_wrappers
   script:
