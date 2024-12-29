@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
 # SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 pacman -Sy
-pacman -Su --nocomfirm
-pacman -S base-devel cmake git eigen3 python3 suitesparse tbb superlu libxt --noconfirm
+pacman -Su --noconfirm
+pacman -S base-devel cmake git eigen python3 suitesparse tbb superlu libxt --noconfirm
 
 cat <<EOF >config_matlab_container.txt
 
