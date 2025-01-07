@@ -208,36 +208,25 @@ debian:12_clang-14-20_python_bindings:
 ubuntu:22.04_matlab_r2024b_bindings:
   stage: ci_testing
   image: 
-    name: mathworks/matlab:r2024b
+    name: docker.io/mbhoel/duneuro_ci_proof_of_concept
     entrypoint: [""]
   tags: [duneuroci-ubuntu22]
   variables:
     MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
-    LOCAL_INSTALL_DIR : /home/matlab/local_install
-    DUNE_CONTROL_PATH: $LOCAL_INSTALL_DIR/dune-modules
-    JUNEST_HOME: /home/matlab/.junest
+    Matlab_ROOT_DIR: /duneci/matlab
   before_script:
-    - whoami
-    - mkdir -p $LOCAL_INSTALL_DIR/local_matlab
-    - mkdir -p $LOCAL_INSTALL_DIR/junest
-    - mkdir -p $DUNE_CONTROL_PATH/duneuro
-    - cp -r /opt/matlab/R2024b/* $LOCAL_INSTALL_DIR/local_matlab
-    - cd $LOCAL_INSTALL_DIR/junest
-    - wget https://github.com/fsquillace/junest/archive/master.zip
-    - unzip master.zip && rm master.zip
-    - wget -O junest_image.tar.gz $JUNEST_IMAGE_LOCATION
-    - ./junest-master/bin/junest setup --from-file ./junest_image.tar.gz
-    - export PATH=$PATH:$LOCAL_INSTALL_DIR/junest/junest-master/bin:$JUNEST_HOME/usr/bin_wrappers
+    - mkdir -p $Matlab_ROOT_DIR
+    - wget https://www.mathworks.com/mpm/glnxa64/mpm
+    - chmod +x mpm
+    - ./mpm install --release=R2024b --destination=$Matlab_ROOT_DIR --products=MATLAB
   script:
-    - whoami
-    - mv -f ./* $DUNE_CONTROL_PATH/duneuro
-    - cd $DUNE_CONTROL_PATH
-    - sudoj bash ./duneuro/ci_information/matlab_container_init.sh
-    - junest python3 $DUNE_CONTROL_PATH/duneuro/ci_information/resolve_dune_dependencies.py --outputbasedir $DUNE_CONTROL_PATH
-    - junest python3 $DUNE_CONTROL_PATH/duneuro/ci_information/get_matlab_bindings.py --outputbasedir $DUNE_CONTROL_PATH
-    - junest $DUNE_CONTROL_PATH/dune-common/bin/dunecontrol --opts=$DUNE_CONTROL_PATH/config_matlab_container.txt --builddir=$DUNE_CONTROL_PATH/build-release all
-    - cd $DUNE_CONTROL_PATH/build-release/duneuro-matlab
-    - junest ctest --verbose
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - python3 ci_information/get_matlab_bindings.py --outputbasedir /duneci/modules
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - dunecontrol --opts=./ci_information/duneuro_matlab_ci_opts.txt --builddir=/duneci/modules/build all
+    - cd /duneci/modules/build/duneuro-matlab
+    - dune-ctest
 
 ########################
 # .pre stage tests

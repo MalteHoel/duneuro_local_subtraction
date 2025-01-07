@@ -1,10 +1,5 @@
 # SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
 # SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
-pacman -Sy
-pacman -Su --noconfirm
-pacman -S base-devel cmake git eigen python3 suitesparse tbb superlu libxt --noconfirm
-
-cat <<EOF >config_matlab_container.txt
 
 CMAKE_FLAGS="\
   -G \"Unix Makefiles\"\
@@ -17,7 +12,6 @@ CMAKE_FLAGS="\
   -DDUNE_REENABLE_ADD_TEST=TRUE \
   -DDUNE_PYTHON_VIRTUALENV_SETUP=TRUE \
   -DDUNE_PYTHON_ALLOW_GET_PIP=TRUE \
-  -DMatlab_ROOT_DIR=/home/matlab/local_install/local_matlab \
+  -DMatlab_ROOT_DIR=/duneci/matlab \
 "
 MAKE_FLAGS="-j2"
-EOF
