@@ -12,6 +12,9 @@ stages:
 # Common
 ########################
 
+variables:
+  COMMON_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_MPI=TRUE'
+
 .common_build:
   stage: build_and_test
   before_script:
@@ -36,8 +39,27 @@ stages:
     - cd /duneci/modules/build/duneuro-py
     - dune-ctest
 
-variables:
-  COMMON_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_MPI=TRUE'
+# we currently do all CI tests for the same Matlab release (currently R2024b)
+.common_matlab_bindings:
+  stage: bindings
+  variables:
+    MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
+    Matlab_ROOT_DIR: /duneci/matlab
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DMatlab_ROOT_DIR=$Matlab_ROOT_DIR'
+    MATLAB_RELEASE: 'R2024b'
+  before_script:
+    - mkdir -p $Matlab_ROOT_DIR
+    - wget -q https://www.mathworks.com/mpm/glnxa64/mpm
+    - chmod +x mpm
+    - ./mpm install --release=$MATLAB_RELEASE --destination=$Matlab_ROOT_DIR --products=MATLAB
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - python3 ci_information/get_matlab_bindings.py --outputbasedir /duneci/modules
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - dunecontrol --opts=/duneci/dune.opts --builddir=/duneci/modules/build all
+    - cd /duneci/modules/build/duneuro-matlab
+    - dune-ctest
 
 ########################
 # Ubuntu 24.04 tests
@@ -204,28 +226,47 @@ debian:12_clang-14-20_python_bindings:
 # Matlab bindings
 ########################
 
-ubuntu:22.04_matlab_r2024b_bindings:
-  stage: bindings
-  image: 
-    name: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
-    entrypoint: [""]
+ubuntu:24.04_gcc-14-23_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-14-23
+
+ubuntu:24.04_clang-18-23_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_TOOLCHAIN: clang-18-23
+
+ubuntu:22.04_clang-14-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
   tags: [duneuroci-ubuntu22]
   variables:
-    MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
-    Matlab_ROOT_DIR: /duneci/matlab
-  before_script:
-    - mkdir -p $Matlab_ROOT_DIR
-    - wget https://www.mathworks.com/mpm/glnxa64/mpm
-    - chmod +x mpm
-    - ./mpm install --release=R2024b --destination=$Matlab_ROOT_DIR --products=MATLAB
-  script:
-    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
-    - python3 ci_information/get_matlab_bindings.py --outputbasedir /duneci/modules
-    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
-    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
-    - dunecontrol --opts=./ci_information/duneuro_matlab_ci_opts.txt --builddir=/duneci/modules/build all
-    - cd /duneci/modules/build/duneuro-matlab
-    - dune-ctest
+    DUNECI_TOOLCHAIN: clang-14-20
+
+ubuntu:22.04_gcc-11-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-11-20
+
+debian:12_gcc-12-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-12-20
+
+debian:12_clang-14-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
 
 ########################
 # .pre stage tests
