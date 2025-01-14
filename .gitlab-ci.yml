@@ -232,6 +232,8 @@ ubuntu:24.04_gcc-14-23_matlab_bindings:
   tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_TOOLCHAIN: gcc-14-23
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 ubuntu:24.04_clang-18-23_matlab_bindings:
   extends: .common_matlab_bindings
@@ -239,6 +241,8 @@ ubuntu:24.04_clang-18-23_matlab_bindings:
   tags: [duneuroci-ubuntu24]
   variables:
     DUNECI_TOOLCHAIN: clang-18-23
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 ubuntu:22.04_clang-14-20_matlab_bindings:
   extends: .common_matlab_bindings
@@ -246,6 +250,8 @@ ubuntu:22.04_clang-14-20_matlab_bindings:
   tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 ubuntu:22.04_gcc-11-20_matlab_bindings:
   extends: .common_matlab_bindings
@@ -253,6 +259,8 @@ ubuntu:22.04_gcc-11-20_matlab_bindings:
   tags: [duneuroci-ubuntu22]
   variables:
     DUNECI_TOOLCHAIN: gcc-11-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 debian:12_gcc-12-20_matlab_bindings:
   extends: .common_matlab_bindings
@@ -260,6 +268,8 @@ debian:12_gcc-12-20_matlab_bindings:
   tags: [duneuroci-debian12]
   variables:
     DUNECI_TOOLCHAIN: gcc-12-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 debian:12_clang-14-20_matlab_bindings:
   extends: .common_matlab_bindings
@@ -267,6 +277,8 @@ debian:12_clang-14-20_matlab_bindings:
   tags: [duneuroci-debian12]
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 ########################
 # .pre stage tests
