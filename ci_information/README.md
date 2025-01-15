@@ -18,5 +18,5 @@ We want to add some comments.
 3. To compile duneuro, you can use the "dunecontrol" utility. This is a shell script contained in dune-common/bin. If your working directory contains the cloned DUNE and DUNEuro repositories, you can start the compilation with
   dune-common/bin/dunecontrol --opts=OPTS\_FILE --builddir=BUILD\_PATH all
 Here, OPTS\_FILE is a file containing compilation options. This directory contains an exemplary OPTS\_FILE ("config\_release.opts"). BUILD\_PATH is the directory where the compiled code will be put.
-4. To compile the Matlab bindings, you need a Matlab installation on your system. Let <PATH> denote the root of your Matlab installation. You then need to add the line "-DMatlab\_ROOT\_DIR=<PATH>" to your OPTS\_FILE.
+4. To compile the Matlab bindings, you need a Matlab installation on your system. Let PATH denote the root of your Matlab installation. You then need to add the line "-DMatlab\_ROOT\_DIR=PATH" to your OPTS\_FILE.
 5. A list of the non-DUNE dependencies required for DUNEuro on Ubuntu 22.04 can be found in "resolve\_non\_dune\_dependencies.sh".
