@@ -1,10 +1,6 @@
 # SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
 # SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
-set(EXAMPLE_DATA
-  tet_mesh.msh
-  tet_conductivities.txt
-  tet_electrodes.txt
-  tet_dipole.txt
-  tet_dipole_superficial.txt)
+set(MEG_DG_REFERENCE_DATA
+  meg_partial_integration_reference_solution_dg_physical_tet.txt)
 
-dune_symlink_to_source_files(FILES ${EXAMPLE_DATA})
+dune_symlink_to_source_files(FILES ${MEG_DG_REFERENCE_DATA})

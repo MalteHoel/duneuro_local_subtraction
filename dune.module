@@ -6,8 +6,8 @@
 
 #Name of the module
 Module: duneuro
-Version: 2.6-dev
+Version: 2.10-dev
 Maintainer: andreas.nuessing@uni-muenster.de
 #depending on
-Depends: dune-common (>= 2.6) dune-grid (>= 2.6) dune-istl (>= 2.6) dune-pdelab (>= 2.6)
-Suggests: dune-udg dune-subgrid dune-mc dune-uggrid (>= 2.6)
+Depends: dune-common (>= 2.10) dune-grid (>= 2.10) dune-istl (>= 2.10) dune-pdelab (>= 2.9) dune-uggrid (>= 2.10)
+Suggests: dune-udg dune-subgrid

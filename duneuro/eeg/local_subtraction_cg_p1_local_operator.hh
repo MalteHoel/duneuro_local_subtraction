@@ -5,6 +5,8 @@
 
 #include <algorithm>
 
+#include <duneuro/eeg/analytic_utilities.hh>
+
 namespace duneuro {
 
   template<class VolumeConductor, class GridFunction, class ProblemParameters>

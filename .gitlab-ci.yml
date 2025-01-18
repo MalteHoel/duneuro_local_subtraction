@@ -6,10 +6,14 @@
 stages:
   - .pre
   - build_and_test
+  - bindings
 
 ########################
 # Common
 ########################
+
+variables:
+  COMMON_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_MPI=TRUE'
 
 .common_build:
   stage: build_and_test
@@ -22,6 +26,41 @@ stages:
     - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
     - duneci-standard-test
 
+.common_python_bindings:
+  stage: bindings
+  before_script:
+    - mkdir -p /duneci/modules
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - python3 ci_information/get_python_bindings.py --outputbasedir /duneci/modules
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - dunecontrol --opts=/duneci/dune.opts --builddir=/duneci/modules/build all
+    - cd /duneci/modules/build/duneuro-py
+    - dune-ctest
+
+# we currently do all CI tests for the same Matlab release (currently R2024b)
+.common_matlab_bindings:
+  stage: bindings
+  variables:
+    MLM_LICENSE_FILE: $MATLAB_LICENSE_SERVER
+    Matlab_ROOT_DIR: /duneci/matlab
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DMatlab_ROOT_DIR=$Matlab_ROOT_DIR'
+    MATLAB_RELEASE: 'R2024b'
+  before_script:
+    - mkdir -p $Matlab_ROOT_DIR
+    - wget -q https://www.mathworks.com/mpm/glnxa64/mpm
+    - chmod +x mpm
+    - ./mpm install --release=$MATLAB_RELEASE --destination=$Matlab_ROOT_DIR --products=MATLAB
+  script:
+    - python3 ci_information/resolve_dune_dependencies.py --outputbasedir /duneci/modules
+    - python3 ci_information/get_matlab_bindings.py --outputbasedir /duneci/modules
+    - ln -sf /duneci/modules/dune-common/bin/dunecontrol /duneci/bin
+    - ln -sf /duneci/modules/dune-common/bin/dune-ctest /duneci/bin
+    - dunecontrol --opts=/duneci/dune.opts --builddir=/duneci/modules/build all
+    - cd /duneci/modules/build/duneuro-matlab
+    - dune-ctest
+
 ########################
 # Ubuntu 24.04 tests
 ########################
@@ -31,7 +70,7 @@ ubuntu:24.04_gcc-14-23_noTBB:
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
   tags: [duneuroci-ubuntu24]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-14-23
 
 ubuntu:24.04_gcc-14-23:
@@ -39,6 +78,7 @@ ubuntu:24.04_gcc-14-23:
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
   tags: [duneuroci-ubuntu24]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: gcc-14-23
 
 ubuntu:24.04_clang-18-23_noTBB:
@@ -46,7 +86,7 @@ ubuntu:24.04_clang-18-23_noTBB:
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
   tags: [duneuroci-ubuntu24]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-18-23
 
 ubuntu:24.04_clang-18-23:
@@ -54,6 +94,7 @@ ubuntu:24.04_clang-18-23:
   image: registry.dune-project.org/docker/ci/ubuntu:24.04
   tags: [duneuroci-ubuntu24]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: clang-18-23
 
 ########################
@@ -65,7 +106,7 @@ ubuntu:22.04_gcc-11-20_noTBB:
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
   tags: [duneuroci-ubuntu22]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-11-20
 
 ubuntu:22.04_gcc-11-20:
@@ -73,6 +114,7 @@ ubuntu:22.04_gcc-11-20:
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
   tags: [duneuroci-ubuntu22]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: gcc-11-20
 
 ubuntu:22.04_clang-14-20_noTBB:
@@ -80,7 +122,7 @@ ubuntu:22.04_clang-14-20_noTBB:
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
   tags: [duneuroci-ubuntu22]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-14-20
 
 ubuntu:22.04_clang-14-20:
@@ -88,6 +130,7 @@ ubuntu:22.04_clang-14-20:
   image: registry.dune-project.org/docker/ci/ubuntu:22.04
   tags: [duneuroci-ubuntu22]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: clang-14-20
 
 ########################
@@ -99,7 +142,7 @@ debian:12_gcc-12-20_noTBB:
   image: registry.dune-project.org/docker/ci/debian:12
   tags: [duneuroci-debian12]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: gcc-12-20
 
 debian:12_gcc-12-20:
@@ -107,6 +150,7 @@ debian:12_gcc-12-20:
   image: registry.dune-project.org/docker/ci/debian:12
   tags: [duneuroci-debian12]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: gcc-12-20
 
 debian:12_clang-14-20_noTBB:
@@ -114,7 +158,7 @@ debian:12_clang-14-20_noTBB:
   image: registry.dune-project.org/docker/ci/debian:12
   tags: [duneuroci-debian12]
   variables:
-    DUNECI_CMAKE_FLAGS: '-DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS -DCMAKE_DISABLE_FIND_PACKAGE_TBB=TRUE'
     DUNECI_TOOLCHAIN: clang-14-20
 
 debian:12_clang-14-20:
@@ -122,8 +166,119 @@ debian:12_clang-14-20:
   image: registry.dune-project.org/docker/ci/debian:12
   tags: [duneuroci-debian12]
   variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
     DUNECI_TOOLCHAIN: clang-14-20
 
+
+########################
+# Python bindings
+########################
+
+ubuntu:24.04_gcc-14-23_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: gcc-14-23
+
+ubuntu:24.04_clang-18-23_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: clang-18-23
+
+ubuntu:22.04_gcc-11-20_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: gcc-11-20
+
+ubuntu:22.04_clang-14-20_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: clang-14-20
+
+debian:12_gcc-12-20_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: gcc-12-20
+
+debian:12_clang-14-20_python_bindings:
+  extends: .common_python_bindings
+  image: registry.dune-project.org/docker/ci/debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_CMAKE_FLAGS: '$COMMON_CMAKE_FLAGS'
+    DUNECI_TOOLCHAIN: clang-14-20
+
+########################
+# Matlab bindings
+########################
+
+ubuntu:24.04_gcc-14-23_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-14-23
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+ubuntu:24.04_clang-18-23_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:24.04
+  tags: [duneuroci-ubuntu24]
+  variables:
+    DUNECI_TOOLCHAIN: clang-18-23
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+ubuntu:22.04_clang-14-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+ubuntu:22.04_gcc-11-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-11-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+debian:12_gcc-12-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_TOOLCHAIN: gcc-12-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+debian:12_clang-14-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
+  tags: [duneuroci-debian12]
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
 ########################
 # .pre stage tests

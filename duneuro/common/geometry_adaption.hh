@@ -261,7 +261,7 @@ namespace duneuro
   template <class HostGrid, class L = std::size_t>
   std::unique_ptr<Dune::GeometryGrid<HostGrid,
                                      DeformationFunction<typename HostGrid::LeafGridView>>>
-  create_geometry_adapted_grid(std::unique_ptr<HostGrid> hostGrid,
+  create_geometry_adapted_grid(std::shared_ptr<HostGrid> hostGrid,
                                const std::vector<L>& elementLabels,
                                const Dune::ParameterTree& config)
   {
@@ -273,8 +273,7 @@ namespace duneuro
     auto deformedPosition = compute_deformed_positions(hostGridView, elementLabels, config);
 
     using GridType = Dune::GeometryGrid<HostGrid, CoordFunction>;
-    return std::make_unique<GridType>(hostGrid.release(),
-                                            new CoordFunction(hostGridView, deformedPosition));
+    return std::make_unique<GridType>(hostGrid, std::make_shared<CoordFunction>(hostGridView, deformedPosition));
   }
 
 #if HAVE_DUNE_SUBGRID
@@ -305,7 +304,7 @@ namespace duneuro
   GeometryAdaptedGrid<dim> make_geometry_adapted_grid(const FittedDriverData<dim>& data,
                                                       const Dune::ParameterTree& config)
   {
-    auto ygrid = std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
+    auto ygrid = std::make_shared<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
         config.get<Dune::FieldVector<double, dim>>("lower_left"),
         config.get<Dune::FieldVector<double, dim>>("upper_right"),
         config.get<std::array<int, dim>>("cells"));
@@ -367,7 +366,7 @@ namespace duneuro
                                   cells);
       std::array<int, dim> s;
       std::copy(cells.begin(), cells.end(), s.begin());
-      auto ygrid = std::make_unique<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
+      auto ygrid = std::make_shared<typename GeometryAdaptedGrid<dim>::StructuredGrid>(
           config.get<Dune::FieldVector<double, dim>>("lower_left"),
           config.get<Dune::FieldVector<double, dim>>("upper_right"), s);
       // geometry adaption
