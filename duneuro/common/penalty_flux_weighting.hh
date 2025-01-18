@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_PENALTY_FLUX_WEIGHTING_HH
 #define DUNEURO_PENALTY_FLUX_WEIGHTING_HH
 
@@ -63,9 +65,9 @@ namespace duneuro
   {
   public:
     template <class IG, class T>
-    PenaltyFluxWeights<typename IG::ctype> operator()(const IG& DUNE_UNUSED(intersection),
-                                                      const T& DUNE_UNUSED(insideTensor),
-                                                      const T& DUNE_UNUSED(outsideTensor)) const
+    PenaltyFluxWeights<typename IG::ctype> operator()([[maybe_unused]] const IG& intersection,
+                                                      [[maybe_unused]] const T& insideTensor,
+                                                      [[maybe_unused]] const T& outsideTensor) const
     {
       using DF = typename IG::ctype;
       PenaltyFluxWeights<DF> result;

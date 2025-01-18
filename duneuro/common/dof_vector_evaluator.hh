@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_DOF_VECTOR_EVALUATOR_HH
 #define DUNEURO_DOF_VECTOR_EVALUATOR_HH
 
@@ -51,7 +53,7 @@ namespace duneuro {
     // "direct" means we evaluate u
     // "gradient" means we evaluate grad u
     // "current" means we evaluate - sigma * grad u, where sigma is the conductivity  
-    // Note that we interprete the key "potential" to as meaning "direct".
+    // Note that we interpret the key "potential" to as meaning "direct".
     enum class EvaluationType {direct, gradient, current};
     
     // Some methods, such as the transfer matrix computation functions and the tDCS
@@ -186,7 +188,7 @@ namespace duneuro {
           assembleOutputRow(wrappedVector, *output, i, evaluationType);
         }
         else {
-          assembleOutputRow(*dofVectorPtrs[i], *output, i, evaluationType);
+          assembleOutputRow(*dofVectorPtrs_[i], *output, i, evaluationType);
         }
       }
 #endif

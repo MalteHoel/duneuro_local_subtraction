@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
 #define DUNEURO_FITTED_SUBTRACTION_SOURCE_MODEL_HH
 
@@ -132,7 +134,7 @@ namespace duneuro
 
     virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
                                 const std::vector<std::vector<CoordinateType>>& projections,
-                                std::vector<typename V::field_type>& fluxes) const
+                                std::vector<typename V::field_type>& fluxes) const override
     {
       if constexpr(continuityType == ContinuityType::continuous) {
         fluxFromPatchBoundary(coils, projections, fluxes);

@@ -1,9 +1,9 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_MAKE_DOF_VECTOR_HH
 #define DUNEURO_MAKE_DOF_VECTOR_HH
 
 #include <memory>
-
-#include <dune/common/std/utility.hh>
 
 #include <duneuro/common/flags.hh>
 

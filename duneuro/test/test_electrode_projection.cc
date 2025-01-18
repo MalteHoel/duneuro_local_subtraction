@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #include <config.h>
 
 #include <iostream>
@@ -39,7 +41,7 @@ bool is_a_projection(EPI<GV>& projection,
                 << " twice: " << projectedTwice << std::endl;
       return false;
     } else {
-      std::cout << "Projection successfull. Difference: " << diff.two_norm() << std::endl;
+      std::cout << "Projection successful. Difference: " << diff.two_norm() << std::endl;
       std::cout << "original: " << electrodes[i] << " once: " << projectedOnce[i]
                 << " twice: " << projectedTwice << std::endl;
     }

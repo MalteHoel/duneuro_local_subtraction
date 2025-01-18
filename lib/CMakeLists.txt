@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+# SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #set(duneuro_SOURCES ${CMAKE_SOURCE_DIR}/duneuro/meeg/fitted_meeg_driver_2d.cc)
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/driver_2d.cc)
 set(duneuro_SOURCES ${duneuro_SOURCES} ${CMAKE_SOURCE_DIR}/duneuro/driver/fitted_volume_conductor_2d.cc)

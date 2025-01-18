@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_SEQ_AMG_UDG_BACKEND_HH
 #define DUNEURO_SEQ_AMG_UDG_BACKEND_HH
 
@@ -79,7 +81,7 @@ namespace duneuro
           for (int r = 0; r < N; ++r) {
             for (int c = 0; c < M; ++c) {
               if (!predicate((*col)[r][c])) {
-                std::cout << "predicate \"" << name << "\" not fullfilled at block (" << row.index()
+                std::cout << "predicate \"" << name << "\" not fulfilled at block (" << row.index()
                           << "," << col.index() << ") entry (" << r << "," << c
                           << "): " << (*col)[r][c] << "\n";
               }

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_SUBSETENTITYSET_HH
 #define DUNEURO_SUBSETENTITYSET_HH
 
@@ -7,6 +9,10 @@
 #include <vector>
 
 #include <dune/common/iteratorrange.hh>
+#include <dune/common/version.hh>
+#ifndef DUNE_VERSION_NEWER
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GTE(a,b,c)
+#endif
 
 #include <dune/geometry/type.hh>
 
@@ -35,7 +41,11 @@ namespace duneuro
     using HostIntersection = typename GV::Traits::Intersection;
     using Intersection = IntersectionWrapper<HostIntersection>;
     using IntersectionIterator = typename std::vector<Intersection>::const_iterator;
+#if DUNE_VERSION_NEWER(DUNE_LOCALFUNCTIONS, 2, 9)
+    using CollectiveCommunication = typename GV::Traits::Communication;
+#else
     using CollectiveCommunication = typename GV::Traits::CollectiveCommunication;
+#endif
     using size_type = std::size_t;
     using dim_type = int;
     using Index = typename BaseIndexSet::IndexType;
@@ -262,16 +272,17 @@ namespace duneuro
       }
     }
 
-    // the gridfunctionspace can avoid unnecessary updates, if two entitysets stay the same.
-    // we consider them always as different, as it might become tricky to actually check euqality.
-    bool operator!=(const SubSetEntitySet& other)
+    /*
+      we assume that SubEntitySet might change so rapidly that they are only the same if they are the same object
+    */
+    bool operator != (const SubSetEntitySet& other) const
     {
-      return true;
+      return &other != this;
     }
 
-    bool operator==(const SubSetEntitySet& other)
+    bool operator == (const SubSetEntitySet& other) const
     {
-      return false;
+      return &other == this;
     }
 
   private:

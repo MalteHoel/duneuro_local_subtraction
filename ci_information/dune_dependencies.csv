@@ -1,0 +1,10 @@
+name,module,branch,commithash
+dune-common,https://gitlab.dune-project.org/core/dune-common.git,releases/2.10,ab2af8558f5d5710005844591924536643a318f1
+dune-geometry,https://gitlab.dune-project.org/core/dune-geometry.git,releases/2.10,5673e95ac364ad3498aed9eaf65e0d224384d15a
+dune-localfunction,https://gitlab.dune-project.org/core/dune-localfunctions.git,releases/2.10,149c7866a11cab6ae5602b50b9f815088daa7a49
+dune-grid,https://gitlab.dune-project.org/core/dune-grid.git,releases/2.10,954436b88247e904628ec4d7c8bb7b2eaac08900
+dune-istl,https://gitlab.dune-project.org/core/dune-istl.git,releases/2.10,a255da6e72f3d0f2ccafec48374cc83f3bc66b60
+dune-functions,https://gitlab.dune-project.org/staging/dune-functions.git,releases/2.10,b13eb6fb3f99088754408fa091715e1745916469
+dune-typetree,https://gitlab.dune-project.org/staging/dune-typetree.git,releases/2.10,126b62e36772ee10224fa46de163f1a02b59e2e7
+dune-uggrid,https://gitlab.dune-project.org/staging/dune-uggrid.git,releases/2.10,cf2513efb6497dc95744649e0658cedef2980bff
+dune-pdelab,https://gitlab.dune-project.org/pdelab/dune-pdelab.git,releases/2.9,ff9b61e01efa8c30432f24b38d37f52fe15a7bc4

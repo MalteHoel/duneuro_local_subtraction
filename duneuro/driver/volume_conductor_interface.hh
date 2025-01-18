@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef VOLUME_CONDUCTOR_INTERFACE_HH
 #define VOLUME_CONDUCTOR_INTERFACE_HH
 
@@ -40,10 +42,10 @@ public:
 
   /**
    * This function creates a Function instance from a row of a DenseMatrix.
-   * A funtion is a type erasure object, which under the hood manages a DOF vector.
+   * A function is a type erasure object, which under the hood manages a DOF vector.
    * In the tDCS interface e.g., the potentials are exported as the rows of a matrix,
    * where each row contains the DOF-vector coefficients of a solution to the tDCS problem.
-   * In some cases it is convenient to interprete these coefficients as a function. This is
+   * In some cases it is convenient to interpret these coefficients as a function. This is
    * done by this function.
    */
   virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
