@@ -8,6 +8,10 @@
 #include <cctype>
 #include <limits>
 
+#if HAVE_TBB
+#include <tbb/tbb.h>
+#endif
+
 #include <Eigen/Dense>
 #include <Eigen/SVD>
 #include <Eigen/QR>
