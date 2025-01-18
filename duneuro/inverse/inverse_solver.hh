@@ -199,7 +199,7 @@ public:
       scalarNAIBeamformer3d(beamformerMeasure, estimatedOrientations, regularizationParameter, regularizationParameterNoise);
     }
     else {
-      DUNE_THROW(Dune::Exception, "uknown beamformer");
+      DUNE_THROW(Dune::Exception, "unknown beamformer");
     }
     
     return {beamformerMeasure, estimatedOrientations};
@@ -254,7 +254,7 @@ public:
   
   ScalarField expectedEVDistribution(const Eigen::VectorXd& trueLeadFieldVector) const
   {
-    // check if all necessary requirements are fullfilled
+    // check if all necessary requirements are fulfilled
     if(!(customMetricMatrixDefined_ && noiseCovarianceBound_ && leadfieldBound_)) {
       DUNE_THROW(Dune::Exception, "expected EV distribution is only defined if a metric matrix, a noise covariance matrix, and a leadfield have been specified");
     }
@@ -488,7 +488,7 @@ private:
   // In the paper here
   // https://arxiv.org/pdf/0710.3341.pdf
   // Pascual-Marqui defines a family of what he calls "linear imaging methods", which correctly localize single point dipoles
-  // when applied to noiseless samples. This family is parametrized by a positive semidefinite matrix C, which has to fullfill certain conditions.
+  // when applied to noiseless samples. This family is parametrized by a positive semidefinite matrix C, which has to fulfill certain conditions.
   // We here implement two choices for C, first the choice leading to the classical sLORETA method, and second the version due to Sekihara in his book
   // "Adaptive Spatial Filters for Electromagnetic Brain Imaging". In exact arithmetic, these two approaches are exactly equivalent, and I expect
   // they will also produce similar results in simulations.
