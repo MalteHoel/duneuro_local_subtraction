@@ -53,8 +53,6 @@
 #include <dune/functions/gridfunctions/gridviewfunction.hh>
 #include <dune/pdelab/function/discretegridviewfunction.hh>
 
-#include <duneuro/common/sourcespace_creation_utilities.hh>
-
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
 struct SelectFittedSolver;
