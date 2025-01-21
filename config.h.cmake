@@ -45,7 +45,7 @@
 #ifdef HAVE_TBB
 #undef HAVE_TBB
 #endif
-#cmakedefine HAVE_TBB ENABLE_TBB
+#cmakedefine HAVE_TBB 1
 #cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
 #cmakedefine HAVE_HDF5 ENABLE_HDF5
 #cmakedefine HAVE_NIFTI ENABLE_NIFTI
