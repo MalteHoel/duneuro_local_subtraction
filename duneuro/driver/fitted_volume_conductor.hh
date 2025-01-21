@@ -11,6 +11,7 @@
 #include <limits>
 #include <cmath>
 #include <array>
+#include <utility>
 
 #include <duneuro/common/cg_solver.hh>
 #include <duneuro/common/cg_solver_backend.hh>
@@ -198,6 +199,31 @@ public:
     std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
     extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
     return wrapped_function;
+  }
+
+  // Given a matrix T = (t1; t2; ..., tM)$, where ti is the i-th row, and a vector of coefficients c = (c1, ..., cM), 
+  // compute the vector c1 * t1 + ... + cM * tM and interprete it as a grid function
+  virtual std::unique_ptr<Function> makeDomainFunctionFromRowCombination(
+    const DenseMatrix<double>& denseMatrix,
+    const std::vector<double>& coefficients) const override
+  {
+    if(denseMatrix.rows() != coefficients.size()) {
+      DUNE_THROW(Dune::Exception, "number of matrix rows (" << denseMatrix.rows() << ") does not match number of coefficients (" << coefficients.size() << ")");
+    }
+    if(denseMatrix.cols() != solver_->functionSpace().getGFS().ordering().size()) {
+      DUNE_THROW(Dune::Exception, "number of matrix columns (" << denseMatrix.cols() << ") does not match number of DOFs (" << solver_->functionSpace().getGFS().ordering().size() << ")");
+    }
+    
+    std::unique_ptr<typename Traits::DomainDOFVector> outDOFVectorPtr = std::make_unique<typename Traits::DomainDOFVector>(solver_->functionSpace().getGFS(), 0.0);
+    std::unique_ptr<typename Traits::DomainDOFVector> tmpPtr = std::make_unique<typename Traits::DomainDOFVector>(solver_->functionSpace().getGFS());
+    
+    std::size_t nrRows = denseMatrix.rows();
+    for(std::size_t i = 0; i < nrRows; ++i) {
+      extract_matrix_row(denseMatrix, i, Dune::PDELab::Backend::native(*tmpPtr));
+      Dune::PDELab::Backend::native(*outDOFVectorPtr).axpy(coefficients[i], Dune::PDELab::Backend::native(*tmpPtr));
+    }
+    
+    return std::make_unique<Function>(std::move(outDOFVectorPtr));
   }
 
   virtual void setElectrodes(

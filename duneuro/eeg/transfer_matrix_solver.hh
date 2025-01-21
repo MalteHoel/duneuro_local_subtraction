@@ -50,6 +50,7 @@ namespace duneuro
           projectedElectrodes.size(), solver_->functionSpace().getGFS().ordering().size());
       auto solver_config = config.sub("solver");
       typename Traits::DomainDOFVector solution(solver_->functionSpace().getGFS(), 0.0);
+      std::cout << "Computing transfer matrix sequentially" << std::endl;
       for (std::size_t index = 1; index < projectedElectrodes.size(); ++index) {
         solve(solverBackend.get(), projectedElectrodes.getProjection(0),
               projectedElectrodes.getProjection(index), solution, rightHandSideVector_,
@@ -73,6 +74,7 @@ namespace duneuro
       auto solver_config = config.sub("solver");
       tbb::enumerable_thread_specific<typename Traits::DomainDOFVector> solution(solver_->functionSpace().getGFS(), 0.0);
        
+      std::cout << "Computing the transfer matrix using " << nr_threads << " thread(s) (grain size: " << grainSize << ")" << std::endl;
       tbb::task_arena arena(nr_threads);
       arena.execute([&]{
         tbb::parallel_for(

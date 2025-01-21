@@ -51,6 +51,17 @@ public:
   }
 
   /**
+   * Given a matrix T = (t1; t2; ..., tM)$, where ti is the i-th row, and a vector of coefficients c = (c1, ..., cM), 
+   * compute the vector c1 * t1 + ... + cM * tM and interprete it as a DOF vector, wrapped in a function object
+   */
+  virtual std::unique_ptr<Function> makeDomainFunctionFromRowCombination(
+    const DenseMatrix<double>& denseMatrix,
+    const std::vector<double>& coefficients)
+  {
+    return volumeConductor_->makeDomainFunctionFromRowCombination(denseMatrix, coefficients);
+  }
+
+  /**
    * \brief solve the eeg forward problem for the given dipole
    *
    * Important: make sure that the given Function object has been created by the

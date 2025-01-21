@@ -52,6 +52,14 @@ public:
   virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
     const DenseMatrix<FieldType>& denseMatrix,
     size_t row) const = 0;
+    
+  /**
+   * Given a matrix T = (t1; t2; ..., tM)$, where ti is the i-th row, and a vector of coefficients c = (c1, ..., cM), 
+   * compute the vector c1 * t1 + ... + cM * tM and interprete it as a DOF vector, wrapped in a function object
+   */
+  virtual std::unique_ptr<Function> makeDomainFunctionFromRowCombination(
+    const DenseMatrix<double>& denseMatrix,
+    const std::vector<double>& coefficients) const = 0;
 
   /**
    * \brief solve the eeg forward problem for the given dipole
