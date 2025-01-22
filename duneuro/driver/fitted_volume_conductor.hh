@@ -299,6 +299,21 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
+    
+    // validate that coils and projections have been set
+    if(coils_.size() == 0) {
+      DUNE_THROW(Dune::Exception, "please set coils and projections via 'setCoilsAndProjections()' before calling 'applyMEGTransfer()'");
+    }
+    
+    // check if transfer matrix dimensions match number of coils and projections
+    std::size_t nr_sensors = 0;
+    for(std::size_t i = 0; i < coils_.size(); ++i) {
+      nr_sensors += projections_[i].size();
+    }
+    if(nr_sensors != transferMatrix.rows()) {
+      DUNE_THROW(Dune::Exception, "number of MEG sensors (" << nr_sensors << ") does not match number of transfer matrix rows (" << transferMatrix.rows() << ")");
+    }
+      
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
