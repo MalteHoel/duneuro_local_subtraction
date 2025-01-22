@@ -67,6 +67,7 @@ int main(int argc, char** argv)
   config["driver.element_type"] = "tetrahedron";
   config["driver.post_process"] = "true";
   config["driver.subtract_mean"] = "true";
+  config["driver.numberOfThreads"] = "1";
   config["driver.grainSize"] = "1";
   
   config["driver.solver.reduction"] = "1e-14";
