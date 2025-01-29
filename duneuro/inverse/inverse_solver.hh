@@ -491,7 +491,8 @@ private:
   // when applied to noiseless samples. This family is parametrized by a positive semidefinite matrix C, which has to fulfill certain conditions.
   // We here implement two choices for C, first the choice leading to the classical sLORETA method, and second the version due to Sekihara in his book
   // "Adaptive Spatial Filters for Electromagnetic Brain Imaging". In exact arithmetic, these two approaches are exactly equivalent, and I expect
-  // they will also produce similar results in simulations.
+  // they will also produce similar results in simulations. Additionally, the user has the option to use set the value of C himself. This is achieved by 
+  // setting the "parameterMatrix" key to "CUSTOM", and calling "bindCustomMetricMatrix()" before the reconstruction. 
   Eigen::MatrixXd sLORETAParameterMatrix(const Dune::ParameterTree& config) const
   {
     std::string parameterMatrixString = config.get<std::string>("parameterMatrix", "sekihara");
@@ -530,7 +531,7 @@ private:
       parameterMatrix = gramMatrix.inverse();
     }
     else {
-      DUNE_THROW(Dune::Exception, "unknown parameter matrix string " << parameterMatrixString);
+      DUNE_THROW(Dune::Exception, "unknown parameter matrix string (" << parameterMatrixString << "), please choose one from {'ORIGINAL', 'SEKIHARA', 'CUSTOM'}");
     }
     
     return parameterMatrix;
