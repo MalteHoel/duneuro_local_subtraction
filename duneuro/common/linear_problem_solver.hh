@@ -120,6 +120,13 @@ namespace duneuro
         }
       }
     }
+    
+    // set the first entry of a vector to zero
+    template <class T, int blockSize>
+    void fixFirstDOF(Dune::BlockVector<Dune::FieldVector<T, blockSize>>& vector)
+    {
+      vector[0][0] = 0.0;
+    }
   }
 
   //===============================================================
@@ -240,6 +247,8 @@ namespace duneuro
 
       // transform rhs to discrete residuum
       RV r(rightHandSide);
+      TSSLPDetail::fixFirstDOF(Dune::PDELab::Backend::native(r));
+      
       Dune::PDELab::Backend::native(*_jacobian)
           .mmv(Dune::PDELab::Backend::native(x), Dune::PDELab::Backend::native(r));
       r *= -1.0;

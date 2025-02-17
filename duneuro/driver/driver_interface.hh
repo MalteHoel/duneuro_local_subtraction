@@ -214,6 +214,12 @@ public:
   createSourceSpace(const Dune::ParameterTree& config) {
     return volumeConductor_->createSourceSpace(config);
   }
+  
+  std::vector<std::pair<CoordinateType, FieldType>>
+  computeDistancesFromCompartmentSurface(const std::vector<CoordinateType>& points, const std::set<std::size_t>& compartmentLabels) const
+  {
+    return volumeConductor_->computeDistancesFromCompartmentSurface(points, compartmentLabels);
+  }
 
   /**
    * \brief Solve the tDCS forward problem.

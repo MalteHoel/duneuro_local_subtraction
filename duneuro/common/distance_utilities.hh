@@ -5,6 +5,7 @@
 
 #include <limits>
 #include <array>
+#include <utility>
 
 #include <dune/common/fvector.hh>
 #include <dune/common/fmatrix.hh>
@@ -14,7 +15,7 @@
 namespace duneuro {
 
   // The following function computes the distance of a point from a tetrahedral element.
-  // We assume that the TetrahedralEntity class fulfills the interface of a DUNE geometry class,
+  // We assume that the TetrahedralEntity class fulfills the interface of a DUNE entity class,
   // and that the Coordinate class fulfills the interface of a dune-istl vector.
   // To understand the following code, we assume that the reader is familiar  with simplices.
   // An excellent and extensive introduction can be found here
@@ -209,6 +210,116 @@ namespace duneuro {
      }
      
      return minimalSquaredDistanceQToFace;
+  }
+  
+  /*
+   * Given a point in 3d space and a triangular facet, this function computes the squared distance between them and the closest point inside the triangle to the given point.
+   * We make the same assumptions as the "squaredDistanceOfPointFromTetrahedron" function. 
+   * Furthermore, this function is in principle equivalent to the inner loop of the "squaredDistanceOfPointFromTetrahedron" function, and 
+   * we refer to the explanations given in that function to understand the following code.
+   */
+  template<class GridView, class TriangularFacetEntity, class Coordinate>
+  std::pair<Coordinate, typename GridView::ctype> 
+  closestPointAndSquaredDistanceToTriangle(const TriangularFacetEntity& triangleEntity, const Coordinate& q, const GridView& gridView)
+  {
+    using Scalar = typename GridView::ctype;
+    using Geometry = typename TriangularFacetEntity::Geometry;
+    
+    // get triangle corners
+    const Geometry& geometry = triangleEntity.geometry();
+    Coordinate p_0 = geometry.corner(0);
+    Coordinate p_1 = geometry.corner(1);
+    Coordinate p_2 = geometry.corner(2);
+    
+    // compute affine coordinates of projection of point on plane spanned by triangle
+    Coordinate q_minus_p_0 = q - p_0;
+    Coordinate d_1 = p_1 - p_0;
+    Coordinate d_2 = p_2 - p_0;
+    
+    Dune::FieldMatrix<Scalar, 2, 2> lhs;
+    lhs[0][0] = d_1.two_norm2();
+    lhs[0][1] = d_1 * d_2;
+    lhs[1][0] = lhs[0][1];
+    lhs[1][1] = d_2.two_norm2();
+    
+    Dune::FieldVector<Scalar, 2> rhs;
+    rhs[0] = q_minus_p_0 * d_1;
+    rhs[1] = q_minus_p_0 * d_2;
+    
+    Dune::FieldVector<Scalar, 2> affineCoordinates;
+    lhs.solve(affineCoordinates, rhs);
+    
+    std::array<Scalar, 3> lambda;
+    lambda[1] = affineCoordinates[0];
+    lambda[2] = affineCoordinates[1];
+    lambda[0] = 1.0 - lambda[1] - lambda[2];
+    
+    // compute projection from affine coordinates
+    Coordinate q_hat = lambda[0] * p_0 + lambda[1] * p_1 + lambda[2] * p_2;
+    Scalar squaredDistanceToProjection = (q - q_hat).two_norm2();
+    
+    // we need to iterate over the edges of the triangle. Note that the ordering here is important,
+    // since we use the lambda-values to check on what side of the edge we are
+    std::array<Coordinate, 3> edgesFrom;
+    std::array<Coordinate, 3> edgesTo;
+    std::array<Coordinate, 3> edgeDirections;
+    
+    edgesFrom[0] = p_1;
+    edgesTo[0] = p_2;
+    edgeDirections[0] = p_2 - p_1;
+    
+    edgesFrom[1] = p_0;
+    edgesTo[1] = p_2;
+    edgeDirections[1] = d_2;
+    
+    edgesFrom[2] = p_0;
+    edgesTo[2] = p_1;
+    edgeDirections[2] = d_1;
+    
+    // we now iterate over the triangle edges. At the end of the iteration we have either validated that q_hat is inside the triangle, or computed
+    // the distance of q_hat from the triangle
+    bool containedInTriangle = true;
+    Scalar minimalSquaredDistanceQHatToEdge = std::numeric_limits<Scalar>::max();
+    Coordinate closestPoint;
+    for(std::size_t i = 0; i < 3; ++i) {
+      // check on what side of the edge q_hat lies
+      if(lambda[i] < 0) {
+        containedInTriangle = false;
+        
+        // compute distance to current edge
+        Coordinate shiftedProjection = q_hat - edgesFrom[i];
+        Scalar innerProduct = shiftedProjection * edgeDirections[i];
+        Scalar squaredEdgeLength = edgeDirections[i].two_norm2();
+        
+        Scalar currentDistance;
+        Coordinate currentClosestPoint;
+        if(innerProduct <= 0) {
+          currentDistance = shiftedProjection.two_norm2();
+          currentClosestPoint = edgesFrom[i];
+        }
+        else if(innerProduct < squaredEdgeLength) {
+          currentDistance = (shiftedProjection - (innerProduct/squaredEdgeLength) * edgeDirections[i]).two_norm2();
+          currentClosestPoint = edgesFrom[i] + (innerProduct/squaredEdgeLength) * edgeDirections[i];
+        }
+        else {
+          currentDistance = (q_hat - edgesTo[i]).two_norm2();
+          currentClosestPoint = edgesTo[i];
+        }
+        
+        // potentially update smallest distance
+        if(currentDistance < minimalSquaredDistanceQHatToEdge) {
+          minimalSquaredDistanceQHatToEdge = currentDistance;
+          closestPoint = currentClosestPoint;
+        }
+      } 
+    } //end loop over edges
+    
+    if(containedInTriangle) {
+      return {q_hat, squaredDistanceToProjection};
+    }
+    else {
+      return {closestPoint, squaredDistanceToProjection + minimalSquaredDistanceQHatToEdge};
+    }
   }
   
 
