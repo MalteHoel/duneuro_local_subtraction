@@ -206,6 +206,7 @@ public:
     
     std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, dim>>> placedPositions;
     if(!enforceVenantCondition) {
+      std::cout << "Venant condition not enforced during source space creation" << std::endl;
       placedPositions = placePositionsOnRegularGridWithFilter(lowerLeft, upperRight, stepSizes, compartmentFilter);
     }
     else {

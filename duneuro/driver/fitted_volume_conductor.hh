@@ -45,6 +45,7 @@
 #include <duneuro/common/kdtree.hh>
 #include <duneuro/common/source_space_factory.hh>
 #include <duneuro/common/dof_vector_evaluator.hh>
+#include <duneuro/common/bounding_volume_hierarchy.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -418,6 +419,118 @@ public:
       *(volumeConductorStorage_.get()),
       *elementSearch_,
       config));
+  }
+  
+  virtual std::vector<std::pair<typename VolumeConductorInterface<dim>::CoordinateType, typename VolumeConductorInterface<dim>::FieldType>>
+  computeDistancesFromCompartmentSurface(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& points, 
+                                         const std::set<std::size_t>& compartmentLabels) const override 
+  {
+    //typedefs
+    using VolumeConductor = typename Traits::VC;
+    using Grid = typename VolumeConductor::GridType;
+    using GridView = typename VolumeConductor::GridView;
+    using FacetEntity = typename GridView::Codim<1>::Entity;
+    using FacetSeed = typename FacetEntity::EntitySeed;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    using FieldType = typename VolumeConductorInterface<dim>::FieldType;
+    
+    // get relevant data
+    const VolumeConductor& volumeConductor = *(volumeConductorStorage_.get());
+    const Grid& grid = volumeConductor.grid();
+    const GridView& gridView = volumeConductor.gridView();
+    
+    Dune::Timer timer(false);
+    
+    // first extract boundary of compartment
+    timer.start();
+    std::vector<FacetSeed> compartmentBoundarySeeds;
+    for(const auto& element : elements(gridView)) {
+      std::size_t currentLabel = volumeConductor.label(element);
+      
+      if(!compartmentLabels.contains(currentLabel)) {
+        continue;
+      }
+      
+      // now check intersections for compartment boundaries
+      for(const auto& intersection : intersections(gridView, element)) {
+        if(intersection.boundary() || (!compartmentLabels.contains(volumeConductor.label(intersection.outside())))) {
+          // intersection is part of boundary
+          const FacetEntity& intersectionEntity = element.template subEntity<1>(intersection.indexInInside());
+          compartmentBoundarySeeds.push_back(intersectionEntity.seed());
+        }
+        else {
+          continue;
+        }
+      }
+    }
+    timer.stop();
+    std::size_t nrFacets = compartmentBoundarySeeds.size(); 
+    std::cout << "Time compartment boundary extraction: " << timer.lastElapsed() << " seconds" << std::endl;
+    std::cout << "Compartment boundary consists of " << nrFacets << " facets" << std::endl;
+    
+    std::cout << "Construct BVH\n";
+    timer.start();
+    using BVH = BoundingVolumeHierarchy<Grid, FacetEntity>;
+    BVH bvh(grid, compartmentBoundarySeeds);
+    timer.stop();
+    std::cout << "BVH constructed\n";
+    std::cout << "Time constructing BVH: " << timer.lastElapsed() << " seconds" << std::endl;
+    
+    std::cout << "Exporting tree" << std::endl;
+    bvh.exportTree("treeInfo.txt");
+    std::cout << "Tree exported" << std::endl;
+    
+    std::vector<std::pair<Coordinate, FieldType>> closestPointsOnSurface;
+    
+    std::function<std::pair<Coordinate, FieldType>(const Coordinate&, const FacetEntity&)> 
+    pointToTriangleDistanceFunctional = [&gridView](const Coordinate& point, const FacetEntity& facet) {
+      return closestPointAndSquaredDistanceToTriangle(facet, point, gridView);
+    };
+    
+    timer.start();
+    for(std::size_t i = 0; i < points.size(); ++i) {
+      Coordinate currentPoint = points[i];
+      std::pair<Coordinate, FieldType> closestPoint = bvh.squaredDistanceToEntitySet(currentPoint, pointToTriangleDistanceFunctional);
+      closestPointsOnSurface.push_back({closestPoint.first, std::sqrt(closestPoint.second)});
+    }
+    timer.stop();
+    std::cout << "Time for distance queries using BVH: " << timer.lastElapsed() << " seconds" << std::endl;
+    
+    /*
+    // now, for each point get closest point in boundary
+    timer.start();
+    std::vector<std::pair<Coordinate, FieldType>> closestPointsOnSurface;
+    for(std::size_t i; i < points.size(); ++i) {
+      std::cout << "Currently working on point " << i << std::endl;
+      Coordinate currentPoint = points[i];
+      
+      FieldType minSquaredDistance = std::numeric_limits<FieldType>::max();
+      Coordinate closestPoint;
+      std::size_t minIndex; 
+      
+      for(std::size_t j = 0; j < nrFacets; ++j) {
+        const FacetEntity& currentFacet = grid.entity(compartmentBoundarySeeds[j]);
+        std::pair<Coordinate, FieldType> currentClosestPoint = closestPointAndDistanceToTriangle(currentFacet, currentPoint, gridView);
+        
+        if(currentClosestPoint.second < minSquaredDistance) {
+          minSquaredDistance = currentClosestPoint.second;
+          closestPoint = currentClosestPoint.first;
+          minIndex = j;
+        }
+        else {
+          continue;
+        }
+      }
+      
+      // The closest point has been computed and we append in to the result vector
+      closestPointsOnSurface.push_back({closestPoint, std::sqrt(minSquaredDistance)});
+    }
+    timer.stop();
+    std::cout << "Closest points on surface computed" << std::endl;
+    std::cout << "Time: " << timer.lastElapsed() << std::endl;
+    */
+    
+    return closestPointsOnSurface;
   }
 
 private:
