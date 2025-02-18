@@ -252,7 +252,7 @@ public:
     return SourceSpaceFactory::placePositionsInUnfittedMesh(solver_->functionSpace().getGFS(), *subTriangulation_, config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+  virtual std::vector<double> evaluateFunctionAtPositions(
     const Function& function,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
     const Dune::ParameterTree& config) const override
@@ -356,10 +356,10 @@ public:
 
   
   virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-                     std::vector<std::array<std::size_t, 2>>,
+                     std::vector<std::array<std::size_t, dim-1>>,
                      typename VolumeConductorInterface<dim>::CoordinateType,
                      typename VolumeConductorInterface<dim>::CoordinateType,
-                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, dim-1>>
   placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
                   const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
   {

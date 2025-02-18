@@ -239,48 +239,40 @@ public:
    */
   template<class VC, class CoordinateType, class ElementSearch, int dim>
   static std::tuple<std::vector<CoordinateType>,
-                    std::vector<std::array<std::size_t, 2>>,
+                    std::vector<std::array<std::size_t, dim-1>>,
                     CoordinateType,
                     CoordinateType,
-                    std::array<typename VC::ctype, 2>>
-    placePositionsOnZSlice(
-      const VC& volumeConductor,
-      const std::array<typename VC::ctype, 2>& stepSizes,
-      typename VC::ctype zHeight,
-      const ElementSearch& elementSearch)
+                    std::array<typename VC::ctype, dim-1>>
+  placePositionsOnZSlice(
+    const VC& volumeConductor,
+    const std::array<typename VC::ctype, dim-1>& stepSizes,
+    typename VC::ctype zHeight,
+    const ElementSearch& elementSearch)
   {
     using Scalar = typename VC::ctype;
 
     const auto& gridView = volumeConductor.gridView();  
-    Scalar lower_x, lower_y, upper_x, upper_y;
-    lower_x = std::numeric_limits<Scalar>::max();
-    lower_y = std::numeric_limits<Scalar>::max();
-    upper_x = std::numeric_limits<Scalar>::min();
-    upper_y = std::numeric_limits<Scalar>::min();
+    std::array<Scalar, dim-1> lowerLeft;
+    std::array<Scalar, dim-1> upperRight;
+    for(std::size_t i = 0; i < dim -1; ++i) {
+      lowerLeft[i] = std::numeric_limits<Scalar>::max();
+      upperRight[i] = std::numeric_limits<Scalar>::lowest();
+    }
     
     // compute bounding box
     for(const auto& element : elements(gridView)) {
       for(int i = 0; i < element.geometry().corners(); ++i) {
         CoordinateType  corner = element.geometry().corner(i);
-        
-        if(corner[0] < lower_x) {
-          lower_x = corner[0];
-        }
-        if(corner[1] < lower_y) {
-          lower_y = corner[1];
-        }
-        
-        if(corner[0] > upper_x) {
-          upper_x = corner[0];
-        }
-        if(corner[1] > upper_y) {
-          upper_y = corner[1];
+        for(int j = 0; j < dim - 1; ++j) {
+          if(corner[j] < lowerLeft[j]) {
+            lowerLeft[j] = corner[j];
+          }
+          if(corner[j] > upperRight[j]) {
+            upperRight[j] = corner[j];
+          }
         }
       } // loop over corners
     } // loop over elements
-    
-    std::cout << "x range (init) : [" << lower_x << ", " << upper_x << "]\n";
-    std::cout << "y range (init) : [" << lower_y << ", " << upper_y << "]\n"; 
     
     // create filter
     std::function<bool(CoordinateType)> volumeConductorFilter([&elementSearch](const CoordinateType& position){ 
@@ -292,34 +284,38 @@ public:
     CoordinateType lowerLeftCorner;
     CoordinateType upperRightCorner;
     
-    lowerLeftCorner[0] = lower_x;
-    lowerLeftCorner[1] = lower_y;
-    lowerLeftCorner[2] = zHeight;
+    for(int i = 0; i < dim - 1; ++i) {
+      lowerLeftCorner[i] = lowerLeft[i];
+      upperRightCorner[i] = upperRight[i];
+    }
+    lowerLeftCorner[dim - 1] = zHeight;
+    upperRightCorner[dim - 1] = zHeight;
     
-    upperRightCorner[0] = upper_x;
-    upperRightCorner[1] = upper_y;
-    upperRightCorner[2] = zHeight;
+    std::cout << "Lower left corner: " << lowerLeftCorner << std::endl;
+    std::cout << "Upper right corner: " << upperRightCorner << std::endl; 
     
-    std::array<typename VC::ctype, 3> augmentedStepSizes;
-    augmentedStepSizes[0] = stepSizes[0];
-    augmentedStepSizes[1] = stepSizes[1];
-    augmentedStepSizes[2] = 1.0;
+    std::array<typename VC::ctype, dim> augmentedStepSizes;
+    for(int i = 0; i < dim - 1; ++i) {
+      augmentedStepSizes[i] = stepSizes[i];
+    }
+    augmentedStepSizes[dim - 1] = 1.0;
     
-    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, 3>>> placed_positions = 
-     placeSourcesOnRegularGridWithFilter<CoordinateType, Scalar, dim>
+    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, dim>>> placed_positions = 
+     placePositionsOnRegularGridWithFilter<CoordinateType, Scalar, dim>
       (lowerLeftCorner, 
        upperRightCorner, 
        augmentedStepSizes, 
        volumeConductorFilter);
     std::vector<CoordinateType>& placed_positions_coordinates = std::get<0>(placed_positions);
     size_t nr_sources = placed_positions_coordinates.size();
-    std::vector<std::array<std::size_t, 3>>& fullIndices = std::get<1>(placed_positions);
+    std::vector<std::array<std::size_t, dim>>& fullIndices = std::get<1>(placed_positions);
     
     // postprocess placed sources
-    std::vector<std::array<std::size_t, 2>> gridIndices(nr_sources);
+    std::vector<std::array<std::size_t, dim-1>> gridIndices(nr_sources);
     for(size_t i = 0; i < nr_sources; ++i) {
-      gridIndices[i][0] = fullIndices[i][0];
-      gridIndices[i][1] = fullIndices[i][1];
+      for(size_t j = 0; j < dim - 1; ++j) {
+        gridIndices[i][j] = fullIndices[i][j];
+      }
     }
     
     return {placed_positions_coordinates, gridIndices, lowerLeftCorner, upperRightCorner, stepSizes};

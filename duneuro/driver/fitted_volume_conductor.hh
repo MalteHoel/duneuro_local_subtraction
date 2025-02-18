@@ -328,14 +328,20 @@ public:
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+  virtual std::vector<double> evaluateFunctionAtPositions(
     const Function& function,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
     const Dune::ParameterTree& config) const override
   {
     DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
     dofVectorEvaluator.bindPositions(positions);
-    return dofVectorEvaluator.evaluate(config);
+    std::unique_ptr<DenseMatrix<double>> valueMatrixPtr = dofVectorEvaluator.evaluate(config);
+    std::size_t nrValues = valueMatrixPtr->cols();
+    std::vector<double> evaluationResult(nrValues);
+    for(std::size_t i = 0; i < nrValues; ++i) {
+      evaluationResult[i] = (*valueMatrixPtr)(0, i);
+    }
+    return evaluationResult;
   }
 
   virtual std::unique_ptr<DenseMatrix<double>> 
@@ -421,19 +427,22 @@ public:
   }
 
   virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-                     std::vector<std::array<std::size_t, 2>>,
+                     std::vector<std::array<std::size_t, dim-1>>,
                      typename VolumeConductorInterface<dim>::CoordinateType,
                      typename VolumeConductorInterface<dim>::CoordinateType,
-                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, dim-1>>
   placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
                   const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
   {
     using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-    std::array<Scalar, 2> stepSizes{resolution, resolution};
-    return placePositionsOnZSlice<typename Traits::VC,
-                                  typename VolumeConductorInterface<dim>::CoordinateType,
-                                  typename Traits::ElementSearch,
-                                  dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, *elementSearch_);
+    std::array<Scalar, dim-1> stepSizes;
+    for(int i = 0; i < dim - 1; ++i) {
+      stepSizes[i] = resolution;
+    }
+    return SourceSpaceFactory::placePositionsOnZSlice<typename Traits::VC,
+                                                      typename VolumeConductorInterface<dim>::CoordinateType,
+                                                      typename Traits::ElementSearch,
+                                                      dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, *elementSearch_);
   }
 
 

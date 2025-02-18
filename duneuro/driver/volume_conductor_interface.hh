@@ -204,7 +204,7 @@ public:
   /**
    * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
    */
-  virtual std::unique_ptr<DenseMatrix<double>> 
+  virtual std::vector<double> 
   evaluateFunctionAtPositions(const Function& function,
                               const std::vector<CoordinateType>& positions,
                               const Dune::ParameterTree& config) const = 0;
@@ -261,10 +261,10 @@ public:
   * volume conductor grid are rejected.
   */             
   virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-                     std::vector<std::array<std::size_t, 2>>,
+                     std::vector<std::array<std::size_t, dim-1>>,
                      typename VolumeConductorInterface<dim>::CoordinateType,
                      typename VolumeConductorInterface<dim>::CoordinateType,
-                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, dim-1>>
   placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
                   const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
 
