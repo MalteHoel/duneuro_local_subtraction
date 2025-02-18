@@ -12,7 +12,7 @@
 #include <duneuro/common/kdtree.hh>
 
 #include <mutex>
-
+// added comment
 namespace duneuro {
 
   /* place positions on a 3d grid, but only if some filter is passed.
