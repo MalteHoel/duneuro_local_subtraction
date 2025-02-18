@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_VTK_FUNCTORS_HH
 #define DUNEURO_VTK_FUNCTORS_HH
 
@@ -9,6 +11,45 @@
 
 namespace duneuro
 {
+  /**
+   * \brief vtk function representing the label of each entity
+   *
+   * For visualization, it is sometimes convenient to have access to the label of the elements, e.g. if one want to easily filter for certain tissues
+   * without having to precisely type in the corresponding conductivity.
+   */
+  template <class VC>
+  class FittedLabelFunctor : public Dune::VTKFunction<typename VC::GridView>
+  {
+  public:
+    using GV = typename VC::GridView;
+    using ctype = typename GV::ctype;
+    enum { dim = GV::dimension };
+    using Entity = typename GV::template Codim<0>::Entity;
+    
+    FittedLabelFunctor(std::shared_ptr<const VC> volumeConductor)
+      : volumeConductor_(volumeConductor)
+    {
+    }
+    
+    double evaluate(int, const Entity& e, const Dune::FieldVector<ctype, dim>&) const
+    {
+      return volumeConductor_->label(e);
+    }
+    
+    int ncomps() const
+    {
+      return 1;
+    }
+    
+    std::string name() const
+    {
+      return "label";
+    }
+    
+  private:
+    std::shared_ptr<const VC> volumeConductor_;
+  };
+
 #if HAVE_DUNE_UDG
   template <typename GV>
   class TensorUnfittedVTKGridFunction : public Dune::UDG::UnfittedVTKFunction<GV>

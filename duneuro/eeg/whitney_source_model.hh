@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_WHITNEY_SOURCE_MODEL_HH
 #define DUNEURO_WHITNEY_SOURCE_MODEL_HH
 
@@ -103,7 +105,7 @@ public:
 
 
 // In the papers cited above so called "face intersecting" (FI) and "edgewise" (EW) divergence
-// conforming functions are used. It turns out that all necessary informations for both the FI
+// conforming functions are used. It turns out that all necessary information for both the FI
 // and the EW functions can be deduced from specifying two vertices in the grid. For the FI
 // functions these are the two nodes opposite to the given triangular face, while for the EW
 // functions these are the nodes making up the edge
@@ -289,7 +291,7 @@ private:
 // into the source configuration, given they are not already contained. We repeat this until we have reached n_elems patch elements.
 // Now we need to describe an heuristic for choosing the next patch element.
 // In the paper, Miinalainen et. al. are quite vague about this. Looking at the description on top of page 4 of that paper,
-// and at figures 1 and 2 in the paper, one gets the impression that all facial neighbors of the dipole elmement are choosen,
+// and at figures 1 and 2 in the paper, one gets the impression that all facial neighbors of the dipole elmement are chosen,
 // as long as they are in the same compartment as the source. As far as I can tell, it is not described how one should proceed if
 // one cannot reach the desired amount of elements this way.
 // In Tuulis implementation on the other hand, another approach is taken. After the initial element, only elements such that the element itself
@@ -300,7 +302,7 @@ private:
 // If multiple elements share the same number of facial neighbors in the patch, the one with the closest distance to the dipole is taken.
 // I find this implementation quite unintuitive. The criterion to exclude all elements that have a facial neighbor outside gray matter seems
 // somewhat arbitrary, and is contrary to the description in the paper and is contrary to how we handle the restriction in the Venant case.
-// Furthermore, it seems quite arbitrary to choose a different approach for the first patch extension to the facial neighboors of the dipole
+// Furthermore, it seems quite arbitrary to choose a different approach for the first patch extension to the facial neighbors of the dipole
 // element than for the later extensions. Furthermore, I find it unintuitive to prefer the number of facial neighbors in the set over the
 // distance to the dipole. I think it might be better to keep the source configuration as focal as possible, in contrast to potentially
 // adding a few more functions to the source configuration.

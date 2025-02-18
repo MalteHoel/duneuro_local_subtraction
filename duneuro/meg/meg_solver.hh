@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_MEG_SOLVER_HH
 #define DUNEURO_MEG_SOLVER_HH
 
@@ -84,12 +86,12 @@ namespace duneuro
           "flux"));
     }
 
-    virtual std::size_t numberOfCoils() const
+    virtual std::size_t numberOfCoils() const override
     {
       return numberOfCoils_;
     }
 
-    virtual std::size_t numberOfProjections(std::size_t coil) const
+    virtual std::size_t numberOfProjections(std::size_t coil) const override
     {
       return numberOfProjections_[coil];
     }

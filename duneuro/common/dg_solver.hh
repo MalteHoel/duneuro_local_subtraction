@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_DG_SOLVER_HH
 #define DUNEURO_DG_SOLVER_HH
 
@@ -40,6 +42,7 @@ namespace duneuro
             class JF>
   struct DGSolverTraits {
     static const int dimension = VC::dim;
+    static const bool isFitted = true;
     using VolumeConductor = VC;
     using GridView = typename VC::GridView;
     using CoordinateFieldType = typename VC::ctype;

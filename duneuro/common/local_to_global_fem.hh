@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 // -*- tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 // vi: set et ts=8 sw=2 sts=2:
 

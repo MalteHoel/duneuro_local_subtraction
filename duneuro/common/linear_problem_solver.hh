@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_STATIONARYLINEARPROBLEM_HH
 #define DUNEURO_STATIONARYLINEARPROBLEM_HH
 
@@ -196,6 +198,8 @@ namespace duneuro
                DataTree dataTree = DataTree())
     {
       Dune::Timer timer(false);
+      Dune::Timer timer2(false);
+
       {
         std::lock_guard<std::mutex> lock(_jacobian_mutex);
         if (!_jacobian) {
@@ -206,6 +210,8 @@ namespace duneuro
             std::cout << "=== matrix setup (max) " << timer.lastElapsed() << " s" << std::endl;
           dataTree.set("time_matrix_setup", timer.lastElapsed());
           timer.start();
+          timer2.start();
+
           (*_jacobian) = typename M::field_type(0.0);
           _go.jacobian(x, *_jacobian);
           if (_fixFirstDOF) {
@@ -223,6 +229,10 @@ namespace duneuro
             }
             std::cout << Dune::PDELab::Backend::native(*_jacobian)[0][0] << "\n";
           }
+          auto writeMat = config.get<bool>("writeMat", false);
+          if (writeMat){
+            Dune::writeMatrixToMatlab(*(*_jacobian).storage(), config.get<std::string>("MatrixFilename"));
+          }
           timer.stop();
           dataTree.set("time_matrix_assembly", timer.lastElapsed());
         }
@@ -237,6 +247,9 @@ namespace duneuro
       Dune::Timer solutionTimer;
       timer.start();
       DV z(_go.trialGridFunctionSpace(), 0.0);
+      timer2.stop();
+      std::cout << "=== Solver setup 1 " << timer2.lastElapsed() << " s" << std::endl;
+
       ls.apply(*_jacobian, z, r, config.get<typename RV::ElementType>(
                                      "reduction")); // solver makes right hand side consistent
       timer.stop();

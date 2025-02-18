@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_VOLUME_CONDUCTOR_READER_HH
 #define DUNEURO_VOLUME_CONDUCTOR_READER_HH
 
@@ -194,7 +196,7 @@ namespace duneuro
             root = root.father();
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(root)];
           if (pe - offset >= tensors.size()) {
-            DUNE_THROW(Dune::Exception, "physical entitiy of element "
+            DUNE_THROW(Dune::Exception, "physical entity of element "
                                             << factory.insertionIndex(root) << " is " << pe
                                             << " but only " << tensors.size()
                                             << " tensors have been read");

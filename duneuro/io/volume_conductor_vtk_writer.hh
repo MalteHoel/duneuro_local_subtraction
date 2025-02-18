@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_IO_VOLUME_CONDUCTOR_VTK_WRITER_HH
 #define DUNEURO_IO_VOLUME_CONDUCTOR_VTK_WRITER_HH
 
@@ -26,7 +28,7 @@ namespace duneuro {
     virtual void addVertexData(const Function& function, const std::string& name) = 0;
     virtual void addVertexDataGradient(const Function& function, const std::string& name) = 0;
     virtual void addCellData(const Function& function, const std::string& name) = 0;
-    virtual void addCellDataGradient(const Function& funciton, const std::string& name) = 0;
+    virtual void addCellDataGradient(const Function& function, const std::string& name) = 0;
     virtual void write(const Dune::ParameterTree& config, DataTree dataTree = DataTree()) = 0;
     
     virtual ~VolumeConductorVTKWriterInterface() {}
@@ -52,14 +54,17 @@ namespace duneuro {
       , gfs_(solver_.functionSpace().getGFS())
       , writer_(solver.volumeConductor()->gridView())
     {
+      writer_.addCellData(std::make_shared<FittedLabelFunctor<VolumeConductor>>(solver_.volumeConductor()));
       writer_.addCellData(std::make_shared<FittedTensorNormFunctor<VolumeConductor>>(solver_.volumeConductor()));
-#if HAVE_EIGEN
       if(visualizeAnisotropy) {
+        writer_.addCellData(std::make_shared<FittedTensorFunctor<VolumeConductor>>(solver_.volumeConductor()));
+        writer_.addCellData(std::make_shared<FittedTensorFractionalAnisotropyFunctor<VolumeConductor>>(solver_.volumeConductor()));
+#if HAVE_EIGEN
         for (unsigned int i = 0; i < dim; ++i) {
-          writer_.addCellData(std::make_shared<FittedTensorFunctor<VolumeConductor>>(solver_.volumeConductor(), i));
+          writer_.addCellData(std::make_shared<FittedTensorEigenvectorFunctor<VolumeConductor>>(solver_.volumeConductor(), i));
         }
-      }
 #endif
+      }
     }
     
     virtual void addVertexData(const Function& function, const std::string& name) override

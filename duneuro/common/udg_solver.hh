@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UDG_SOLVER_HH
 #define DUNEURO_UDG_SOLVER_HH
 
@@ -27,10 +29,12 @@ namespace duneuro
   struct UDGSolverTraits {
     using SubTriangulation = ST;
     using GridView = typename ST::BaseT::GridView;
+    using Domain = SimpleTPMCDomain<GridView, GridView>;
     using CoordinateFieldType = typename GridView::ctype;
     using ElementSearch = KDTreeElementSearch<GridView>;
     static const int dimension = GridView::dimension;
     static const int compartments = comps;
+    static const bool isFitted = false;
     using Problem = P;
     using FunctionSpace = UDGQkMultiPhaseSpace<GridView, RF, degree, compartments>;
     using DomainField = DF;
@@ -59,20 +63,23 @@ namespace duneuro
   public:
     using Traits = UDGSolverTraits<ST, compartments, degree, P, DF, RF, JF>;
 
-    UDGSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+    UDGSolver(const typename Traits::Domain& domain,
+              std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
               std::shared_ptr<const typename Traits::ElementSearch> search,
               const Dune::ParameterTree& config)
-        : UDGSolver(subTriangulation, search,
+        : UDGSolver(domain, subTriangulation, search,
                     std::make_shared<typename Traits::Problem>(
                         config.get<std::vector<double>>("conductivities")),
                     config)
     {
     }
 
-    UDGSolver(std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
+    UDGSolver(const typename Traits::Domain& domain,
+              std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation,
               std::shared_ptr<const typename Traits::ElementSearch> search,
               std::shared_ptr<typename Traits::Problem> problem, const Dune::ParameterTree& config)
-        : subTriangulation_(subTriangulation)
+        : domain_(domain)
+        , subTriangulation_(subTriangulation)
         , search_(search)
         , problem_(problem)
         , functionSpace_(subTriangulation_->gridView(), subTriangulation_)
@@ -124,7 +131,7 @@ namespace duneuro
       return subTriangulation_;
     }
 
-    typename Traits::Problem& problem()
+    const typename Traits::Problem& problem() const
     {
       return *problem_;
     }
@@ -138,8 +145,14 @@ namespace duneuro
     {
       return true;
     }
+    
+    const typename Traits::Domain& domain() const
+    {
+      return domain_;
+    }
 
   private:
+    const typename Traits::Domain& domain_;
     std::shared_ptr<const typename Traits::SubTriangulation> subTriangulation_;
     std::shared_ptr<const typename Traits::ElementSearch> search_;
     std::shared_ptr<typename Traits::Problem> problem_;

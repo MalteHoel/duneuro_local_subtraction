@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_MONOPOLAR_VENANT_HH
 #define DUNEURO_MONOPOLAR_VENANT_HH
 
@@ -55,7 +57,7 @@ namespace duneuro
     }
 
     /**
-     * \brief commpute the moment vector of the source term
+     * \brief compute the moment vector of the source term
      */
     Eigen::VectorXd
     assembleMomentVector(const std::vector<std::array<unsigned int, dim>>& multiIndices,

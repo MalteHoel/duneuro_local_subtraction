@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_GRADIENT_SPACE_HH
 #define DUNEURO_GRADIENT_SPACE_HH
 
@@ -10,6 +12,10 @@
 
 #include <duneuro/common/p1gradientfem.hh>
 #include <duneuro/common/q1gradientfem.hh>
+
+#ifndef DUNE_VERSION_NEWER
+#define DUNE_VERSION_NEWER(a,b,c) DUNE_VERSION_GTE(a,b,c)
+#endif
 
 namespace {
   template<int d, int k>

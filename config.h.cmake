@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 /* begin duneuro
    put the definitions for config.h specific to
    your project here. Everything above will be
@@ -43,7 +45,7 @@
 #ifdef HAVE_TBB
 #undef HAVE_TBB
 #endif
-#cmakedefine HAVE_TBB ENABLE_TBB
+#cmakedefine HAVE_TBB 1
 #cmakedefine HAVE_HDF5WRAP ENABLE_HDF5WRAP
 #cmakedefine HAVE_HDF5 ENABLE_HDF5
 #cmakedefine HAVE_NIFTI ENABLE_NIFTI

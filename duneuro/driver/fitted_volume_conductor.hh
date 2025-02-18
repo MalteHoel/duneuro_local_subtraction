@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef FITTED_VOLUME_CONDUCTOR_HH
 #define FITTED_VOLUME_CONDUCTOR_HH
 
@@ -41,6 +43,8 @@
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
 #include <duneuro/common/kdtree.hh>
+#include <duneuro/common/source_space_factory.hh>
+#include <duneuro/common/dof_vector_evaluator.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
 
@@ -48,8 +52,6 @@
 
 #include <dune/functions/gridfunctions/gridviewfunction.hh>
 #include <dune/pdelab/function/discretegridviewfunction.hh>
-
-#include <duneuro/common/sourcespace_creation_utilities.hh>
 
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
@@ -86,6 +88,7 @@ struct FittedMEEGDriverTraits {
   using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   using TransferMatrixUser =
       duneuro::TransferMatrixUser<Solver, SourceModelFactory>;
+
 };
 
 template <int dim, ElementType elementType, FittedSolverType solverType,
@@ -188,6 +191,15 @@ public:
         make_domain_dof_vector(*solver_, 0.0));
   }
 
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<double>& denseMatrix,
+    size_t row) const override
+  {
+    std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+    extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
+    return wrapped_function;
+  }
+
   virtual void setElectrodes(
       const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
           &electrodes,
@@ -287,6 +299,21 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
+    
+    // validate that coils and projections have been set
+    if(coils_.size() == 0) {
+      DUNE_THROW(Dune::Exception, "please set coils and projections via 'setCoilsAndProjections()' before calling 'applyMEGTransfer()'");
+    }
+    
+    // check if transfer matrix dimensions match number of coils and projections
+    std::size_t nr_sensors = 0;
+    for(std::size_t i = 0; i < coils_.size(); ++i) {
+      nr_sensors += projections_[i].size();
+    }
+    if(nr_sensors != transferMatrix.rows()) {
+      DUNE_THROW(Dune::Exception, "number of MEG sensors (" << nr_sensors << ") does not match number of transfer matrix rows (" << transferMatrix.rows() << ")");
+    }
+      
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
@@ -301,6 +328,63 @@ public:
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
 
+  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override 
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, EvaluationMatrix);
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);  
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(
+    const DenseMatrix<double>& EvaluationMatrix, 
+    const Dune::ParameterTree& config) const override 
+  {
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters;
+    
+    for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+      elementCenters.push_back(element.geometry().center());
+    }
+    
+    return evaluateMultipleFunctionsAtPositions(EvaluationMatrix, elementCenters, config);
+  }
+  
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const override
+  {
+  std::size_t nrElements = solver_->volumeConductor()->gridView().size(0);
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters(nrElements);
+  std::vector<typename VolumeConductorInterface<dim>::FieldType> elementVolumes(nrElements);
+  std::vector<std::size_t> elementLabels(nrElements);
+  
+  std::size_t counter = 0;
+  for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+    elementCenters[counter] = element.geometry().center();
+    elementVolumes[counter] = element.geometry().volume();
+    elementLabels[counter] = volumeConductorStorage_.get()->label(element);
+    ++counter;
+  }
+  
+  return {elementCenters, elementVolumes, elementLabels};
+  }
+  
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
     std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coordinates;
@@ -326,293 +410,136 @@ public:
   
   // construct a volumetric source space by first constructing a regular grid of a given step size, 
   // and then removing all positions that are not contained in the specified source compartments
-  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
-    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
-                                   const std::vector<std::size_t> sourceCompartmentsVector,
-                                   const Dune::ParameterTree& config,
-                                   DataTree dataTree = DataTree()) const override
+  // If the corresponding flag in the config is set, the Venant condition is enforced
+  virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
+  createSourceSpace(const Dune::ParameterTree& config) const override
   {
-    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-    
-    // gather source compartments in set
-    std::set<std::size_t> sourceCompartments(sourceCompartmentsVector.begin(), sourceCompartmentsVector.end());
-    
-    auto volumeConductorPtr = volumeConductorStorage_.get();
-    const auto& gridView = volumeConductorPtr->gridView();
-    
-    std::vector<Scalar> lower_limits(dim, std::numeric_limits<Scalar>::max());
-    std::vector<Scalar> upper_limits(dim, std::numeric_limits<Scalar>::min());
-    
-    // get bounding box of specified source compartments
-    for(const auto& element : elements(gridView)) {
-      if(sourceCompartments.find(volumeConductorPtr->label(element)) != sourceCompartments.end()) {
-        for(int i = 0; i < element.geometry().corners(); ++i) {
-          Coordinate corner = element.geometry().corner(i);
-          for(int k = 0; k < dim; ++k) {
-            if(corner[k] < lower_limits[k]) {
-              lower_limits[k] = corner[k];
-            }
-            if(corner[k] > upper_limits[k]) {
-              upper_limits[k] = corner[k];
-            }
-          } // loop over dimensions  
-        } // loop over corners
-      }
-      else {
-        continue;
-      }
-    } // loop over elements
-    
-    std::cout << "Bounding box of source compartments:\n" << "x-min : " << lower_limits[0] << ", x-max : " << upper_limits[0] << "\n"
-                                                          << "y-min : " << lower_limits[1] << ", y-max : " << upper_limits[1] << "\n"
-                                                          << "z-min : " << lower_limits[2] << ", z-max : " << upper_limits[2]
-                                                          << std::endl;
-    
-    /*
-     * Step 1 : Place a regular grid and reject all points not contained in the source compartments
-     */
-    
-    // scan the bounding box and place dipole positions. We do not scan the boundary, as we do not want to place dipoles
-    // on tissue interfaces
-    
-    // nr_steps[i] contains the step numer when lower_limits[i] + nr_steps[i] * gridSize >= upper_limits[i] is true for the first time. 
-    // We stop scanning one step before this happens.
-    std::vector<int> nr_steps(dim);
-    for(int i = 0; i < dim; ++i) {
-      nr_steps[i] = static_cast<int>(std::ceil((upper_limits[i] - lower_limits[i]) / gridSize));
-    }
-    
-    std::vector<Coordinate> candidatePositions;
-    std::vector<size_t> candidatePositionsElementInsertionIndices;
-    
-    Coordinate current_position;
-    for(int x_step = 1; x_step < nr_steps[0]; ++x_step) {
-      for(int y_step = 1; y_step < nr_steps[1]; ++y_step) {
-        for(int z_step = 1;  z_step < nr_steps[2]; ++z_step) {
-          // get coordinates of current point
-          current_position[0] = lower_limits[0] + x_step * gridSize;
-          current_position[1] = lower_limits[1] + y_step * gridSize;
-          current_position[2] = lower_limits[2] + z_step * gridSize;
-          
-          // get element of current point
-          auto search_result = elementSearch_->findEntity(current_position);
-          
-          // only add point if it is contained inside a source compartment
-          if(!search_result.has_value() || sourceCompartments.find(volumeConductorPtr->label(search_result.value())) == sourceCompartments.end()) {
-            continue;
-          }
-          else {
-            candidatePositions.push_back(current_position);
-            candidatePositionsElementInsertionIndices.push_back(volumeConductorPtr->insertionIndex(search_result.value()));
-          }
-        } // loop over z coord
-      } // loop over y coord
-    } // loop over x coord
-    
-    std::cout << "Source positions before Venant condition: " << candidatePositions.size() << std::endl;
-    
-    /*
-     * Step 2 : Reject all positions not fulfilling the Venant condition
-     */
-    
-    KDTree<typename Traits::VC::GridView, typename Traits::VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
-    auto venantVertexIndices = volumeConductorPtr->venantVertices(sourceCompartments);
-    std::vector<Coordinate> positions;
-    std::vector<size_t> elementInsertionIndices;
-    
-    for(int i = 0; i < candidatePositions.size(); ++i) {
-      auto nearest_neighbor_vertex_seed = nodeTree.nearestNeighbor(candidatePositions[i]).first;
-      auto nearest_neighbor_vertex_index = volumeConductorPtr->vertexIndex(nearest_neighbor_vertex_seed);
-      
-      if(venantVertexIndices.find(nearest_neighbor_vertex_index) != venantVertexIndices.end()) {
-        positions.push_back(candidatePositions[i]);
-        elementInsertionIndices.push_back(candidatePositionsElementInsertionIndices[i]);
-      }
-    }
-    
-    std::cout << "Source positions after Venant condition: " << positions.size() << std::endl;
-    
-    return {positions, elementInsertionIndices};
+      return std::get<0>(SourceSpaceFactory::placePositionsOnRegularGrid(
+      *(volumeConductorStorage_.get()),
+      *elementSearch_,
+      config));
   }
 
-/*  
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
-+                  const size_t compartmentLabel) const override
-+  {
-+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-+    std::array<Scalar, 2> stepSizes{resolution, resolution};
-+    return placeSourcesOnZSlice<typename Traits::VC,
-+                                typename VolumeConductorInterface<dim>::CoordinateType,
-+                                typename Traits::ElementSearch,
-+                                dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, compartmentLabel, *elementSearch_);
-+  }
-*/
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+  placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    std::array<Scalar, 2> stepSizes{resolution, resolution};
+    return placePositionsOnZSlice<typename Traits::VC,
+                                  typename VolumeConductorInterface<dim>::CoordinateType,
+                                  typename Traits::ElementSearch,
+                                  dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, *elementSearch_);
+  }
 
-/*  
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
-+  {
-+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-+    std::array<Scalar, 2> stepSizes{resolution, resolution};
-+    return placePositionsOnZSlice<typename Traits::VC,
-+                                  typename VolumeConductorInterface<dim>::CoordinateType,
-+                                  typename Traits::ElementSearch,
-+                                  dim>(*(volumeConductorStorage_.get()), stepSizes, zHeight, *elementSearch_);
-+  }
-*/
 
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
-    const Function& function,
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateUInfinityAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
   {
     using Scalar = typename VolumeConductorInterface<dim>::FieldType;
     using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-    using DOFVector = typename Traits::DomainDOFVector;
-    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DOFVector>;
+    using GridView = typename Traits::VC::GridView;
+    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
+    
+    const Coordinate& dipolePosition = dipole.position();
+    const Coordinate& dipoleMoment = dipole.moment();
+    
+    // set up u-infinity function
+    SubtractionParameters parameters(volumeConductorStorage_.get()->gridView(), volumeConductorStorage_.get());
+    
+    auto searchResult = elementSearch_->findEntity(dipolePosition);
+    if(!searchResult.has_value()) {
+      DUNE_THROW(Dune::Exception, "dipole at position " << dipolePosition << " is not contained in the mesh");
+    }
+    
+    const auto& dipoleElement = searchResult.value();
+    parameters.bind(dipoleElement, dipoleElement.geometry().local(dipolePosition), dipoleMoment);
+    
+    // compute u-infinity values
+    size_t nr_positions = positions.size();
+    std::vector<Scalar> uInfinityValues(nr_positions);
+    for(size_t i = 0; i < nr_positions; ++i) {
+      uInfinityValues[i] = parameters.get_u_infty(positions[i]);
+    }
+    
+    return uInfinityValues;
+  }
+
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
+    using GridView = typename Traits::VC::GridView;
+    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
+    using Solver = typename Traits::Solver;
+    using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+    using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
+    using LocSubModel = LocalSubtractionSourceModel<
+                          typename Solver::Traits::VolumeConductor,
+                          typename Solver::Traits::FunctionSpace,
+                          RangeDOFVector,
+                          ContinuityType::continuous>;
+    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DomainDOFVector>;
     using LocalFunction = typename DiscreteGridFunction::LocalFunction;
     
-    size_t nr_positions = positions.size();
-    std::vector<Scalar> functionValues(nr_positions);
+    const Coordinate& dipolePosition = dipole.position();
+    const Coordinate& dipoleMoment = dipole.moment();
     
-    DiscreteGridFunction discreteFunction(solver_->functionSpace().getGFS(), function.cast<DOFVector>());
-    LocalFunction localDiscreteFunction(localFunction(discreteFunction));
+    // set up source model
+    LocSubModel locSubModel(volumeConductorStorage_.get(),
+                            Dune::stackobject_to_shared_ptr(solver_->functionSpace()),
+                            elementSearch_,
+                            configSourceModel,
+                            configSolver);
+    
+    // bind dipole
+    locSubModel.bind(dipole);
+    std::shared_ptr<DiscreteGridFunction> chiFunctionPtr = locSubModel.getChiGridFunction();
+    LocalFunction localChi(localFunction(*chiFunctionPtr));
+    
+    size_t nr_positions = positions.size();
+    std::vector<Scalar> chiValues(nr_positions);
     
     for(size_t i = 0; i < nr_positions; ++i) {
-      // localize current positions
       const Coordinate& currentPosition = positions[i];
       auto searchResult = elementSearch_->findEntity(currentPosition);
       
-      if(!searchResult.has_value()) {
-        DUNE_THROW(Dune::Exception, "position " << currentPosition << " not contained in volume conductor");
-      }
-      
-      // bind local function to current element
-      localDiscreteFunction.bind(searchResult.value());
-      functionValues[i] = localDiscreteFunction(searchResult.value().geometry().local(currentPosition));
+      localChi.bind(searchResult.value());
+      chiValues[i] = localChi(searchResult.value().geometry().local(currentPosition));
     }
     
-    return functionValues;
+    return chiValues;
   }
 
-/*
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateUInfinityAtPositions(
-+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-+  {
-+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-+    using GridView = typename Traits::VC::GridView;
-+    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
-+    
-+    const Coordinate& dipolePosition = dipole.position();
-+    const Coordinate& dipoleMoment = dipole.moment();
-+    
-+    // set up u-infinity function
-+    SubtractionParameters parameters(volumeConductorStorage_.get()->gridView(), volumeConductorStorage_.get());
-+    
-+    auto searchResult = elementSearch_->findEntity(dipolePosition);
-+    if(!searchResult.has_value()) {
-+      DUNE_THROW(Dune::Exception, "dipole at position " << dipolePosition << " is not contained in the mesh");
-+    }
-+    
-+    const auto& dipoleElement = searchResult.value();
-+    parameters.bind(dipoleElement, dipoleElement.geometry().local(dipolePosition), dipoleMoment);
-+    
-+    // compute u-infinity values
-+    size_t nr_positions = positions.size();
-+    std::vector<Scalar> uInfinityValues(nr_positions);
-+    for(size_t i = 0; i < nr_positions; ++i) {
-+      uInfinityValues[i] = parameters.get_u_infty(positions[i]);
-+    }
-+    
-+    return uInfinityValues;
-+  }
-*/
 
-/*
-*  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateChiAtPositions(
-*    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-*    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-*    const Dune::ParameterTree& configSourceModel,
-*    const Dune::ParameterTree& configSolver) const override
-*  {
-*    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-*    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-*    using GridView = typename Traits::VC::GridView;
-*    using SubtractionParameters = SubtractionDGDefaultParameter<GridView, Scalar, typename Traits::VC>;
-*    using Solver = typename Traits::Solver;
-*    using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
-*    using RangeDOFVector = typename Solver::Traits::RangeDOFVector;
-*    using LocSubModel = LocalSubtractionSourceModel<
-*                          typename Solver::Traits::VolumeConductor,
-*                          typename Solver::Traits::FunctionSpace,
-*                          RangeDOFVector,
-*                          ContinuityType::continuous>;
-*    using DiscreteGridFunction = typename Dune::PDELab::DiscreteGridViewFunction<typename Traits::Solver::Traits::FunctionSpace::GFS, DomainDOFVector>;
-*    using LocalFunction = typename DiscreteGridFunction::LocalFunction;
-*    
-*    const Coordinate& dipolePosition = dipole.position();
-*    const Coordinate& dipoleMoment = dipole.moment();
-*    
-*    // set up source model
-*    LocSubModel locSubModel(volumeConductorStorage_.get(),
-*                            Dune::stackobject_to_shared_ptr(solver_->functionSpace()),
-*                            elementSearch_,
-*                            configSourceModel,
-*                            configSolver);
-*    
-*    // bind dipole
-*    locSubModel.bind(dipole);
-*    std::shared_ptr<DiscreteGridFunction> chiFunctionPtr = locSubModel.getChiGridFunction();
-+    LocalFunction localChi(localFunction(*chiFunctionPtr));
-+    
-+    size_t nr_positions = positions.size();
-+    std::vector<Scalar> chiValues(nr_positions);
-+    
-+    for(size_t i = 0; i < nr_positions; ++i) {
-+      const Coordinate& currentPosition = positions[i];
-+      auto searchResult = elementSearch_->findEntity(currentPosition);
-+      
-+      localChi.bind(searchResult.value());
-+      chiValues[i] = localChi(searchResult.value().geometry().local(currentPosition));
-+    }
-+    
-+    return chiValues;
-+  }
-*/
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateSigmaAtPositions(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
+    using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
 
-/*
-/virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
-/    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-/  {
-/    using Scalar = typename VolumeConductorInterface<dim>::FieldType;
-/   using Coordinate = typename VolumeConductorInterface<dim>::CoordinateType;
-/
-/    size_t nr_positions = positions.size();
-/    std::vector<Scalar> conductivityValues(nr_positions);
-/    
-/    for(size_t i = 0; i < nr_positions; ++i) {
-/      const Coordinate& currentPosition = positions[i];
-/      auto searchResult = elementSearch_->findEntity(currentPosition);
-/      
-/      conductivityValues[i] = volumeConductorStorage_.get()->tensor(searchResult.value())[0][0];
-/    }
-/    
-/    return conductivityValues;
-/  }
-*/  
+    size_t nr_positions = positions.size();
+    std::vector<Scalar> conductivityValues(nr_positions);
+    
+    for(size_t i = 0; i < nr_positions; ++i) {
+      const Coordinate& currentPosition = positions[i];
+      auto searchResult = elementSearch_->findEntity(currentPosition);
+      
+      conductivityValues[i] = volumeConductorStorage_.get()->tensor(searchResult.value())[0][0];
+    }
+    
+    return conductivityValues;
+  }
 
 private:
   Dune::ParameterTree config_;

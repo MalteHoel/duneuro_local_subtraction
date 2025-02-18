@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_PHYSICAL_FLUX_LOCAL_OPERATOR_HH
 #define DUNEURO_PHYSICAL_FLUX_LOCAL_OPERATOR_HH
 
@@ -95,7 +97,7 @@ namespace duneuro
 
     // jacobian of volume term
     template <typename EG, typename LFSU, typename X, typename LFSV, typename M>
-    void jacobian_volume(const EG& eg, const LFSU& lfsu, const X& DUNE_UNUSED(x), const LFSV& lfsv,
+    void jacobian_volume(const EG& eg, const LFSU& lfsu, [[maybe_unused]] const X& x, const LFSV& lfsv,
                          M& mat) const
     {
       using UFESwitch =

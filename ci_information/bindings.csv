@@ -1,0 +1,3 @@
+name,module,branch,commithash
+duneuro-py,https://gitlab.dune-project.org/duneuro/duneuro-py.git,master,9c6bcf1f187e7f39699545a696b9413c6cb32908
+duneuro-matlab,https://gitlab.dune-project.org/duneuro/duneuro-matlab.git,reworked_visualization,adb479aeed397785ce3ca633eb2979db8b38817e

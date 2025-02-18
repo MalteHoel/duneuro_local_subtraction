@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef VOLUME_CONDUCTOR_INTERFACE_HH
 #define VOLUME_CONDUCTOR_INTERFACE_HH
 
@@ -5,6 +7,7 @@
 #include <tbb/tbb.h>
 #endif
 
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/dense_matrix.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -37,6 +40,18 @@ public:
    * driver which knows how to treat it.
    */
   virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
+
+  /**
+   * This function creates a Function instance from a row of a DenseMatrix.
+   * A function is a type erasure object, which under the hood manages a DOF vector.
+   * In the tDCS interface e.g., the potentials are exported as the rows of a matrix,
+   * where each row contains the DOF-vector coefficients of a solution to the tDCS problem.
+   * In some cases it is convenient to interpret these coefficients as a function. This is
+   * done by this function.
+   */
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<FieldType>& denseMatrix,
+    size_t row) const = 0;
 
   /**
    * \brief solve the eeg forward problem for the given dipole
@@ -159,13 +174,72 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
+                   
+/**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<CoordinateType> 
+  createSourceSpace(const Dune::ParameterTree& config) const = 0;
 
   /**
    * \brief compute the primary B field for a given set of dipoles
    */
   virtual std::vector<std::vector<FieldType>>
   computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
+ 
+  /**
+   * \brief compute the tDCS forward solution matrix. Each row of the tDCS evaluation matrix is given by the coefficient vector 
+   *        of the solution to the tDCS problem for a electrode-reference_electrode pair.
+   *        Since (for point electrodes) the tDCS right hand side for an electrode-reference_electrode pair is given
+   *        by b = (b_i), where b_i = psi_i(electrode_pos) - \psi_i(reference_electrode_pos), which is exactly the same right hand side as for the
+   *        EEG transfer matrix, we can simply return the EEG transfer matrix.
+   */
+  std::unique_ptr<DenseMatrix<double>> solveTDCSForward(
+                            const Dune::ParameterTree& config,
+                            DataTree dataTree = DataTree())
+  {
+    return computeEEGTransferMatrix(config, dataTree);
+  }
 
+  /**
+   * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateFunctionAtPositions(const Function& function,
+                              const std::vector<CoordinateType>& positions,
+                              const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief evaluate multiple functions at predefined global positions.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(const DenseMatrix<double>& EvaluationMatrix,
+                                       const std::vector<CoordinateType>& positions,
+                                       const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief evaluate multiple functions the centers of the mesh elements.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                            const Dune::ParameterTree& config) const = 0;
+
+   /**
+     * \brief return the center, volume and potentially label of all mesh elements.
+     * Note that the label is optional because for unfitted methods, one can not always assign
+     * a unique label to each element.
+   */      
+  virtual std::tuple<std::vector<CoordinateType>,
+                     std::vector<FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const = 0;
+          
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
   /**
@@ -182,53 +256,43 @@ public:
     featureManager_->print_citations();
   }
 
-  virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
-    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
-                                   const std::vector<std::size_t> sourceCompartmentsVector,
-                                   const Dune::ParameterTree& config,
-                                   DataTree dataTree = DataTree()) const = 0;
+ /*
+  * Place regularly spaced positions on a z slice of the head model. Positions not contained in the 
+  * volume conductor grid are rejected.
+  */             
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+  placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
 
-/*
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
-+                  const size_t compartmentLabel) const = 0;
-*/
-/*                  
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
-*/
+ /*
+  * evaluate infinity potential of a dipole at predefined positions
+  */
   virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-    evaluateFunctionAtPositionsInsideMesh(const Function& function,
-                                         const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
-/*
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-+    evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-+                                 const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
-*/
+  evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+                               const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
 
-/*
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
-+    evaluateChiAtPositions(
-+      const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-+      const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-+      const Dune::ParameterTree& configSourceModel,
-+      const Dune::ParameterTree& configSolver) const = 0;
-*/
+
+ /*
+  * In the local subtraction approach, we construct a cutoff function chi. This function samples chi at predefined positions.
+  */
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const = 0;
+
       
-/*
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
-+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
-*/
+ /*
+  * At each position, samples the conductivity tensor sigma and returns the value sigma[0][0]
+  */
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateSigmaAtPositions(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
+
 
   virtual ~VolumeConductorInterface() {}
 

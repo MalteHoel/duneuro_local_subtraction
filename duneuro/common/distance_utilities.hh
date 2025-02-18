@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_DISTANCE_UTILITIES_HH
 #define DUNEURO_DISTANCE_UTILITIES_HH
 
@@ -66,7 +68,7 @@ namespace duneuro {
      * 3) t > 1: In this case, the closest point on the translated line is given by p_1 - p_0,
      *           and the closest point to q on the line p_0->p_1 is p_1.
      *
-     * Finally, let q = \lambda_0 p_0 + ... + \lambda_m p_m be an arbitray point in R^m, in 
+     * Finally, let q = \lambda_0 p_0 + ... + \lambda_m p_m be an arbitrary point in R^m, in 
      * affine coordinates for m + 1 affinely independent points. If we have an outer 
      * normal \eta_i for the face opposite to the corner i, and p_j is an arbitrary corner 
      * of this face, we have the equivalence

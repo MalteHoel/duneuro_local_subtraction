@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef UNFITTED_VOLUME_CONDUCTOR_HH
 #define UNFITTED_VOLUME_CONDUCTOR_HH
 
@@ -34,6 +36,8 @@
 #include <duneuro/io/vtk_functors.hh>
 #include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/udg/subtriangulation_statistics.hh>
+#include <duneuro/common/source_space_factory.hh>
+#include <duneuro/common/dof_vector_evaluator.hh>
 
 namespace duneuro {
 template <int dim> struct SubTriangulationTraits {
@@ -91,6 +95,7 @@ struct UnfittedDriverTraits {
                                     compartments>::SolverBackendType;
 
   using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
+
   static constexpr bool scaleToBBox() {
     return SelectUnfittedSolver<solverType, dim, degree,
                                 compartments>::scaleToBBox();
@@ -127,14 +132,15 @@ public:
         elementSearch_(std::make_shared<typename Traits::ElementSearch>(
             fundamentalGridView_)),
         solver_(std::make_shared<typename Traits::Solver>(
-            subTriangulation_, elementSearch_, config.sub("solver"))),
+            domain_, subTriangulation_, elementSearch_, config.sub("solver"))),
         solverBackend_(solver_, config.hasSub("solver")
                                     ? config.sub("solver")
                                     : Dune::ParameterTree()),
         eegTransferMatrixSolver_(solver_, config.sub("solver")),
         eegForwardSolver_(solver_),
         conductivities_(
-            config.get<std::vector<double>>("solver.conductivities")) {
+            config.get<std::vector<double>>("solver.conductivities"))
+ {
   }
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -155,6 +161,15 @@ public:
   virtual std::unique_ptr<Function> makeDomainFunction() const override {
     return std::make_unique<Function>(
         make_domain_dof_vector(*solver_, 0.0));
+  }
+  
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<double>& denseMatrix,
+    size_t row) const override
+  {
+    std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+    extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
+    return wrapped_function;
   }
 
   virtual void setElectrodes(
@@ -230,7 +245,85 @@ public:
     return this->template applyMEGTransfer_impl<Traits>(
         transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
   }
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType> 
+  createSourceSpace(const Dune::ParameterTree& config) const override
+  {
+    return SourceSpaceFactory::placePositionsInUnfittedMesh(solver_->functionSpace().getGFS(), *subTriangulation_, config);
+  }
 
+  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override 
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, EvaluationMatrix);
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);  
+  }
+    
+  virtual std::unique_ptr<DenseMatrix<double>>
+  evaluateMultipleFunctionsAtElementCenters(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const Dune::ParameterTree& config) const override
+  {
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters; 
+    
+    for (const auto& element : Dune::elements(fundamentalGridView_)) {
+      if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
+      {
+        continue;
+      }
+      elementCenters.push_back(element.geometry().center());
+    }
+    
+    return evaluateMultipleFunctionsAtPositions(EvaluationMatrix, elementCenters, config);  
+  }
+
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const override
+  {
+    unsigned int numberHostCells = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_))
+    {
+      if (subTriangulation_->isHostCell(element)) {
+        numberHostCells += 1;
+      }
+    }
+    
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters(numberHostCells);
+    std::vector<typename VolumeConductorInterface<dim>::FieldType> elementVolumes(numberHostCells);
+    std::optional<std::vector<std::size_t>> noLabels;
+    
+    std::size_t counter = 0;
+    for (const auto& element : Dune::elements(fundamentalGridView_)) {
+      if (!subTriangulation_->isHostCell(element)) // skip elements that are outside the brain
+      {
+        continue;
+      }
+      
+      elementCenters[counter] = element.geometry().center();
+      elementVolumes[counter] = element.geometry().volume();
+      
+      ++counter;
+    }
+    
+    return {elementCenters, elementVolumes, noLabels};
+  }
+  
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
     std::vector<Dune::FieldVector<typename Traits::GridView::ctype, Traits::GridView::dimension>> electrodeCoordinates;
@@ -260,77 +353,48 @@ public:
   {
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
-   
-   virtual std::pair<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>, std::vector<size_t>>
-    constructRegularSourceSpace(const typename VolumeConductorInterface<dim>::FieldType gridSize,
-                                   const std::vector<std::size_t> sourceCompartmentsVector,
-                                   const Dune::ParameterTree& config,
-                                   DataTree dataTree = DataTree()) const override
+
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, 2>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
+  placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
   {
-    DUNE_TRHOW(Dune::Exception, "source space construction is only implemented for fitted volume conductors");
+    DUNE_THROW(Dune::Exception, "position placement is only implemented for fitted volume conductors");
   }
 
-/*  
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placeSourcesZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                  const typename VolumeConductorInterface<dim>::FieldType zHeight, 
-+                  const size_t compartmentLabel) const override
-+  {
-+    DUNE_THROW(Dune::Exception, "source placement is only implemented for fitted volume conductors");
-+  }
-*/
 
-/*  
-+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
-+                     std::vector<std::array<std::size_t, 2>>,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     typename VolumeConductorInterface<dim>::CoordinateType,
-+                     std::array<typename VolumeConductorInterface<dim>::FieldType, 2>>
-+    placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
-+                    const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
-+  {
-+    DUNE_THROW(Dune::Exception, "position placement is only implemented for fitted volume conductors");
-+  }
-*/
-
-  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateFunctionAtPositionsInsideMesh(
-    const Function& function,
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateUInfinityAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
   {
     DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
   }
 
-/*
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateUInfinityAtPositions(
-+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-+  {
-+    DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
-+  }
-*/
 
-/*  
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateChiAtPositions(
-+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
-+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
-+    const Dune::ParameterTree& configSourceModel,
-+    const Dune::ParameterTree& configSolver) const override
-+  {
-+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
-+  }
-*/
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
 
-/*  
-+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> evaluateSigmaAtPositions(
-+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
-+  {
-+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
-+  }
-*/
+
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateSigmaAtPositions(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
+
 
 private:
   void checkElectrodes() const {

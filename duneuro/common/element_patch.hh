@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_ELEMENT_PATCH_HH
 #define DUNEURO_ELEMENT_PATCH_HH
 
@@ -121,6 +123,11 @@ namespace duneuro
     {
       return elements_;
     }
+    
+    const std::set<std::size_t>& elementIndices() const
+    {
+      return elementIndices_;
+    }
 
     bool contains(const Element& element) const
     {
@@ -161,13 +168,13 @@ namespace duneuro
       {
         transitionElements_ = std::make_shared<std::vector<Element>>();
 
-        // we essentially need to perfrom one additional vertex
+        // we essentially need to perform one additional vertex
         // extension and simply store the new elements inside the
         // array
 
         // we first get all elements that share a vertex with one
         // element in the current patch. Note that candidates get
-        // included mutliple times
+        // included multiple times
         std::vector<Element> candidates;
         for(const auto& element : elements_) {
           elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UNFITTED_STATISTICS_HH
 #define DUNEURO_UNFITTED_STATISTICS_HH
 
@@ -38,7 +40,7 @@ namespace duneuro
       auto local = search_result.value().geometry().local(x);
       for (const auto& interface : domain_.getDomainConfiguration().interfaces()) {
         auto localInterfaceFunction = localFunction(interface.function());
-        localInterfaceFunction.bind(element.value());
+        localInterfaceFunction.bind(search_result.value());
         result.push_back(localInterfaceFunction(local));
       }
       return result;
