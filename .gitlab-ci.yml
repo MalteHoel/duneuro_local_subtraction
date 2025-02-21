@@ -40,6 +40,9 @@ variables:
     - dune-ctest
 
 # we currently do all CI tests for the same Matlab release (currently R2024b)
+# When starting multiple Matlab jobs at the same time, the machine running the CI tests 
+# sometimes gets overwhelmed. To prevent this, we start the Matlab CI jobs sequentially
+# per operating system.
 .common_matlab_bindings:
   stage: bindings
   variables:
@@ -244,21 +247,23 @@ ubuntu:24.04_clang-18-23_matlab_bindings:
     LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
     BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
-ubuntu:22.04_clang-14-20_matlab_bindings:
-  extends: .common_matlab_bindings
-  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
-  tags: [duneuroci-ubuntu22]
-  variables:
-    DUNECI_TOOLCHAIN: clang-14-20
-    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
-
 ubuntu:22.04_gcc-11-20_matlab_bindings:
   extends: .common_matlab_bindings
   image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
   tags: [duneuroci-ubuntu22]
+  needs: ["ubuntu:24.04_gcc-14-23_matlab_bindings", "ubuntu:24.04_clang-18-23_matlab_bindings"]
   variables:
     DUNECI_TOOLCHAIN: gcc-11-20
+    LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
+    BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
+
+ubuntu:22.04_clang-14-20_matlab_bindings:
+  extends: .common_matlab_bindings
+  image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-ubuntu:22.04
+  tags: [duneuroci-ubuntu22]
+  needs: ["ubuntu:24.04_gcc-14-23_matlab_bindings", "ubuntu:24.04_clang-18-23_matlab_bindings"]
+  variables:
+    DUNECI_TOOLCHAIN: clang-14-20
     LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
     BLAS_VERSION: /usr/lib/x86_64-linux-gnu/libblas.so
 
@@ -266,6 +271,7 @@ debian:12_gcc-12-20_matlab_bindings:
   extends: .common_matlab_bindings
   image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
   tags: [duneuroci-debian12]
+  needs: ["ubuntu:22.04_gcc-11-20_matlab_bindings", "ubuntu:22.04_clang-14-20_matlab_bindings"]
   variables:
     DUNECI_TOOLCHAIN: gcc-12-20
     LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
@@ -275,6 +281,7 @@ debian:12_clang-14-20_matlab_bindings:
   extends: .common_matlab_bindings
   image: registry.dune-project.org/duneuro/duneuro/duneuro-matlab-base-debian:12
   tags: [duneuroci-debian12]
+  needs: ["ubuntu:22.04_gcc-11-20_matlab_bindings", "ubuntu:22.04_clang-14-20_matlab_bindings"]
   variables:
     DUNECI_TOOLCHAIN: clang-14-20
     LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
