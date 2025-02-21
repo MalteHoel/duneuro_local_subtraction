@@ -182,6 +182,11 @@ public:
     Scalar distanceThreshold;
     if(enforceDistanceCondition) {
       distanceThreshold = config.get<Scalar>("distanceThreshold");
+      
+      // distance condition is currently only implemented for tetrahedral models
+      if(!((volumeConductor.gridView().template begin<0>())->type().isTetrahedron())) {
+        DUNE_THROW(Dune::Exception, "distance based source space creation is only implemented for tetrahedral meshes");
+      }
     }
     std::optional<FacetBVH> facetBVHOptional;
     std::optional<std::function<std::pair<CoordinateType, Scalar>(const CoordinateType&, const FacetEntity&)>> leafDistanceOptional;
@@ -197,7 +202,7 @@ public:
     CoordinateType upperRight;
     
     lowerLeft = std::numeric_limits<Scalar>::max();
-    upperRight = std::numeric_limits<Scalar>::min();
+    upperRight = std::numeric_limits<Scalar>::lowest();
     for(const auto& element : elements(gridView)) {
       if(std::find(compartmentLabels.begin(), compartmentLabels.end(), volumeConductor.label(element)) == compartmentLabels.end()) {
         continue;
