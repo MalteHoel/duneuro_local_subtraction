@@ -180,22 +180,7 @@ public:
  */
   virtual std::vector<CoordinateType> 
   createSourceSpace(const Dune::ParameterTree& config) const = 0;
-
   
-  /**
-   * \brief compute distances of given points to surface of compartment
-   *
-   * parameters:
-   *    - points              :       vector of points for which we want to compute the distance
-   *    - compartmentLabels   :       the surface is defined as the boundary of the region made up of all entities whose label
-   *                                  is contained in this vector
-   */
-  virtual std::vector<std::pair<CoordinateType, FieldType>>
-  computeDistancesFromCompartmentSurface(const std::vector<CoordinateType>& points, const std::set<std::size_t>& compartmentLabels) const
-  {
-    DUNE_THROW(Dune::Exception, "this function should not be called, please overwrite it in derived classes");
-  }
-
   /**
    * \brief compute the primary B field for a given set of dipoles
    */
