@@ -223,7 +223,7 @@ public:
     std::cout << "Lower left corner: " << lowerLeft << std::endl;
     std::cout << "Upper right corner: " << upperRight << std::endl;
     
-    // add source comparment filter
+    // add source compartment filter
     std::vector<std::function<bool(CoordinateType)>> filters;
     
     std::function<bool(CoordinateType)> compartmentFilter(
