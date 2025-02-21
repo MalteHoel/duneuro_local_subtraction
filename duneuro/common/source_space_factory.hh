@@ -12,7 +12,12 @@
 #include <set>
 #include <tuple>
 #include <type_traits>
+#include <memory>
+#include <optional>
+
 #include <duneuro/common/kdtree.hh>
+#include <duneuro/common/distance_utilities.hh>
+#include <duneuro/common/bounding_volume_hierarchy.hh>
 
 #include <mutex>
 
@@ -154,14 +159,32 @@ public:
     using Scalar = typename VC::ctype;
     enum {dim = VC::dim};
     using CoordinateType = Dune::FieldVector<Scalar, dim>;
+    using NodeKDTree = KDTree<typename VC::GridView, typename VC::GridView::template Codim<dim>::Entity::EntitySeed>;
+    using Grid = typename VC::GridType;
+    using FacetEntity = typename VC::GridView::template Codim<1>::Entity;
+    using FacetBVH = BoundingVolumeHierarchy<Grid, FacetEntity>;
+    using FacetSeed = typename FacetEntity::EntitySeed;
+    using VertexIndex = typename VC::VertexIndex;
     
     // parse config file
     Scalar gridSize = config.get<Scalar>("gridSize");
     std::vector<std::size_t> compartmentLabels = config.get<std::vector<std::size_t>>("compartmentLabels");
-    bool enforceVenantCondition = config.get<bool>("enforceVenantCondition", true);
+    std::set<size_t> compartmentLabelSet(compartmentLabels.begin(), compartmentLabels.end());
     if(compartmentLabels.size() == 0) {
       DUNE_THROW(Dune::Exception, "please specify at least one source compartment");
     }
+    
+    bool enforceVenantCondition = config.get<bool>("enforceVenantCondition");
+    std::optional<NodeKDTree> nodeKDTreeOptional;
+    std::optional<std::set<VertexIndex>> venantVertexIndicesOptional;
+    
+    bool enforceDistanceCondition = config.get<bool>("enforceDistanceCondition");
+    Scalar distanceThreshold;
+    if(enforceDistanceCondition) {
+      distanceThreshold = config.get<Scalar>("distanceThreshold");
+    }
+    std::optional<FacetBVH> facetBVHOptional;
+    std::optional<std::function<std::pair<CoordinateType, Scalar>(const CoordinateType&, const FacetEntity&)>> leafDistanceOptional;
     
     std::array<Scalar, dim> stepSizes;
     for(std::size_t i = 0; i < dim; ++i) {
@@ -195,7 +218,9 @@ public:
     std::cout << "Lower left corner: " << lowerLeft << std::endl;
     std::cout << "Upper right corner: " << upperRight << std::endl;
     
-    // place positions inside bounding box
+    // add source comparment filter
+    std::vector<std::function<bool(CoordinateType)>> filters;
+    
     std::function<bool(CoordinateType)> compartmentFilter(
       [&volumeConductor, &compartmentLabels, &elementSearch]
       (const CoordinateType& position){
@@ -203,34 +228,86 @@ public:
         return (!search_result.has_value()) ||
           (std::find(compartmentLabels.begin(), compartmentLabels.end(), volumeConductor.label(search_result.value())) == compartmentLabels.end());
     });
+    filters.push_back(compartmentFilter);
     
-    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, dim>>> placedPositions;
+    // potentially add Venant condition filter
     if(!enforceVenantCondition) {
       std::cout << "Venant condition not enforced during source space creation" << std::endl;
-      placedPositions = placePositionsOnRegularGridWithFilter(lowerLeft, upperRight, stepSizes, compartmentFilter);
     }
     else {
-      std::cout << "Enforcing Venant condition during source space creation" << std::endl;
-      KDTree<typename VC::GridView, typename VC::GridView::template Codim<dim>::Entity::EntitySeed> nodeTree(vertices(gridView), gridView);
-      std::set<size_t> compartmentLabelSet(compartmentLabels.begin(), compartmentLabels.end());
-      auto venantVertexIndices = volumeConductor.venantVertices(compartmentLabelSet);
+      std::cout << "Venant condition enforced during source space creation" << std::endl;
+      nodeKDTreeOptional.emplace(vertices(gridView), gridView);
+      venantVertexIndicesOptional.emplace(volumeConductor.venantVertices(compartmentLabelSet));
       
       std::function<bool(CoordinateType)> venantFilter(
-        [&venantVertexIndices, &nodeTree, &volumeConductor](
-        const CoordinateType& position) {
-          auto nearest_neighbor_seed = nodeTree.nearestNeighbor(position).first; 
-          auto vertex_index = volumeConductor.vertexIndex(nearest_neighbor_seed); 
-          return venantVertexIndices.find(vertex_index) == venantVertexIndices.end();
+      [&venantVertexIndicesOptional, &nodeKDTreeOptional, &volumeConductor](const CoordinateType& position) {
+        auto nearest_neighbor_seed = nodeKDTreeOptional.value().nearestNeighbor(position).first; 
+        auto vertex_index = volumeConductor.vertexIndex(nearest_neighbor_seed); 
+        return venantVertexIndicesOptional.value().find(vertex_index) == venantVertexIndicesOptional.value().end();
       });
       
-      std::function<bool(CoordinateType)> combinedFilter(
-        [&compartmentFilter, &venantFilter]
-        (const CoordinateType& position) {
-          return (compartmentFilter(position) || venantFilter(position)); 
-      });
-      
-      placedPositions = placePositionsOnRegularGridWithFilter(lowerLeft, upperRight, stepSizes, combinedFilter);
+      filters.push_back(venantFilter);
     }
+    
+    // potentially add distance filter
+    if(!enforceDistanceCondition) {
+      std::cout << "Distance condition not enforced during source space creation" << std::endl;
+    }
+    else {
+      std::cout << "Distance condition enforced during source space creation" << std::endl;
+      
+      // first extract boundary facets of source compartment volume
+      std::vector<FacetSeed> compartmentBoundarySeeds;
+      for(const auto& element : elements(gridView)) {
+        std::size_t currentLabel = volumeConductor.label(element);
+        
+        // each compartment boundary facet is the facet of exactly one
+        // source compartment element
+        if(!compartmentLabelSet.contains(currentLabel)) {
+          continue;
+        }
+        
+        for(const auto& intersection : intersections(gridView, element)) {
+          if(intersection.boundary() || (!compartmentLabelSet.contains(volumeConductor.label(intersection.outside())))) {
+            // intersection is part of the boundary
+            const FacetEntity& intersectionEntity = element.template subEntity<1>(intersection.indexInInside());
+            compartmentBoundarySeeds.push_back(intersectionEntity.seed());
+          }
+        } // end loop over intersections of current element
+      } // end loop over elements
+      
+      std::size_t nrFacets = compartmentBoundarySeeds.size();
+      facetBVHOptional.emplace(volumeConductor.grid(), compartmentBoundarySeeds);
+      
+      leafDistanceOptional.emplace(
+        [&gridView](const CoordinateType& position, const FacetEntity& facet) {
+          return closestPointAndSquaredDistanceToTriangle(facet, position, gridView);
+        }
+      );
+      
+      std::function<bool(CoordinateType)> distanceFilter(
+        [&facetBVHOptional, &leafDistanceOptional, &distanceThreshold](const CoordinateType& position) {
+          Scalar squaredDistance = facetBVHOptional.value().squaredDistanceToEntitySet(position, leafDistanceOptional.value()).second;
+          return squaredDistance < distanceThreshold * distanceThreshold;
+        }
+      );
+      
+      filters.push_back(distanceFilter);
+    }
+    
+    std::function<bool(CoordinateType)> combinedFilter(
+      [&filters](const CoordinateType& position) {
+        for(const auto& filter : filters) {
+          if(filter(position)) {
+            return true;
+          }
+        }
+        return false;
+      }
+    );
+    
+    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, dim>>>
+    placedPositions = placePositionsOnRegularGridWithFilter(lowerLeft, upperRight, stepSizes, combinedFilter);
     
     return {std::get<0>(placedPositions), std::get<1>(placedPositions), lowerLeft, upperRight};
   }
