@@ -43,7 +43,7 @@
 
 int main(int argc, char** argv)
 {
-  constexpr int threshold = 1e-10;
+  constexpr double threshold = 1e-10;
 
   // global constants
   constexpr int dim = 3;
