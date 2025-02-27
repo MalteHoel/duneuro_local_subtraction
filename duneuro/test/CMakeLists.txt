@@ -11,6 +11,7 @@ dune_add_test(SOURCES test_electrode_projection.cc LINK_LIBRARIES duneuro)
 dune_add_test(SOURCES test_numerical_flux.cc)
 dune_add_test(SOURCES test_physical_flux.cc)
 dune_add_test(SOURCES test_bounding_volume_hierarchy.cc)
+dune_add_test(SOURCES test_analytical_expressions_local_subtraction.cc)
 
 # CG forward tests
 dune_add_test(SOURCES test_eeg_cg_local_subtraction.cc LINK_LIBRARIES duneuro)
