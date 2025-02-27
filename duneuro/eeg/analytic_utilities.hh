@@ -13,6 +13,8 @@
 #include <dune/pdelab/common/crossproduct.hh>
 #include <duneuro/common/dipole.hh>
 
+#include <dune/pdelab/boilerplate/pdelab.hh>
+
 namespace duneuro {
 	
 	// helper struct to decide if analytical formulas should be used
@@ -242,7 +244,7 @@ namespace duneuro {
     Scalar patchFactor() 
     {
       // we only need to compute the beta factor if the projection onto the triangle plane is different from the original dipole position
-      bool assembleBeta = std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon();
+      bool assembleBeta = std::abs(w_0) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon();
       assembleValuesForPatchIntegration(assembleBeta);
 
       Coordinate rhs(0.0);
@@ -303,7 +305,7 @@ namespace duneuro {
       ///////////////////////////////////
       Coordinate T_0(0.0);
 
-      if(std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon()) {
+      if(std::abs(w_0) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon()) {
         T_0 += sign_w_0 * beta_total * w;
       }
 
@@ -322,7 +324,7 @@ namespace duneuro {
         T_v += (v * normed_differences[i]) * vector_helper;
       }
 
-      if(std::abs(w_0) > 100 * dipole_position_.infinity_norm() * std::numeric_limits<Scalar>::epsilon()) {
+      if(std::abs(w_0) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon()) {
         T_u -= std::abs(w_0) * beta_total * u;
         T_v -= std::abs(w_0) * beta_total * v;
       }
@@ -353,6 +355,190 @@ namespace duneuro {
 
       return dipole_moment_ * (rhs[0] * T_0 + rhs[1] * T_u + rhs[2] * T_v);
     } // end transitionFactor
+    
+    /*
+     * The methods above implement functions to analytically compute the RHS integrals for the local subtraction approach
+     * on a tetrahedral mesh for affine test functions and isotropic conductivity in the source element for a point electrode
+     * model approach. When one uses a complete electrode model, two additional types of integrals appear. The following code
+     * implements the corresponding analytical formulas for the complete electrode model integrals.
+     */
+    
+    void assembleValuesForElectrodeInterface()
+    {
+      assembleValuesForTransitionIntegration();
+      
+      // we want to compute integrals of the form \int_{F} <dipole_moment_, R>/R^3 * p(z), where p in {1, z1, z2, z1^2, z2^2, z1*z2}
+      Scalar I_C_00, I_C_01, I_C_02, I_C_11, I_C_12, I_C_22;
+      
+      // In exact arithmetic, w_0 = 0 always implies beta_total = 0, since we assume that the dipole
+      // position is not contained inside the triangle. 
+      // If w_0 = 0, the computation of beta_total involves divisions by numbers which are not bounded away from zero.
+      // To avoid numerical issues, we thus snap beta_total to 0 for small w_0.
+      Scalar beta_total;
+      if(std::abs(w_0) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon()) {
+        beta_total = beta[0] + beta[1] + beta[2];
+      }
+      else {
+        beta_total = 0.0;
+      }
+      
+      I_C_00 = sign_w_0 * beta_total;
+      
+      I_C_01 = 0.0;
+      I_C_02 = 0.0;
+      for(int i = 0; i < number_of_edges; ++i) {
+        I_C_01 -= f[i] * (u * m[i]);
+        I_C_02 -= f[i] * (v * m[i]);
+      }
+      I_C_01 *= w_0;
+      I_C_02 *= w_0;
+      
+      I_C_11 = -std::abs(w_0) * beta_total;
+      I_C_22 = -std::abs(w_0) * beta_total;
+      I_C_12 = 0.0;
+      for(int i = 0; i < number_of_edges; ++i) {
+        I_C_11 += t[i] * f[i];
+        I_C_22 += t[i] * f[i];
+        
+        I_C_11 -= (u * m[i]) * ((u * normed_differences[i]) * (R_plus[i] - R_minus[i]) + (u * m[i]) * t[i] * f[i]);
+        I_C_22 -= (v * m[i]) * ((v * normed_differences[i]) * (R_plus[i] - R_minus[i]) + (v * m[i]) * t[i] * f[i]);
+      
+        I_C_12 -= (u * m[i]) * ((v * m[i]) * t[i] * f[i] + (v * normed_differences[i]) * (R_plus[i] - R_minus[i]));
+      }
+      I_C_11 *= w_0;
+      I_C_22 *= w_0;
+      I_C_12 *= w_0;
+      
+      Coordinate I_G_00, I_G_01, I_G_02, I_G_11, I_G_12, I_G_22;
+      
+      I_G_00 = 0.0;
+      for(int i = 0; i < number_of_edges; ++i) {
+        I_G_00 += f[i] * m[i];
+      }
+      
+      I_G_01 = std::abs(w_0) * beta_total * u;
+      I_G_02 = std::abs(w_0) * beta_total * v;
+      for(int i = 0; i < number_of_edges; ++i) {
+        Coordinate edgeIntegral = (t[i] * f[i] * normed_differences[i] - (R_plus[i] - R_minus[i]) * m[i]);
+        I_G_01 -= (u * normed_differences[i]) * edgeIntegral;
+        I_G_02 -= (v * normed_differences[i]) * edgeIntegral;
+      }
+      
+      I_G_11 = 0.0;
+      I_G_12 = 0.0;
+      I_G_22 = 0.0;
+      Scalar edgeIntegralSum1;
+      Scalar edgeIntegralSum2;
+      Dune::FieldVector<Scalar, 2> mixedIntegralCoefficients;
+      mixedIntegralCoefficients = 0.0;
+      for(int i = 0; i < number_of_edges; ++i) {
+        // first compute edge contributions to pure integrals
+        Scalar pureFactor1 = 0.0;
+        Scalar pureFactor2 = 0.0;
+        
+        Scalar help1 = gamma_plus[i] * R_plus[i] - gamma_minus[i] * R_minus[i] - R_0[i] * R_0[i] * f[i];
+        Scalar help2 = gamma_plus[i] * R_plus[i] - gamma_minus[i] * R_minus[i] + R_0[i] * R_0[i] * f[i];
+        
+        Scalar u_times_mi = (u * m[i]);
+        Scalar v_times_mi = (v * m[i]);
+        
+        Scalar u_times_si = (u * normed_differences[i]);
+        Scalar v_times_si = (v * normed_differences[i]);
+        
+        pureFactor1 += u_times_mi * u_times_mi * t[i] * t[i] * f[i];
+        pureFactor2 += v_times_mi * v_times_mi * t[i] * t[i] * f[i];
+        
+        pureFactor1 += 2.0 * u_times_mi * u_times_si * t[i] * (R_plus[i] - R_minus[i]);
+        pureFactor2 += 2.0 * v_times_mi * v_times_si * t[i] * (R_plus[i] - R_minus[i]);
+        
+        pureFactor1 += (1.0/2.0) * u_times_si * u_times_si * help1;
+        pureFactor2 += (1.0/2.0) * v_times_si * v_times_si * help1;
+        
+        I_G_11 += pureFactor1 * m[i];
+        I_G_22 += pureFactor2 * m[i];
+        
+        edgeIntegralSum1 += u_times_mi * help2;
+        edgeIntegralSum2 += v_times_mi * help2;
+        
+        // now compute edge contributions to mixed integral
+        Scalar mixedFactor = 0.0;
+        
+        mixedFactor += u_times_mi * v_times_mi * t[i] * t[i] * f[i];
+        mixedFactor += (u_times_mi * v_times_si + u_times_si * v_times_mi) * t[i] * (R_plus[i] - R_minus[i]);
+        mixedFactor += (1.0 / 2.0) * u_times_si * v_times_si * help1;
+        I_G_12 += mixedFactor * m[i];
+        
+        mixedIntegralCoefficients[0] += (1.0/2.0) * v_times_mi * help2;
+        mixedIntegralCoefficients[1] += (1.0/2.0) * u_times_mi * help2;
+      }
+      I_G_11 -= edgeIntegralSum1 * u;
+      I_G_22 -= edgeIntegralSum2 * v;
+      
+      I_G_12 -= mixedIntegralCoefficients[0] * u + mixedIntegralCoefficients[1] * v;
+      
+      // we can now assemble the integral matrix I
+      Scalar dipole_potential_factor = (1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi()));
+      I[0][0] = dipole_potential_factor * dipole_moment_ * (I_C_00 * w - I_G_00);
+      I[0][1] = dipole_potential_factor * dipole_moment_ * (I_C_01 * w - I_G_01);
+      I[0][2] = dipole_potential_factor * dipole_moment_ * (I_C_02 * w - I_G_02);
+      I[1][1] = dipole_potential_factor * dipole_moment_ * (I_C_11 * w - I_G_11);
+      I[1][2] = dipole_potential_factor * dipole_moment_ * (I_C_12 * w - I_G_12);
+      I[2][2] = dipole_potential_factor * dipole_moment_ * (I_C_22 * w - I_G_22);
+      
+      I[1][0] = I[0][1];
+      I[2][0] = I[0][2];
+      I[2][1] = I[1][2];
+      
+      return;
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // compute integral of (1/(4pi)) * chi * <M, (x - x_0) / |x - x_0|^3> * phi_i for i = 0, 1, 2, where phi_i is the 
+    // test function corresponding to corner[i].
+    // Note that to compute the FEM right hand side, you additionally need to scale by 1/sigma_infinity.
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Params:
+    //          -chi_on_corners   : 3-entry FieldVector, where chi_on_corners[i] is supposed to contain the value of chi
+    //                              on corners[i]
+    Coordinate electrodeInterfaceIntegral(const Coordinate& chi_on_corners)
+    {
+      assembleValuesForElectrodeInterface();
+      
+      // we first assemble the N matrix
+      Dune::FieldMatrix<Scalar, 3, 3> N_transposed;
+      N_transposed[0] = ansatzfunction_transformation[0] + u_0 * ansatzfunction_transformation[1] + v_0 * ansatzfunction_transformation[2];
+      N_transposed[1] = ansatzfunction_transformation[1];
+      N_transposed[2] = ansatzfunction_transformation[2];
+      
+      Coordinate intermediate1, intermediate2, integrals;
+      N_transposed.mv(chi_on_corners, intermediate1);
+      I.mv(intermediate1, intermediate2);
+      N_transposed.mtv(intermediate2, integrals);
+      
+      return integrals;
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // compute integral of (1/(4pi)) * chi * <M, (x - x_0)/|x - x_0|^3> 
+    // Note that up to the factor (1/(4pi)) this is the same as the transitionFactor of this triangle
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Params:
+    //          -chi_on_corners   : 3-entry FieldVector, where chi_on_corners[i] is supposed to contain the value of chi
+    //                              on corners[i]
+    Scalar electrodeDOFIntegral(const Coordinate& chi_on_corners)
+    {
+      std::vector<Scalar> chi_vector(dim);
+      std::vector<int> chi_indices(dim);
+      for(int i = 0; i < dim; ++i) {
+        chi_vector[i] = chi_on_corners[i];
+        chi_indices[i] = i;
+      }
+      return (1.0 / (4.0 * Dune::StandardMathematicalConstants<Scalar>::pi())) * this->transitionFactor(chi_vector, chi_indices);
+    }
     
   private:
     
@@ -398,6 +584,8 @@ namespace duneuro {
     std::array<Scalar, number_of_edges> beta;         // Values arising by integrating  1 /(sqrt(x^2 + a)*(x^2 + b))      with respect to x
 
     std::array<Coordinate, number_of_edges> ansatzfunction_transformation; // Describes the nodal basis on the triangle after transformation by x -> O^T(x - corner_1)
+    
+    Dune::FieldMatrix<Scalar, 3, 3> I;                // Integrals of unit conductivity infinity potential multiplied by polynomials of degree <= 2
 	}; // end class AnalyticTriangle
 } // end namespace duneuro
 #endif // DUNEURO_EEG_ANALYTIC_UTILITIES_HH
