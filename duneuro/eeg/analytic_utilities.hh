@@ -429,8 +429,8 @@ namespace duneuro {
       I_G_11 = 0.0;
       I_G_12 = 0.0;
       I_G_22 = 0.0;
-      Scalar edgeIntegralSum1;
-      Scalar edgeIntegralSum2;
+      Scalar edgeIntegralSum1 = 0.0;
+      Scalar edgeIntegralSum2 = 0.0;
       Dune::FieldVector<Scalar, 2> mixedIntegralCoefficients;
       mixedIntegralCoefficients = 0.0;
       for(int i = 0; i < number_of_edges; ++i) {
