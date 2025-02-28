@@ -18,7 +18,7 @@
 namespace duneuro
 {
   /*
-   * Note: "geometryAdaption" below does not mean wether a given hexahedral mesh is geometry adapted or not,
+   * Note: "geometryAdaption" below does not mean whether a given hexahedral mesh is geometry adapted or not,
    *       but instead is used to signal that a geometry adapted hexahedral mesh should be created inside DUNEuro
    *       from a labeled voxel image. This option is currently not exposed in the driver interface.
    *       In particular, if the volume conductor storage is supposed to contain an externally generated geometry adapted
