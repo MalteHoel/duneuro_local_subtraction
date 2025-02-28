@@ -22,8 +22,7 @@ namespace duneuro
     using Solver = S;
     static const unsigned int dimension = S::Traits::dimension;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
-    using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
-                                                  typename DenseRHSVector::ElementType>;
+    using SparseRHSVector = typename SparseVectorTraits<DenseRHSVector>::Vector;
     using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
@@ -114,20 +113,12 @@ namespace duneuro
     std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
       using SVC = typename Traits::SparseRHSVector;
-      SVC rhs;
+      SVC rhs(solver_->functionSpace().getGFS());
       sparseSourceModel_->assembleRightHandSide(rhs);
 
-      const auto blockSize = Traits::DenseRHSVector::block_type::dimension;
-
       std::vector<typename Traits::DomainField> output;
-      if (blockSize == 1) {
-        return matrix_sparse_vector_product(transferMatrix, rhs,
-                                            [](const typename SVC::Index& c) { return c[0]; });
-      } else {
-        return matrix_sparse_vector_product(
-            transferMatrix, rhs,
-            [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
-      }
+      return matrix_sparse_vector_product(transferMatrix,
+                                          Dune::PDELab::Backend::native(rhs));
     }
 
     template <class M>
