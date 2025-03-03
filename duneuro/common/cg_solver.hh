@@ -122,6 +122,11 @@ namespace duneuro
     {
       return search_;
     }
+    
+    const typename Traits::Assembler& assembler() const
+    {
+      return assembler_;
+    }
 
   private:
     std::shared_ptr<const typename Traits::VolumeConductor> volumeConductor_;

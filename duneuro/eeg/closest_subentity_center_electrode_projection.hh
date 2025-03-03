@@ -5,6 +5,7 @@
 
 #include <dune/geometry/referenceelements.hh>
 
+#include <duneuro/common/kdtree.hh>
 #include <duneuro/eeg/electrode_projection_interface.hh>
 
 #include <dune/grid/common/rangegenerators.hh>
@@ -16,9 +17,10 @@ namespace duneuro
   {
   public:
     using GlobalCoordinate = typename ElectrodeProjectionInterface<GV>::GlobalCoordinate;
+    using ElementSearch = KDTreeElementSearch<GV>;
 
-    ClosestSubEntityCenterElectrodeProjection(const GV& gridView, std::vector<unsigned int> codims)
-        : gridView_(gridView), codims_(codims)
+    ClosestSubEntityCenterElectrodeProjection(const GV& gridView, std::vector<unsigned int> codims, bool forceProjection, std::shared_ptr<ElementSearch> elementSearch)
+        : gridView_(gridView), codims_(codims), forceProjection_(forceProjection), elementSearch_(elementSearch)
     {
     }
 
@@ -50,6 +52,19 @@ namespace duneuro
           }
         }
       }
+      
+      // potentially check if electrodes are contained in mesh
+      if(!forceProjection_) {
+      	for(int i = 0; i < electrodes.size(); ++i) {
+      		auto entityOptional = elementSearch_->findEntity(electrodes[i]);
+      		if(!entityOptional.has_value()) {
+      			continue;
+      		}
+      		
+      		// electrode is contained in mesh
+      		projectedElectrodes_[i] = {entityOptional.value(), entityOptional.value().geometry().local(electrodes[i])};
+      	}
+      }
     }
 
     virtual const ProjectedElectrode<GV>& getProjection(std::size_t i) const
@@ -70,6 +85,8 @@ namespace duneuro
     GV gridView_;
     std::vector<unsigned int> codims_;
     std::vector<ProjectedElectrode<GV>> projectedElectrodes_;
+    bool forceProjection_;
+    std::shared_ptr<ElementSearch> elementSearch_;
   };
 }
 

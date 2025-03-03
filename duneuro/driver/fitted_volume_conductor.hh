@@ -206,9 +206,7 @@ public:
           &electrodes,
       const Dune::ParameterTree &config) override {
     assert(electrodes.size() > 0);
-    electrodeProjection_ =
-        ElectrodeProjectionFactory::make_electrode_projection(
-            config, volumeConductorStorage_.get()->gridView());
+    electrodeProjection_ = ElectrodeProjectionFactory::make_electrode_projection(config, volumeConductorStorage_.get()->gridView(), elementSearch_);
     electrodeProjection_->setElectrodes(electrodes);
     projectedGlobalElectrodes_.clear();
     for (unsigned int i = 0; i < electrodeProjection_->size(); ++i) {
