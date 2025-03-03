@@ -73,6 +73,7 @@ namespace duneuro
       return it->second;
     }
   private:
+    // an index not contained in the keys of the map below is interpreted as having an entry of 0.0
     using storage = std::unordered_map<size_type, block_type>;
     storage values_;
     std::size_t n_;
@@ -96,18 +97,20 @@ namespace duneuro
     {
       return n_;
     }
-    void resize(std::size_t n, bool copy_values)
+    
+    std::size_t size() const
+    {
+      return n_;
+    }
+    
+    // our goal here is to mimic the behaviour of Dune::BlockVector, i.e. values for indices >= n are deleted
+    // and values with index < n are kept
+    void resize(std::size_t n)
     {
       n_ = n;
-      if (! copy_values)
-        clear();
-      #warning need to check range of previous values
-      // else
-      //   for (auto && values_)
+      
+      std::erase_if(values_, [n](const auto& item) {return item.first >= n;});
     }
-
-    // template <class J, class U>
-    // friend std::ostream& operator<<(std::ostream&, const SparseVectorContainer<J, U>&);
   };
 
   //! \brief retrieve the sparse vector type for a given dense vector type
@@ -194,10 +197,10 @@ namespace duneuro
     for (std::size_t k = 0; k < matrix.rows(); ++k) {
       unsigned int offset = 0;
       for (std::size_t co = 0; co < vector.N(); ++co) { // the outer vector must have all entries...
-        for (auto && b : vector) {
+        for (auto && b : vector[co]) {
           unsigned int cb = b.first;
           for (std::size_t bi = 0; bi < blockSize; ++bi) {
-            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[cb][bi];
+            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[co][cb][bi];
           }
         }
         // offset += vector[co].dim();
