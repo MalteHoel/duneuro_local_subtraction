@@ -389,6 +389,114 @@ int main(int argc, char** argv)
     }
   }
   
+  /*
+   * transition integrals
+   */
+  {
+    // get (constant) gradients of local basis functions
+    auto local_coords_dummy = referenceElement(geometry).position(0, 0);
+    std::vector<Dune::FieldMatrix<double, 1, dim>> basis_jacobians(number_of_dofs);
+    fem.localBasis().evaluateJacobian(local_coords_dummy, basis_jacobians);
+    Dune::FieldMatrix<double, dim, number_of_dofs> lhs_matrix;
+    for(size_t i = 0; i < dim; ++i) {
+      for(size_t j = 0; j < number_of_dofs; ++j) {
+        lhs_matrix[i][j] = basis_jacobians[j][0][i];
+      }
+    }
+    
+    // compute matrix factor
+    lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
+    lhs_matrix.leftmultiply(sigma);
+    lhs_matrix.leftmultiply(L_T);
+    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi());
+    
+    // transform tetrahedron
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
+    
+    Vector rhs(0.0);
+    for(const auto& is : Dune::intersections(gridView, entity)) {
+      Vector outerNormal = is.centerUnitOuterNormal();
+      
+      // transform data according to conductivity tensor
+      Vector transformedOuterNormal;
+      L_inverse.mv(outerNormal, transformedOuterNormal);
+      transformedOuterNormal /= transformedOuterNormal.two_norm();
+      
+      auto corner_index_iterator = referenceElement(geometry).subEntities(is.indexInInside(), 1, 3);
+      duneuro::AnalyticTriangle<double> triangle(transformed_corners, corner_index_iterator);
+      triangle.bind(transformed_dipole_position, transformed_dipole_moment);
+      rhs += triangle.transitionFactor(chiOnTetrahedronCorners, corner_index_iterator) * transformedOuterNormal;
+    }
+    
+    Dune::FieldVector<double, number_of_dofs> integrals(0.0);
+    lhs_matrix.umtv(rhs, integrals);
+    
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transition_integrals_analytical[dof_to_vertex_indices[i]] = integrals[i];
+    }
+  }
+  
+  /*
+   * surface integrals
+   */
+  {
+    double det_L = L[0][0] * L[1][1] * L[2][2];
+    
+    Vector transformedFacetNormal;
+    L_inverse.mv(facetNormal, transformedFacetNormal);
+    double L_inv_eta_norm = transformedFacetNormal.two_norm();
+    transformedFacetNormal /= L_inv_eta_norm;
+    
+    auto local_coords_dummy = referenceElement(intersection.geometry()).position(0, 0);
+    Dune::FieldMatrix<double, dim-1, dim> intersectionJacobianTransposed;
+    intersectionJacobianTransposed = intersection.geometry().jacobianTransposed(local_coords_dummy);
+    Dune::FieldMatrix<double, dim-1, dim> prod1(0.0);
+    Dune::FieldMatrix<double, dim-1, dim-1> prod2(0.0);
+    Dune::FieldMatrix<double, dim-1, dim-1> gramian(0.0);
+    
+    for(int i = 0; i < dim-1; ++i) {
+      for(int j = 0; j < dim; ++j) {
+        for(int k = 0; k < dim; ++k) {
+          prod1[i][j] += intersectionJacobianTransposed[i][k] * sigma_infinity_inverse[k][j];
+        }
+      }
+    }
+    
+    for(int i = 0; i < dim-1; ++i) {
+      for(int j = 0; j < dim-1; ++j) {
+        for(int k = 0; k < dim; ++k) {
+          prod2[i][j] += prod1[i][k] * intersectionJacobianTransposed[j][k];
+          
+          gramian[i][j] += intersectionJacobianTransposed[i][k] * intersectionJacobianTransposed[j][k];
+        }
+      }
+    }
+    
+    double det_bottom = prod2[0][0] * prod2[1][1] - prod2[0][1] * prod2[1][0];
+    double det_top = gramian[0][0] * gramian[1][1] - gramian[0][1] * gramian[1][0];
+    
+    double factor = L_inv_eta_norm * det_L * std::sqrt(det_top/det_bottom);
+    
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
+    
+    duneuro::AnalyticTriangle<double> transformedTriangle(transformed_corners, intersectionIndices);
+    transformedTriangle.bind(transformed_dipole_position, transformed_dipole_moment);
+    
+    Vector localIntegrals = transformedTriangle.surfaceIntegral(transformedFacetNormal);
+    localIntegrals *= factor;
+    
+    for(int i = 0; i < number_of_facet_corners; ++i) {
+      surface_integrals_analytical[intersectionIndices[i]] = localIntegrals[i];
+    }
+    
+  }
+  
   ///////////////////////////////////////////////////////////////
   // Report results
   ///////////////////////////////////////////////////////////////
@@ -396,27 +504,23 @@ int main(int argc, char** argv)
   /*
    * numerical results
    */
+  /*
   std::cout << "Numerical integrals:" << std::endl;
   std::cout << "Patch integrals (numerical):" << std::endl;
   for(int i = 0; i < number_of_dofs; ++i) {
     std::cout << patch_integrals_numerical[i] << " ";
   }
   std::cout << std::endl;
-  
-  /*
-   * analytical results
-   */
-  std::cout << "Analytical integrals:" << std::endl;
-  std::cout << "Patch integrals (analytical):" << std::endl;
+  std::cout << "Transition integrals (numerical):" << std::endl;
   for(int i = 0; i < number_of_dofs; ++i) {
-    std::cout << patch_integrals_analytical[i] << " ";
+    std::cout << transition_integrals_numerical[i] << " ";
   }
   std::cout << std::endl;
-  /*
-  std::cout << std::endl;
-  std::cout << "Transition integrals (analytical):" << std::endl;
+  */
+  
+  std::cout << "Surface integrals (numerical):" << std::endl;
   for(int i = 0; i < number_of_dofs; ++i) {
-    std::cout << transition_integrals_analytical[i] << " ";
+    std::cout << surface_integrals_numerical[i] << " ";
   }
   std::cout << std::endl;
   std::cout << "Surface integrals (analytical):" << std::endl;
@@ -424,6 +528,25 @@ int main(int argc, char** argv)
     std::cout << surface_integrals_analytical[i] << " ";
   }
   std::cout << std::endl;
+  
+  /*
+   * analytical results
+   */
+   /*
+  std::cout << "Analytical integrals:" << std::endl;
+  std::cout << "Patch integrals (analytical):" << std::endl;
+  for(int i = 0; i < number_of_dofs; ++i) {
+    std::cout << patch_integrals_analytical[i] << " ";
+  }
+  std::cout << std::endl;
+  std::cout << "Transition integrals (analytical):" << std::endl;
+  for(int i = 0; i < number_of_dofs; ++i) {
+    std::cout << transition_integrals_analytical[i] << " ";
+  }
+  std::cout << std::endl;
+  */
+  
+  /*
   std::cout << "Electrode interface integrals (analytical):" << std::endl;
   for(int i = 0; i < number_of_dofs; ++i) {
     std::cout << electrode_interface_integrals_analytical[i] << " ";
@@ -435,17 +558,17 @@ int main(int argc, char** argv)
    * compute relative errors
    */
    double relPatch = duneuro::relativeError<double>(patch_integrals_analytical, patch_integrals_numerical);
-   /*
    double relTransition = duneuro::relativeError<double>(transition_integrals_analytical, transition_integrals_numerical);
    double relSurface = duneuro::relativeError<double>(surface_integrals_analytical, surface_integrals_numerical);
+   /*
    double relElectrodeInterface = duneuro::relativeError<double>(electrode_interface_integrals_analytical, electrode_interface_integrals_numerical);
    double relElectrodeDOF = std::abs(electrode_dof_integral_analytical - electrode_dof_integral_numerical) / electrode_dof_integral_numerical;
    */
    
    std::cout << "Relative error patch integrals:" << relPatch << std::endl;
-   /*
    std::cout << "Relative error transition integrals:" << relTransition << std::endl;
    std::cout << "Relative error surface integrals:" << relSurface << std::endl;
+   /*
    std::cout << "Relative error electrode interface integrals:" << relElectrodeInterface << std::endl;
    std::cout << "Relative error electrode DOF integrals:" << relElectrodeDOF << std::endl;
    
