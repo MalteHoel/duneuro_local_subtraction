@@ -35,10 +35,9 @@
  *    - int_F chi * u_infinity                                called electrode DOF integral
  * In the case of tetrahedral meshes with affine test functions and isotropic sigma_infinity, 
  * analytical expressions for all of these integrals have been derived (for the patch integral
- * and the surface integral by Beltrachini ( see https://dx.doi.org/10.1088/1741-2552/ab2694 ) and
- * for the transition integral, the electrode interface integral, and the electrode DOF integral
- * by myself. In this test, we want to validate the analytical expressions by comparing them against 
- * numerically computed approximations.
+ * and the surface integral by Beltrachini ( see https://dx.doi.org/10.1088/1741-2552/ab2694 ). We
+ * extended these formulas to the anisotropic case and the remaining indices. This script 
+ * is supposed to test these formulas.
  */
 
 // given a positive definite 3x3 matrix M, return lower triangular matrix L
@@ -124,40 +123,30 @@ int main(int argc, char** argv)
   sigma[2][1] = 0.4285714285714286;
   sigma[2][2] = 1.6928571428571428;
   
-  Tensor sigma_infinity_inverse_helper_local(sigma_infinity);
-  sigma_infinity_inverse_helper_local.invert();
+  Tensor sigma_infinity_inverse(sigma_infinity);
+  sigma_infinity_inverse.invert();
   
-  // compooute Cholesky factor of sigma_infinity
-  Tensor sigma_infinity_L = choleskyFactor(sigma_infinity_inverse_helper_local);
+  // compooute Cholesky factor of sigma_infinity_inverse
+  Tensor L = choleskyFactor(sigma_infinity_inverse);
   
-  Tensor sigma_infinity_L_T;
-  sigma_infinity_L_T = 0.0;
-  sigma_infinity_L_T[0][0] = sigma_infinity_L[0][0];
-  sigma_infinity_L_T[0][1] = sigma_infinity_L[1][0];
-  sigma_infinity_L_T[0][2] = sigma_infinity_L[2][0];
-  sigma_infinity_L_T[1][1] = sigma_infinity_L[1][1];
-  sigma_infinity_L_T[1][2] = sigma_infinity_L[2][1];
-  sigma_infinity_L_T[2][2] = sigma_infinity_L[2][2];
+  Tensor L_T;
+  L_T = 0.0;
+  L_T[0][0] = L[0][0];
+  L_T[0][1] = L[1][0];
+  L_T[0][2] = L[2][0];
+  L_T[1][1] = L[1][1];
+  L_T[1][2] = L[2][1];
+  L_T[2][2] = L[2][2];
   
-  Tensor sigma_infinity_L_inverse(sigma_infinity_L);
-  sigma_infinity_L_inverse.invert();
+  std::function<Vector(const Vector&)> Phi_L_T =
+    [L_T](const Vector& vec) {
+    Vector traf_vec;
+    L_T.mv(vec, traf_vec);
+    return traf_vec;
+  };
   
-  std::cout << "Sigma infinity:" << std::endl;
-  std::cout << sigma_infinity << std::endl;
-  
-  std::cout << "Cholesky factor L of sigma_infinity:" << std::endl;
-  std::cout << sigma_infinity_L << std::endl;
-  
-  std::cout << "Cholesky factor L_T of sigma_infinity:" << std::endl;
-  std::cout << sigma_infinity_L_T << std::endl;
-  
-  std::cout << "L inverse:" << std::endl;
-  std::cout << sigma_infinity_L_inverse << std::endl;
-  
-  double det_L = sigma_infinity_L[0][0] * sigma_infinity_L[1][1] * sigma_infinity_L[2][2];
-  double det_sigma_infinity_inverse = det_L * det_L;
-  
-  std::cout << "Det L:" << det_L << std::endl;
+  Tensor L_inverse(L);
+  L_inverse.invert();
   
   Intersection intersection;
   for(const auto& is : Dune::intersections(gridView, entity)) {
@@ -243,20 +232,14 @@ int main(int argc, char** argv)
   
   UInfinity u_infinity(gridView);
   UInfinityGradient grad_u_infinity(gridView);
-  Tensor sigma_infinity_inverse(sigma_infinity);
-  sigma_infinity_inverse.invert();
   u_infinity.set_parameters(dipole_moment, dipole_position, sigma_infinity, sigma_infinity_inverse);
   grad_u_infinity.set_parameters(dipole_moment, dipole_position, sigma_infinity, sigma_infinity_inverse);
   
   Tensor sigma_corr = sigma;
   sigma_corr -= sigma_infinity;
   
-  Vector transformed_dipole_position;
-  Vector transformed_dipole_moment;
-  
-  sigma_infinity_L_T.mv(dipole_position, transformed_dipole_position);
-  sigma_infinity_L_T.mv(dipole_moment, transformed_dipole_moment);
-  
+  Vector transformed_dipole_position = Phi_L_T(dipole_position);
+  Vector transformed_dipole_moment = Phi_L_T(dipole_moment);
   
   ///////////////////////////////////////////////////////////////
   // Numerical integration
@@ -275,60 +258,6 @@ int main(int argc, char** argv)
   std::vector<double> surface_integrals_numerical(number_of_dofs, 0.0);
   std::vector<double> electrode_interface_integrals_numerical(number_of_dofs, 0.0);
   double electrode_dof_integral_numerical = 0.0;
-  
-  
-  // prepare isotropic comparison
-  Tensor identity;
-  identity = 0.0;
-  identity[0][0] = 1.0;
-  identity[1][1] = 1.0;
-  identity[2][2] = 1.0;
-  Tensor id_inverse(identity);
-  id_inverse.invert();
-  std::cout << "Identity:" << std::endl << identity << std::endl;
-  UInfinity laplace_infinity(gridView);
-  UInfinityGradient laplace_infinity_gradient(gridView);
-  laplace_infinity.set_parameters(transformed_dipole_moment, transformed_dipole_position, identity, id_inverse);
-  laplace_infinity_gradient.set_parameters(transformed_dipole_moment, transformed_dipole_position, identity, id_inverse);
-  
-  std::function<Vector(const Vector&)> coordinateChangeL_T =
-  [sigma_infinity_L_T](const Vector& vec) {
-    Vector traf_vec;
-    sigma_infinity_L_T.mv(vec, traf_vec);
-    return traf_vec;
-  };
-  
-  std::cout << "Test laplace infinity: " << std::endl;
-  Vector test_corner = entity.geometry().corner(0);
-  
-  double u_inf_direct;
-  double u_inf_fac;
-  Dune::FieldVector<double, 1> u_inf_direct_vec;
-  Dune::FieldVector<double, 1> u_inf_fac_vec;
-  u_infinity.evaluateGlobal(test_corner, u_inf_direct_vec);
-  laplace_infinity.evaluateGlobal(coordinateChangeL_T(test_corner), u_inf_fac_vec);
-  std::cout << "Direct val: " << u_inf_direct_vec[0] << std::endl;
-  std::cout << "Fac val: " << det_L * u_inf_fac_vec[0] << std::endl; 
-  
-  Vector gradient_direct;
-  grad_u_infinity.evaluateGlobal(test_corner, gradient_direct);
-  Vector gradient_isotropic;
-  Vector help;
-  Vector map_pos;
-  map_pos = coordinateChangeL_T(test_corner);
-  laplace_infinity_gradient.evaluateGlobal(map_pos, help);
-  sigma_infinity_L.mv(help, gradient_isotropic);
-  gradient_isotropic *= det_L;
-  std::cout << "Direct: " << gradient_direct << std::endl;
-  std::cout << "Factorized: " << gradient_isotropic << std::endl;
-  
-  std::cout << "Test lamabda:" << std::endl;
-  std::cout << transformed_dipole_position << std::endl;
-  std::cout << coordinateChangeL_T(dipole_position) << std::endl;
-  std::cout << "Test end" << std::endl;
-  
-  Vector patch_intermediate;
-  patch_intermediate = 0.0;
   
   /*
    * first compute volumetric integrals
@@ -369,11 +298,6 @@ int main(int argc, char** argv)
       
       transition_integrals_numerical[dof_to_vertex_indices[i]] += integrationFactor * (sigma_grad_chi_u_infinity * grad_phi);
     }
-    
-    // helper integrals
-    Vector laplace_gradient_vec;
-    laplace_infinity_gradient.evaluateGlobal(coordinateChangeL_T(global_position), laplace_gradient_vec);
-    patch_intermediate += laplace_gradient_vec * integrationFactor;
   }
   
   /*
@@ -421,7 +345,6 @@ int main(int argc, char** argv)
    */
   {
     // get (constant) gradients of local basis functions
-    /*
     auto local_coords_dummy = referenceElement(geometry).position(0, 0);
     std::vector<Dune::FieldMatrix<double, 1, dim>> basis_jacobians(number_of_dofs);
     fem.localBasis().evaluateJacobian(local_coords_dummy, basis_jacobians);
@@ -433,51 +356,7 @@ int main(int argc, char** argv)
     }
     lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
     lhs_matrix.leftmultiply(sigma_corr);
-    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi() * sigma_infinity[0][0]);
-    
-    Vector rhs(0.0);
-    for(const auto& is : Dune::intersections(gridView, entity)) {
-      Vector outerNormal = is.centerUnitOuterNormal();
-      duneuro::AnalyticTriangle<double> triangle(is.geometry().corner(0), is.geometry().corner(1), is.geometry().corner(2));
-      triangle.bind(dipole_position, dipole_moment);
-      rhs += triangle.patchFactor() * outerNormal;
-    }
-    
-    Dune::FieldVector<double, number_of_dofs> integrals(0.0);
-    lhs_matrix.umtv(rhs, integrals);
-    
-    for(int i = 0; i < number_of_dofs; ++i) {
-      patch_integrals_analytical[dof_to_vertex_indices[i]] = integrals[i];
-    }
-    */
-    
-    Dune::FieldVector<double, number_of_dofs> comparison_integrals(0.0);
-    Dune::FieldMatrix<double, dim, number_of_dofs> comparison_matrix;
-    
-    
-    auto local_coords_dummy = referenceElement(geometry).position(0, 0);
-    std::vector<Dune::FieldMatrix<double, 1, dim>> basis_jacobians(number_of_dofs);
-    fem.localBasis().evaluateJacobian(local_coords_dummy, basis_jacobians);
-    Dune::FieldMatrix<double, dim, number_of_dofs> lhs_matrix;
-    for(size_t i = 0; i < dim; ++i) {
-      for(size_t j = 0; j < number_of_dofs; ++j) {
-        lhs_matrix[i][j] = basis_jacobians[j][0][i];
-      }
-    }
-    lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
-    lhs_matrix.leftmultiply(sigma_corr);
-    lhs_matrix.leftmultiply(sigma_infinity_L_T);
-    
-    comparison_matrix = lhs_matrix;
-    comparison_matrix *= det_L;
-    comparison_matrix.umtv(patch_intermediate, comparison_integrals);
-    
-    std::cout << "Comparison integrals:" << std::endl;
-    for(int i = 0; i < number_of_dofs; ++i) {
-      std::cout << comparison_integrals[i] << " ";
-    }
-    std::cout << std::endl;
-    
+    lhs_matrix.leftmultiply(L_T);
     lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi());
     
     Vector rhs(0.0);
@@ -488,40 +367,18 @@ int main(int argc, char** argv)
       Vector transformedOuterNormal;
       
       Vector transformedCorner0, transformedCorner1, transformedCorner2;
-      sigma_infinity_L_T.mv(is.geometry().corner(0), transformedCorner0);
-      sigma_infinity_L_T.mv(is.geometry().corner(1), transformedCorner1);
-      sigma_infinity_L_T.mv(is.geometry().corner(2), transformedCorner2);
+      L_T.mv(is.geometry().corner(0), transformedCorner0);
+      L_T.mv(is.geometry().corner(1), transformedCorner1);
+      L_T.mv(is.geometry().corner(2), transformedCorner2);
       
-      sigma_infinity_L_inverse.mv(outerNormal, transformedOuterNormal);
+      // note that if n is the outer normal of the current face, then L^{-1} * n / || L^{-1} n || is the unit outer normal
+      // of the current face in the transformed tetrahedron
+      L_inverse.mv(outerNormal, transformedOuterNormal);
       transformedOuterNormal /= transformedOuterNormal.two_norm();
-      
-      // potentially flip normal to point outward
-      Vector remainingCorner;
-      for(int v = 0; v < entity.geometry().corners(); ++v) {
-        if((entity.geometry().corner(v) - is.geometry().corner(0)) * outerNormal < -0.1) {
-          std::cout << "Found remaining corner (index:" << v << ")" << std::endl;
-          remainingCorner = entity.geometry().corner(v);
-        }
-      }
-      Vector transformedRemainingCorner;
-      sigma_infinity_L_T.mv(remainingCorner, transformedRemainingCorner);
-      if((transformedRemainingCorner - transformedCorner0) * transformedOuterNormal > 0.0) {
-        std::cout << "Flipping orientation" << std::endl;
-        transformedOuterNormal *= -1.0;
-      }
       
       duneuro::AnalyticTriangle<double> transformedTriangle(transformedCorner0, transformedCorner1, transformedCorner2);
       transformedTriangle.bind(transformed_dipole_position, transformed_dipole_moment);
       rhs += transformedTriangle.patchFactor() * transformedOuterNormal;
-      
-      // test values
-      std::cout << "Inner products:" << std::endl;
-      std::cout << (transformedCorner1 - transformedCorner0) * transformedOuterNormal;
-      std::cout << std::endl;
-      std::cout << (transformedCorner2 - transformedCorner0) * transformedOuterNormal;
-      std::cout << std::endl;
-      std::cout << "Norm normal:" << std::endl;
-      std::cout << transformedOuterNormal.two_norm() << std::endl;
     }
     
     Dune::FieldVector<double, number_of_dofs> integrals(0.0);
