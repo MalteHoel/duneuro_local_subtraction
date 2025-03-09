@@ -456,7 +456,7 @@ int main(int argc, char** argv)
    double relTransition = duneuro::relativeError<double>(transition_integrals_analytical, transition_integrals_numerical);
    double relSurface = duneuro::relativeError<double>(surface_integrals_analytical, surface_integrals_numerical);
    double relElectrodeInterface = duneuro::relativeError<double>(electrode_interface_integrals_analytical, electrode_interface_integrals_numerical);
-   double relElectrodeDOF = std::abs(electrode_dof_integral_analytical - electrode_dof_integral_numerical) / electrode_dof_integral_numerical;
+   double relElectrodeDOF = std::abs(electrode_dof_integral_analytical - electrode_dof_integral_numerical) / std::abs(electrode_dof_integral_numerical);
    
    std::cout << "Relative error patch integrals:" << relPatch << std::endl;
    std::cout << "Relative error transition integrals:" << relTransition << std::endl;
