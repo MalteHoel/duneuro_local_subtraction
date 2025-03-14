@@ -138,11 +138,7 @@ namespace duneuro
       }
       else if(continuityType == ContinuityType::continuous)
       {
-        if(isP1FEM<FS>::value && dim == 3) {
-          /* note that even though we now at this point that dim == 3, the conditional below is necessary for compilation. The reason for this is that,
-           * even though this branch is never taken for dim == 2, the compiler still tries to instantiate the branch. This leads to a compilation error, since
-           * the CGP1 local operator explicitly assumes that coordinates have three components. The conditional makes the branch well-formed for dim == 2.
-           */
+        if constexpr(isP1FEM<FS>::value && dim == 3) {
           if(sourceElementIsotropic_) {
             LocalSubtractionCGP1LocalOperator<VC, DiscreteGridFunction, Problem> 
               lop_cg_analytic(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);

@@ -111,6 +111,11 @@ namespace duneuro
       
       std::erase_if(values_, [n](const auto& item) {return item.first >= n;});
     }
+    
+    std::size_t nrContainedValues() const
+    {
+      return values_.size();
+    }
   };
 
   //! \brief retrieve the sparse vector type for a given dense vector type

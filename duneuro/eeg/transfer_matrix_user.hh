@@ -3,8 +3,12 @@
 #ifndef DUNEURO_TRANSFER_MATRIX_USER_HH
 #define DUNEURO_TRANSFER_MATRIX_USER_HH
 
+#include <limits>
+
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
+
+#include <dune/pdelab/backend/common/tags.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -23,6 +27,7 @@ namespace duneuro
     static const unsigned int dimension = S::Traits::dimension;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
     using SparseRHSVector = typename SparseVectorTraits<DenseRHSVector>::Vector;
+    using SparseRHSContainer = typename SparseVectorTraits<DenseRHSVector>::Container;
     using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
@@ -113,7 +118,10 @@ namespace duneuro
     std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
       using SVC = typename Traits::SparseRHSVector;
-      SVC rhs(solver_->functionSpace().getGFS());
+      using SVCContainer = typename Traits::SparseRHSContainer;
+      SVC rhs(solver_->functionSpace().getGFS(), Dune::PDELab::Backend::unattached_container());
+      rhs.attach(std::make_shared<SVCContainer>(std::numeric_limits<std::size_t>::max()));
+      
       sparseSourceModel_->assembleRightHandSide(rhs);
 
       std::vector<typename Traits::DomainField> output;
