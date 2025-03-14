@@ -85,7 +85,6 @@ namespace duneuro
         , penalty_(solverConfig.get<double>("penalty"))
         , chiFunctionPtr_(nullptr)
         , sourceElementIsotropic_(false)
-        , useNumericIntegration_(config.get<bool>("use_numeric_integration"))
     {
     }
 
@@ -145,16 +144,9 @@ namespace duneuro
             this->assembleRightHandSide(vector, lop_cg_analytic);
           }
           else {
-            // anisotropic case
-            if(!useNumericIntegration_) {
-              LocalSubtractionCGP1AnisotropicLocalOperator<VC, DiscreteGridFunction, Problem> 
-                lop_cg_analytic(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
-              this->assembleRightHandSide(vector, lop_cg_analytic);
-            }
-            else {
-              LocalSubtractionCGLocalOperator<VC, DiscreteGridFunction, Problem> lop_cg_numeric(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
-          this->assembleRightHandSide(vector, lop_cg_numeric);
-            }
+            LocalSubtractionCGP1AnisotropicLocalOperator<VC, DiscreteGridFunction, Problem> 
+              lop_cg_analytic(volumeConductor_, chiFunctionPtr_, *problem_, intorderadd_eeg_patch_, intorderadd_eeg_boundary_, intorderadd_eeg_transition_);
+            this->assembleRightHandSide(vector, lop_cg_analytic);
           }
         }
         else {
