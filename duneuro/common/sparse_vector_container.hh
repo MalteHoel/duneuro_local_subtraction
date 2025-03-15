@@ -175,6 +175,44 @@ namespace duneuro
     printSparseHelper(stream, {}, Dune::PDELab::Backend::native(v));
     return stream;
   }
+  
+  // initialize a vector to represent a zero vector
+  // For sparse vectors, we interpret the absence of an index in the underlying managed map
+  // as that the corresponding entry of the vector is zero. Since, for this function, we have only one layer of 
+  // nested SparseBlockVector, we only look up how many block entries the vector should have
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<Dune::FieldVector<T, blockSize>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto topLevelPrefix = typename SizeProvider::SizePrefix();
+    topLevelPrefix.resize(0);
+    auto topLevelSize = sizeProvider.size(topLevelPrefix);
+    vector.resize(topLevelSize);
+    return;
+  }
+  
+  // initialize a vector to represent a zero vector
+  // The principle is similar to the function defined above. The difference is that
+  // we assume that the outer SparseBlockVector has all entries set, while the inner SparseBlockVectors are allowed
+  // to be sparse
+  // This implementation is based on the one in dune/functions/backends/istlvectorbackend.hh
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<SparseBlockVector<Dune::FieldVector<T, blockSize>>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto prefix = typename SizeProvider::SizePrefix();
+    prefix.resize(0);
+    auto topLevelSize = sizeProvider.size(prefix);
+    vector.resize(topLevelSize);
+    
+    prefix.push_back(0);
+    for(std::size_t i = 0; i < topLevelSize; ++i) {
+      prefix.back() = i;
+      auto currentSecondLevelSize = sizeProvider.size(prefix);
+      vector[i] = SparseBlockVector<Dune::FieldVector<T, blockSize>>(currentSecondLevelSize);
+    }
+    return;
+  }
 
   template <class T, int blockSize>
   std::vector<T>

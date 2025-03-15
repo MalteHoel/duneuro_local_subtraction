@@ -9,6 +9,7 @@
 #include <dune/common/timer.hh>
 
 #include <dune/pdelab/backend/common/tags.hh>
+#include <dune/pdelab/ordering/utility.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -117,10 +118,17 @@ namespace duneuro
     template <class M>
     std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
+      // initialize vector with no managed container
       using SVC = typename Traits::SparseRHSVector;
       using SVCContainer = typename Traits::SparseRHSContainer;
       SVC rhs(solver_->functionSpace().getGFS(), Dune::PDELab::Backend::unattached_container());
-      rhs.attach(std::make_shared<SVCContainer>(std::numeric_limits<std::size_t>::max()));
+      
+      // create and attach container of correct size
+      Dune::PDELab::SizeProviderAdapter sizeProvider{solver_->functionSpace().getGFS().orderingStorage()};
+      static_assert(decltype(sizeProvider)::ContainerIndexOrder == Dune::PDELab::MultiIndexOrder::Outer2Inner);
+      std::shared_ptr<SVCContainer> sparseContainerPtr = std::make_shared<SVCContainer>();
+      initialize_sparse_vector(*sparseContainerPtr, sizeProvider);
+      rhs.attach(sparseContainerPtr);
       
       sparseSourceModel_->assembleRightHandSide(rhs);
 
