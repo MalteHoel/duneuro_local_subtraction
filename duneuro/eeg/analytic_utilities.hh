@@ -142,7 +142,7 @@ namespace duneuro {
         }
         
         bool dipoleNotOnEdge = std::abs(R_0[i]) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon();
-        if(dipoleNotOneEdge) {
+        if(dipoleNotOnEdge) {
           R_s[i] = (gamma_plus[i] / R_plus[i] - gamma_minus[i] / R_minus[i]) / (R_0[i] * R_0[i]);
         }
         else {
