@@ -14,30 +14,56 @@
 
 namespace duneuro
 {
-  namespace SparseVectorContainerDetail
-  {
-    template <class T, int bs, class I, std::size_t n>
-    std::size_t flat(const Dune::BlockVector<Dune::FieldVector<T, bs>>& vector,
-                     const Dune::PDELab::MultiIndex<I, n>& containerIndex)
-    {
-      assert(containerIndex.size() == 2);
-      return containerIndex[1] * bs + containerIndex[0];
+  // forward declaration
+  template <class B>
+  class SparseBlockVector;
+}
+
+// and some pdelab helper ...
+namespace Dune {
+  namespace PDELab {
+    namespace ISTL {
+      namespace tags {
+        template<typename Block>
+        struct container<duneuro::SparseBlockVector<Block> >
+        {
+          typedef block_vector type;
+        };
+      }
     }
   }
-  template <class I, class T>
-  class SparseVectorContainer
+}
+
+namespace duneuro
+{
+  template <class B>
+  class SparseBlockVector
   {
   public:
-    using Index = I;
-    using Value = T;
-    using const_iterator = typename std::unordered_map<Index, Value>::const_iterator;
-    using field_type = typename Dune::FieldTraits<T>::field_type;
 
-    Value& operator[](const Index& index)
+    SparseBlockVector() : n_(0) {}
+    SparseBlockVector(std::size_t n) : n_(n) {}
+
+    //! export the type representing the field
+    using field_type = typename B::field_type;
+
+    //! export the type representing the components
+    typedef B block_type;
+
+    //! the type for the index access
+    typedef std::size_t size_type;
+
+    //! the type used for references
+    using reference = B&;
+
+    //! the type used for const references
+    using const_reference = const B&;
+
+    block_type& operator[](const size_type& index)
     {
       return values_[index];
     }
-    const Value& operator[](const Index& index) const
+    const block_type& operator[](const size_type& index) const
     {
       auto it = values_.find(index);
       if (it == values_.end()) {
@@ -46,6 +72,15 @@ namespace duneuro
       }
       return it->second;
     }
+  private:
+    // an index not contained in the keys of the map below is interpreted as having an entry of 0.0
+    using storage = std::unordered_map<size_type, block_type>;
+    storage values_;
+    std::size_t n_;
+
+  public:
+    using const_iterator = typename storage::const_iterator;
+
     const_iterator begin() const
     {
       return values_.begin();
@@ -58,35 +93,166 @@ namespace duneuro
     {
       values_.clear();
     }
-
-    template <class J, class U>
-    friend std::ostream& operator<<(std::ostream&, const SparseVectorContainer<J, U>&);
-
-  private:
-    std::unordered_map<Index, Value> values_;
+    std::size_t N() const
+    {
+      return n_;
+    }
+    
+    std::size_t size() const
+    {
+      return n_;
+    }
+    
+    // our goal here is to mimic the behaviour of Dune::BlockVector, i.e. values for indices >= n are deleted
+    // and values with index < n are kept
+    void resize(std::size_t n)
+    {
+      n_ = n;
+      
+      std::erase_if(values_, [n](const auto& item) {return item.first >= n;});
+    }
+    
+    std::size_t nrContainedValues() const
+    {
+      return values_.size();
+    }
   };
 
-  template <class I, class T>
-  std::ostream& operator<<(std::ostream& stream, const SparseVectorContainer<I, T>& v)
+  //! \brief retrieve the sparse vector type for a given dense vector type
+  template<typename T>
+  struct SparseVectorTraits;
+
+  template<typename K, int N>
+  struct SparseVectorTraits<Dune::FieldVector<K,N>>
   {
-    for (const auto& e : v.values_) {
-      stream << "Index: " << e.first << " Value: " << e.second << "\n";
+    using Container = Dune::FieldVector<K,N>;
+  };
+
+  template<typename B>
+  struct SparseVectorTraits<Dune::BlockVector<B>>
+  {
+    using Block = typename SparseVectorTraits<B>::Container;
+    using Container = SparseBlockVector<Block>;
+  };
+
+  template<typename GFS, typename C>
+  struct SparseVectorTraits<Dune::PDELab::ISTL::BlockVector<GFS,C>>
+  {
+    using Container = typename SparseVectorTraits<C>::Container;
+    using Vector = Dune::PDELab::ISTL::BlockVector<GFS,Container>;
+  };
+
+  namespace Impl {
+    template<typename T, int N>
+    void printSparseHelper(std::ostream& stream, std::vector<std::size_t> prefix, const Dune::FieldVector<T,N>& v)
+    {
+      for (std::size_t i=0; i<N; i++) {
+        std::copy( prefix.begin(), prefix.end(), std::ostream_iterator<int>(stream, ","));
+        stream << "," << i << ":\t" << v[i] << "\n";
+      }
     }
+    template<typename B, typename GFS>
+    void printSparseHelper(std::ostream& stream, std::vector<std::size_t> prefix, const SparseBlockVector<B>& v)
+    {
+      prefix.push_back(1);
+      for (auto && e : v) {
+        prefix.back() = e.first;
+        printSparseHelper(stream, prefix, e.second);
+      }
+    }
+  }
+
+  template <class B>
+  std::ostream& operator<<(std::ostream& stream, const SparseBlockVector<B>& v)
+  {
+    printSparseHelper(stream, {}, v);
     return stream;
   }
 
-  template <class I, class T, class F>
-  std::vector<T> matrix_sparse_vector_product(const DenseMatrix<T>& matrix,
-                                              const SparseVectorContainer<I, T>& vector, F toFlat)
+  template <typename GFS, class B>
+  std::ostream& operator<<(std::ostream& stream, const Dune::PDELab::ISTL::BlockVector<GFS,SparseBlockVector<B>>& v)
+  {
+    printSparseHelper(stream, {}, Dune::PDELab::Backend::native(v));
+    return stream;
+  }
+  
+  // initialize a vector to represent a zero vector
+  // For sparse vectors, we interpret the absence of an index in the underlying managed map
+  // as that the corresponding entry of the vector is zero. Since, for this function, we have only one layer of 
+  // nested SparseBlockVector, we only look up how many block entries the vector should have
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<Dune::FieldVector<T, blockSize>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto topLevelPrefix = typename SizeProvider::SizePrefix();
+    topLevelPrefix.resize(0);
+    auto topLevelSize = sizeProvider.size(topLevelPrefix);
+    vector.resize(topLevelSize);
+    return;
+  }
+  
+  // initialize a vector to represent a zero vector
+  // The principle is similar to the function defined above. The difference is that
+  // we assume that the outer SparseBlockVector has all entries set, while the inner SparseBlockVectors are allowed
+  // to be sparse
+  // This implementation is based on the one in dune/functions/backends/istlvectorbackend.hh
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<SparseBlockVector<Dune::FieldVector<T, blockSize>>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto prefix = typename SizeProvider::SizePrefix();
+    prefix.resize(0);
+    auto topLevelSize = sizeProvider.size(prefix);
+    vector.resize(topLevelSize);
+    
+    prefix.push_back(0);
+    for(std::size_t i = 0; i < topLevelSize; ++i) {
+      prefix.back() = i;
+      auto currentSecondLevelSize = sizeProvider.size(prefix);
+      vector[i] = SparseBlockVector<Dune::FieldVector<T, blockSize>>(currentSecondLevelSize);
+    }
+    return;
+  }
+
+  template <class T, int blockSize>
+  std::vector<T>
+  matrix_sparse_vector_product(const DenseMatrix<T>& matrix,
+                               const SparseBlockVector<Dune::FieldVector<T, blockSize>>& vector)
   {
     std::vector<T> output(matrix.rows(), T(0));
-    for (unsigned int row = 0; row < matrix.rows(); ++row) {
-      for (const auto& entry : vector) {
-        output[row] += matrix(row, toFlat(entry.first)) * vector[entry.first];
+    for (std::size_t k = 0; k < matrix.rows(); ++k) {
+      for (auto && b : vector) {
+        unsigned int cb = b.first;
+        for (std::size_t bi = 0; bi < blockSize; ++bi) {
+          output[k] += matrix(k, cb * blockSize + bi) * vector[cb][bi];
+        }
       }
     }
     return output;
   }
+
+  template <class T, int blockSize>
+  std::vector<T>
+  matrix_sparse_vector_product(const DenseMatrix<T>& matrix,
+                               const SparseBlockVector<SparseBlockVector<Dune::FieldVector<T, blockSize>>>& vector)
+  {
+    std::vector<T> output(matrix.rows(), T(0));
+    for (std::size_t k = 0; k < matrix.rows(); ++k) {
+      unsigned int offset = 0;
+      for (std::size_t co = 0; co < vector.N(); ++co) { // the outer vector must have all entries...
+        for (auto && b : vector[co]) {
+          unsigned int cb = b.first;
+          for (std::size_t bi = 0; bi < blockSize; ++bi) {
+            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[co][cb][bi];
+          }
+        }
+        // offset += vector[co].dim();
+        offset += vector[co].N() * blockSize;
+      }
+    }
+    return output;
+  }
+
 }
 
 #endif // DUNEURO_SPARSEVECTORCONTAINER_HH

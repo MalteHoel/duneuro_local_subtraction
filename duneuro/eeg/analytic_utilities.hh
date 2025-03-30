@@ -140,10 +140,20 @@ namespace duneuro {
         else {
           f[i] = std::log((R_minus[i] - gamma_minus[i]) / (R_plus[i] - gamma_plus[i]));
         }
-        R_s[i] = (gamma_plus[i] / R_plus[i] - gamma_minus[i] / R_minus[i]) / (R_0[i] * R_0[i]);
+        
+        bool dipoleNotOnEdge = std::abs(R_0[i]) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon();
+        if(dipoleNotOnEdge) {
+          R_s[i] = (gamma_plus[i] / R_plus[i] - gamma_minus[i] / R_minus[i]) / (R_0[i] * R_0[i]);
+        }
+        else {
+          R_s[i] = (gamma_plus[i] * gamma_plus[i] - gamma_minus[i] * gamma_minus[i]) / (R_plus[i] * R_plus[i] * R_minus[i] * R_minus[i]);
+          R_s[i] *= 1.0/(gamma_plus[i]/ R_plus[i] + gamma_minus[i]/R_minus[i]);
+        }
+        
         R_d[i] = 1.0 / R_minus[i] - 1.0 / R_plus[i];
         beta[i] = std::atan((t[i] * gamma_plus[i]) / (R_0[i] * R_0[i] + std::abs(w_0) * R_plus[i]))
                 - std::atan((t[i] * gamma_minus[i]) / (R_0[i] * R_0[i] + std::abs(w_0) * R_minus[i]));
+        
       }
       
       ansatzfunction_transformation[0] = {1.0, 0.0, 0.0};
@@ -185,7 +195,14 @@ namespace duneuro {
       rhs_u *= w_0;
       rhs_v *= w_0;
 
-      Scalar factor = - sign_w_0 * (beta[0] + beta[1] + beta[2]);
+      Scalar beta_total;
+      if(std::abs(w_0) > 100 * (edge_lengths[0] + edge_lengths[1] + edge_lengths[2]) * std::numeric_limits<Scalar>::epsilon()) {
+        beta_total = beta[0] + beta[1] + beta[2];
+      }
+      else {
+        beta_total = 0.0;
+      }
+      Scalar factor = - sign_w_0 * beta_total;
       rhs_u += factor * u;
       rhs_v += factor * v;
 
@@ -235,7 +252,7 @@ namespace duneuro {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // compute <M, sign(w_0) * beta * w - sum_j f_j * m_j>
+    // compute integral <M, x - x_0> / || x - x_0 ||^3 dS over the current face
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This is the factor arising when trying to integrate <sigma_corr grad_u_infinity, grad_phi> for all local basis functions phi over a tetrahedron
@@ -284,7 +301,7 @@ namespace duneuro {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // compute integral chi * (x - x_0)/ |x - x_0|^3 dS over the current triangle
+    // compute <M, integral chi * (x - x_0)/ |x - x_0|^3 dS> over the current triangle
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // This is the factor arising when trying to integrate <sigma grad(chi * u_infinity), grad(phi)> for all
@@ -429,8 +446,8 @@ namespace duneuro {
       I_G_11 = 0.0;
       I_G_12 = 0.0;
       I_G_22 = 0.0;
-      Scalar edgeIntegralSum1;
-      Scalar edgeIntegralSum2;
+      Scalar edgeIntegralSum1 = 0.0;
+      Scalar edgeIntegralSum2 = 0.0;
       Dune::FieldVector<Scalar, 2> mixedIntegralCoefficients;
       mixedIntegralCoefficients = 0.0;
       for(int i = 0; i < number_of_edges; ++i) {

@@ -35,11 +35,28 @@
  *    - int_F chi * u_infinity                                called electrode DOF integral
  * In the case of tetrahedral meshes with affine test functions and isotropic sigma_infinity, 
  * analytical expressions for all of these integrals have been derived (for the patch integral
- * and the surface integral by Beltrachini ( see https://dx.doi.org/10.1088/1741-2552/ab2694 ) and
- * for the transition integral, the electrode interface integral, and the electrode DOF integral
- * by myself. In this test, we want to validate the analytical expressions by comparing them against 
- * numerically computed approximations.
+ * and the surface integral by Beltrachini ( see https://dx.doi.org/10.1088/1741-2552/ab2694 ). We
+ * extended these formulas to the anisotropic case and the remaining indices. This script 
+ * is supposed to test these formulas.
  */
+
+// given a positive definite 3x3 matrix M, return lower triangular matrix L
+// with positive diagonal entries such that M = L * L^T.
+template<class Scalar>
+Dune::FieldMatrix<Scalar, 3, 3> choleskyFactor(const Dune::FieldMatrix<Scalar, 3, 3>& M) 
+{
+  Dune::FieldMatrix<Scalar, 3, 3> L;
+  L = 0.0;
+  
+  L[0][0] = std::sqrt(M[0][0]);
+  L[1][0] = M[1][0] / L[0][0];
+  L[2][0] = M[2][0] / L[0][0];
+  L[1][1] = std::sqrt(M[1][1] - L[1][0] * L[1][0]);
+  L[2][1] = (M[2][1] - L[1][0] * L[2][0]) / (L[1][1]);
+  L[2][2] = std::sqrt(M[2][2] - L[2][0] * L[2][0] - L[2][1] * L[2][1]);
+  
+  return L;
+}
 
 int main(int argc, char** argv)
 {
@@ -50,9 +67,6 @@ int main(int argc, char** argv)
   constexpr int number_of_dofs = 4;
   constexpr int number_of_facet_corners = 3;
   constexpr double edgeLength = 1.0;  
-  
-  constexpr double sigma_infinity_scalar = 0.33;
-  constexpr double sigma_scalar = 1.79;
   
   using Grid = typename Dune::UGGrid<dim>;
   using GridView = typename Grid::LeafGridView;
@@ -87,12 +101,45 @@ int main(int argc, char** argv)
   
   Tensor sigma_infinity;
   Tensor sigma;
-  sigma_infinity = 0.0;
-  sigma = 0.0;
-  for(int i = 0; i < dim; ++i) {
-    sigma_infinity[i][i] = sigma_infinity_scalar;
-    sigma[i][i] = sigma_scalar;
-  }
+  
+  // initialize conductivities to anisotropic (symmetric positive definite) values
+  sigma_infinity[0][0] = 7.0/3.0;
+  sigma_infinity[0][1] = 2.0/3.0;
+  sigma_infinity[0][2] = -1.0/3.0;
+  sigma_infinity[1][0] = 2.0/3.0;
+  sigma_infinity[1][1] = 7.0/3.0;
+  sigma_infinity[1][2] = 1.0/3.0;
+  sigma_infinity[2][0] = -1.0/3.0;
+  sigma_infinity[2][1] = 1.0/3.0;
+  sigma_infinity[2][2] = 4.0/3.0;
+  
+  sigma[0][0] = 1.5214285714285711;
+  sigma[0][1] = 0.1428571428571429;
+  sigma[0][2] = 0.0642857142857144;
+  sigma[1][0] = 0.1428571428571429;
+  sigma[1][1] = 1.2857142857142858;
+  sigma[1][2] = 0.4285714285714286;
+  sigma[2][0] = 0.0642857142857144;
+  sigma[2][1] = 0.4285714285714286;
+  sigma[2][2] = 1.6928571428571428;
+  
+  Tensor sigma_infinity_inverse(sigma_infinity);
+  sigma_infinity_inverse.invert();
+  
+  // compute Cholesky factor of sigma_infinity_inverse
+  Tensor L = choleskyFactor(sigma_infinity_inverse);
+  Tensor L_T = L.transposed();
+  double det_L = L[0][0] * L[1][1] * L[2][2];
+  
+  std::function<Vector(const Vector&)> Phi_L_T =
+    [L_T](const Vector& vec) {
+    Vector traf_vec;
+    L_T.mv(vec, traf_vec);
+    return traf_vec;
+  };
+  
+  Tensor L_inverse(L);
+  L_inverse.invert();
   
   Intersection intersection;
   for(const auto& is : Dune::intersections(gridView, entity)) {
@@ -178,13 +225,14 @@ int main(int argc, char** argv)
   
   UInfinity u_infinity(gridView);
   UInfinityGradient grad_u_infinity(gridView);
-  Tensor sigma_infinity_inverse(sigma_infinity);
-  sigma_infinity_inverse.invert();
   u_infinity.set_parameters(dipole_moment, dipole_position, sigma_infinity, sigma_infinity_inverse);
   grad_u_infinity.set_parameters(dipole_moment, dipole_position, sigma_infinity, sigma_infinity_inverse);
   
   Tensor sigma_corr = sigma;
   sigma_corr -= sigma_infinity;
+  
+  Vector transformed_dipole_position = Phi_L_T(dipole_position);
+  Vector transformed_dipole_moment = Phi_L_T(dipole_moment);
   
   ///////////////////////////////////////////////////////////////
   // Numerical integration
@@ -301,14 +349,29 @@ int main(int argc, char** argv)
     }
     lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
     lhs_matrix.leftmultiply(sigma_corr);
-    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi() * sigma_infinity[0][0]);
+    lhs_matrix.leftmultiply(L_T);
+    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi());
     
     Vector rhs(0.0);
     for(const auto& is : Dune::intersections(gridView, entity)) {
       Vector outerNormal = is.centerUnitOuterNormal();
-      duneuro::AnalyticTriangle<double> triangle(is.geometry().corner(0), is.geometry().corner(1), is.geometry().corner(2));
-      triangle.bind(dipole_position, dipole_moment);
-      rhs += triangle.patchFactor() * outerNormal;
+      
+      // transform data according to conductivity tensor
+      Vector transformedOuterNormal;
+      
+      Vector transformedCorner0, transformedCorner1, transformedCorner2;
+      L_T.mv(is.geometry().corner(0), transformedCorner0);
+      L_T.mv(is.geometry().corner(1), transformedCorner1);
+      L_T.mv(is.geometry().corner(2), transformedCorner2);
+      
+      // note that if n is the outer normal of the current face, then L^{-1} * n / || L^{-1} n || is the unit outer normal
+      // of the current face in the transformed tetrahedron
+      L_inverse.mv(outerNormal, transformedOuterNormal);
+      transformedOuterNormal /= transformedOuterNormal.two_norm();
+      
+      duneuro::AnalyticTriangle<double> transformedTriangle(transformedCorner0, transformedCorner1, transformedCorner2);
+      transformedTriangle.bind(transformed_dipole_position, transformed_dipole_moment);
+      rhs += transformedTriangle.patchFactor() * transformedOuterNormal;
     }
     
     Dune::FieldVector<double, number_of_dofs> integrals(0.0);
@@ -337,15 +400,28 @@ int main(int argc, char** argv)
     // compute matrix factor
     lhs_matrix.leftmultiply(geometry.jacobianInverseTransposed(local_coords_dummy));
     lhs_matrix.leftmultiply(sigma);
-    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi() * sigma_infinity[0][0]);
+    lhs_matrix.leftmultiply(L_T);
+    lhs_matrix *= 1.0 / (4.0 * Dune::StandardMathematicalConstants<double>::pi());
+    
+    // transform tetrahedron
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
     
     Vector rhs(0.0);
     for(const auto& is : Dune::intersections(gridView, entity)) {
       Vector outerNormal = is.centerUnitOuterNormal();
+      
+      // transform data according to conductivity tensor
+      Vector transformedOuterNormal;
+      L_inverse.mv(outerNormal, transformedOuterNormal);
+      transformedOuterNormal /= transformedOuterNormal.two_norm();
+      
       auto corner_index_iterator = referenceElement(geometry).subEntities(is.indexInInside(), 1, 3);
-      duneuro::AnalyticTriangle<double> triangle(corners, corner_index_iterator);
-      triangle.bind(dipole_position, dipole_moment);
-      rhs += triangle.transitionFactor(chiOnTetrahedronCorners, corner_index_iterator) * outerNormal;
+      duneuro::AnalyticTriangle<double> triangle(transformed_corners, corner_index_iterator);
+      triangle.bind(transformed_dipole_position, transformed_dipole_moment);
+      rhs += triangle.transitionFactor(chiOnTetrahedronCorners, corner_index_iterator) * transformedOuterNormal;
     }
     
     Dune::FieldVector<double, number_of_dofs> integrals(0.0);
@@ -360,9 +436,29 @@ int main(int argc, char** argv)
    * surface integrals
    */
   {
-    duneuro::AnalyticTriangle<double> triangle(corners, intersectionIndices);
-    triangle.bind(dipole_position, dipole_moment);
-    Vector localIntegrals = triangle.surfaceIntegral(facetNormal);
+    Vector transformedFacetNormal;
+    L_inverse.mv(facetNormal, transformedFacetNormal);
+    double L_inv_eta_norm = transformedFacetNormal.two_norm();
+    transformedFacetNormal /= L_inv_eta_norm;
+    
+    auto local_coords_dummy = referenceElement(intersection.geometry()).position(0, 0);
+    Dune::FieldMatrix<double, dim-1, dim> intersectionJacobianTransposed(intersection.geometry().jacobianTransposed(local_coords_dummy));
+
+    double numerator = intersection.geometry().integrationElement(local_coords_dummy);
+    double denominator = std::sqrt((intersectionJacobianTransposed * sigma_infinity_inverse * intersectionJacobianTransposed.transposed()).determinant());
+    
+    double factor = L_inv_eta_norm * det_L * (numerator/denominator);
+    
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
+    
+    duneuro::AnalyticTriangle<double> transformedTriangle(transformed_corners, intersectionIndices);
+    transformedTriangle.bind(transformed_dipole_position, transformed_dipole_moment);
+    
+    Vector localIntegrals = transformedTriangle.surfaceIntegral(transformedFacetNormal);
+    localIntegrals *= factor;
     
     for(int i = 0; i < number_of_facet_corners; ++i) {
       surface_integrals_analytical[intersectionIndices[i]] = localIntegrals[i];
@@ -373,11 +469,23 @@ int main(int argc, char** argv)
    * electrode interface integrals
    */
   {
+    auto local_coords_dummy = referenceElement(intersection.geometry()).position(0, 0);
+    Dune::FieldMatrix<double, dim-1, dim> intersectionJacobianTransposed(intersection.geometry().jacobianTransposed(local_coords_dummy));
+
+    double numerator = intersection.geometry().integrationElement(local_coords_dummy);
+    double denominator = std::sqrt((intersectionJacobianTransposed * sigma_infinity_inverse * intersectionJacobianTransposed.transposed()).determinant());
+    double factor = det_L * (numerator/denominator);
+    
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
+  
     // compute integrals
-    duneuro::AnalyticTriangle<double> triangle(corners, intersectionIndices);
-    triangle.bind(dipole_position, dipole_moment);
-    Vector localIntegrals = triangle.electrodeInterfaceIntegral(chiOnFacetCorners);
-    localIntegrals *= (1.0 / sigma_infinity[0][0]);
+    duneuro::AnalyticTriangle<double> transformedTriangle(transformed_corners, intersectionIndices);
+    transformedTriangle.bind(transformed_dipole_position, transformed_dipole_moment);
+    Vector localIntegrals = transformedTriangle.electrodeInterfaceIntegral(chiOnFacetCorners);
+    localIntegrals *= factor;
     
     for(int i = 0; i < number_of_facet_corners; ++i) {
       electrode_interface_integrals_analytical[intersectionIndices[i]] = localIntegrals[i];
@@ -388,9 +496,21 @@ int main(int argc, char** argv)
    * electrode DOF integral
    */
   {
-    duneuro::AnalyticTriangle<double> triangle(corners, intersectionIndices);
-    triangle.bind(dipole_position, dipole_moment);
-    electrode_dof_integral_analytical = (1.0 / sigma_infinity[0][0]) * triangle.electrodeDOFIntegral(chiOnFacetCorners);
+    auto local_coords_dummy = referenceElement(intersection.geometry()).position(0, 0);
+    Dune::FieldMatrix<double, dim-1, dim> intersectionJacobianTransposed(intersection.geometry().jacobianTransposed(local_coords_dummy));
+
+    double numerator = intersection.geometry().integrationElement(local_coords_dummy);
+    double denominator = std::sqrt((intersectionJacobianTransposed * sigma_infinity_inverse * intersectionJacobianTransposed.transposed()).determinant());
+    double factor = det_L * (numerator/denominator);
+  
+    std::vector<Vector> transformed_corners(number_of_dofs);
+    for(int i = 0; i < number_of_dofs; ++i) {
+      transformed_corners[i] = Phi_L_T(geometry.corner(i));
+    }
+  
+    duneuro::AnalyticTriangle<double> triangle(transformed_corners, intersectionIndices);
+    triangle.bind(transformed_dipole_position, transformed_dipole_moment);
+    electrode_dof_integral_analytical = factor * triangle.electrodeDOFIntegral(chiOnFacetCorners);
   }
   
   ///////////////////////////////////////////////////////////////

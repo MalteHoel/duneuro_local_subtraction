@@ -38,15 +38,6 @@ extern template class duneuro::FittedVolumeConductor<
     3, duneuro::ElementType::hexahedron, duneuro::FittedSolverType::dg, 1,
     false>;
 
-#if HAVE_DUNE_SUBGRID
-extern template class duneuro::FittedVolumeConductor<
-    3, duneuro::ElementType::hexahedron, duneuro::FittedSolverType::dg, 1,
-    true>;
-extern template class duneuro::FittedVolumeConductor<
-    3, duneuro::ElementType::hexahedron, duneuro::FittedSolverType::cg, 1,
-    true>;
-#endif
-
 #if HAVE_DUNE_UDG
 extern template class duneuro::UnfittedVolumeConductor<
     duneuro::UnfittedSolverType::udg, 2, 1, 1>;
@@ -119,20 +110,9 @@ VolumeConductorFactory<2>::make_volume_conductor(
             2, ElementType::tetrahedron, FittedSolverType::cg, 1>>(
             data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
-        auto geometryAdapted = config.get<bool>("geometry_adapted", false);
-        if (geometryAdapted) {
-#if HAVE_DUNE_SUBGRID
-          return std::make_shared<FittedVolumeConductor<
-              2, ElementType::hexahedron, FittedSolverType::cg, 1, true>>(
-              data.fittedData, config, featureManager, dataTree);
-#else
-          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
-#endif
-        } else {
-          return std::make_shared<FittedVolumeConductor<
-              2, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
-              data.fittedData, config, featureManager, dataTree);
-        }
+        return std::make_shared<FittedVolumeConductor<
+            2, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
+            data.fittedData, config, featureManager, dataTree);
       } else {
         DUNE_THROW(Dune::Exception,
                    "unknown element type \"" << elementType << "\"");
@@ -143,20 +123,9 @@ VolumeConductorFactory<2>::make_volume_conductor(
             2, ElementType::tetrahedron, FittedSolverType::dg, 1>>(
             data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
-        auto geometryAdapted = config.get<bool>("geometry_adapted", false);
-        if (geometryAdapted) {
-#if HAVE_DUNE_SUBGRID
-          return std::make_shared<FittedVolumeConductor<
-              2, ElementType::hexahedron, FittedSolverType::dg, 1, true>>(
-              data.fittedData, config, featureManager, dataTree);
-#else
-          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
-#endif
-        } else {
-          return std::make_shared<FittedVolumeConductor<
-              2, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
-              data.fittedData, config, featureManager, dataTree);
-        }
+        return std::make_shared<FittedVolumeConductor<
+            2, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
+            data.fittedData, config, featureManager, dataTree);
       } else {
         DUNE_THROW(Dune::Exception,
                    "unknown element type \"" << elementType << "\"");
@@ -255,20 +224,9 @@ VolumeConductorFactory<3>::make_volume_conductor(
             3, ElementType::tetrahedron, FittedSolverType::cg, 1>>(
             data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
-        auto geometryAdapted = config.get<bool>("geometry_adapted", false);
-        if (geometryAdapted) {
-#if HAVE_DUNE_SUBGRID
-          return std::make_shared<FittedVolumeConductor<
-              3, ElementType::hexahedron, FittedSolverType::cg, 1, true>>(
-              data.fittedData, config, featureManager, dataTree);
-#else
-          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
-#endif
-        } else {
-          return std::make_shared<FittedVolumeConductor<
-              3, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
-              data.fittedData, config, featureManager, dataTree);
-        }
+        return std::make_shared<FittedVolumeConductor<
+            3, ElementType::hexahedron, FittedSolverType::cg, 1, false>>(
+            data.fittedData, config, featureManager, dataTree);
       } else {
         DUNE_THROW(Dune::Exception,
                    "unknown element type \"" << elementType << "\"");
@@ -279,20 +237,10 @@ VolumeConductorFactory<3>::make_volume_conductor(
             3, ElementType::tetrahedron, FittedSolverType::dg, 1>>(
             data.fittedData, config, featureManager, dataTree);
       } else if (elementType == "hexahedron") {
-        auto geometryAdapted = config.get<bool>("geometry_adapted", false);
-        if (geometryAdapted) {
-#if HAVE_DUNE_SUBGRID
-          return std::make_shared<FittedVolumeConductor<
-              3, ElementType::hexahedron, FittedSolverType::dg, 1, true>>(
-              data.fittedData, config, featureManager, dataTree);
-#else
-          DUNE_THROW(Dune::Exception, "geometry adaption needs dune-subgrid");
-#endif
-        } else {
-          return std::make_shared<FittedVolumeConductor<
-              3, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
-              data.fittedData, config, featureManager, dataTree);
-        }
+        return std::make_shared<FittedVolumeConductor<
+            3, ElementType::hexahedron, FittedSolverType::dg, 1, false>>(
+            data.fittedData, config, featureManager, dataTree);
+        
       } else {
         DUNE_THROW(Dune::Exception,
                    "unknown element type \"" << elementType << "\"");

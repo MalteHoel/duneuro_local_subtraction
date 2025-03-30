@@ -3,8 +3,13 @@
 #ifndef DUNEURO_TRANSFER_MATRIX_USER_HH
 #define DUNEURO_TRANSFER_MATRIX_USER_HH
 
+#include <limits>
+
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
+
+#include <dune/pdelab/backend/common/tags.hh>
+#include <dune/pdelab/ordering/utility.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -22,8 +27,8 @@ namespace duneuro
     using Solver = S;
     static const unsigned int dimension = S::Traits::dimension;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
-    using SparseRHSVector = SparseVectorContainer<typename DenseRHSVector::ContainerIndex,
-                                                  typename DenseRHSVector::ElementType>;
+    using SparseRHSVector = typename SparseVectorTraits<DenseRHSVector>::Vector;
+    using SparseRHSContainer = typename SparseVectorTraits<DenseRHSVector>::Container;
     using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
@@ -113,21 +118,23 @@ namespace duneuro
     template <class M>
     std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
+      // initialize vector with no managed container
       using SVC = typename Traits::SparseRHSVector;
-      SVC rhs;
+      using SVCContainer = typename Traits::SparseRHSContainer;
+      SVC rhs(solver_->functionSpace().getGFS(), Dune::PDELab::Backend::unattached_container());
+      
+      // create and attach container of correct size
+      Dune::PDELab::SizeProviderAdapter sizeProvider{solver_->functionSpace().getGFS().orderingStorage()};
+      static_assert(decltype(sizeProvider)::ContainerIndexOrder == Dune::PDELab::MultiIndexOrder::Outer2Inner);
+      std::shared_ptr<SVCContainer> sparseContainerPtr = std::make_shared<SVCContainer>();
+      initialize_sparse_vector(*sparseContainerPtr, sizeProvider);
+      rhs.attach(sparseContainerPtr);
+      
       sparseSourceModel_->assembleRightHandSide(rhs);
 
-      const auto blockSize = Traits::DenseRHSVector::block_type::dimension;
-
       std::vector<typename Traits::DomainField> output;
-      if (blockSize == 1) {
-        return matrix_sparse_vector_product(transferMatrix, rhs,
-                                            [](const typename SVC::Index& c) { return c[0]; });
-      } else {
-        return matrix_sparse_vector_product(
-            transferMatrix, rhs,
-            [blockSize](const typename SVC::Index& c) { return c[1] * blockSize + c[0]; });
-      }
+      return matrix_sparse_vector_product(transferMatrix,
+                                          Dune::PDELab::Backend::native(rhs));
     }
 
     template <class M>
