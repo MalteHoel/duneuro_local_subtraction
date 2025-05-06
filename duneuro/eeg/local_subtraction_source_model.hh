@@ -204,9 +204,14 @@ namespace duneuro
           DUNE_THROW(Dune::Exception, "MEG postprocessing for the local subtraction approach is based on the boundary subtraction approach, which was derived under the assumption of an isotropic conductivity in the source element. If you want to use source space anisotropy for MEG, please use Venant or partial integration source models for now.");
         }
         
+        // We want to note that the assembly differs from the formulation in the local subtraction paper. After the paper 
+        // was already published, we noticed that it is possible to implement the assembly in an equivalent, 
+        // but more efficient way. Using the divergence theorem and its corollaries, it is a straightforward
+        // exercise to show that the formulation below is equivalent to the one in the paper. In our benchmark,
+        // this yields a speedup of about 40%
         fluxFromPatch(coils, projections, fluxes);
-        fluxFromPatchBoundary(coils, projections, fluxes);
         fluxFromTransition(coils, projections, fluxes);
+        fluxFromDomainBoundary(coils, projections, fluxes);
       }
       else {
         DUNE_THROW(Dune::Exception, "MEG postprocessing not implemented for DG local subtraction");
@@ -363,8 +368,9 @@ namespace duneuro
       } // end loop over patch elements
     } // end fluxFromPatch
 
+
     //////////////////////////////////////////////////
-    // compute integral (sigma grad(chi * u_infinity)) x (x - y) / |x - y|^3 dy over transition region
+    // compute integral (sigma_corr grad(chi * u_infinity)) x (x - y) / |x - y|^3 dy over transition region
     //////////////////////////////////////////////////
     void fluxFromTransition(const std::vector<CoordinateType>& coils,
                             const std::vector<std::vector<CoordinateType>>& projections,
@@ -375,8 +381,17 @@ namespace duneuro
       LocalFunction chi_local = localFunction(*chiFunctionPtr_);
       LocalDerivativeFunction grad_chi_local = localFunction(derivative(*chiFunctionPtr_));
 
+      Tensor sigma_infinity = problem_->get_sigma_infty();
+
       for(const auto& element : patchAssembler_.transitionElements()) {
         Tensor sigma = volumeConductor_->tensor(element);
+        
+        // elements with sigma_corr == 0 can be skipped
+        if(sigma == sigma_infinity) {
+          continue;
+        }
+        Tensor sigma_corr = sigma;
+        sigma_corr -= sigma_infinity;
 
         chi_local.bind(element);
         grad_chi_local.bind(element);
@@ -404,7 +419,7 @@ namespace duneuro
           // compute LHS of cross product
           u_infinity_grad_chi += chi_grad_u_infinity;
           GradientType lhs;
-          sigma.mv(u_infinity_grad_chi, lhs);
+          sigma_corr.mv(u_infinity_grad_chi, lhs);
           lhs *= integration_factor;
 
           // loop over all coils and projections
@@ -429,18 +444,22 @@ namespace duneuro
       } // end loop over transition elements
     } // end fluxFromTransition
 
-
     //////////////////////////////////////////////////
-    // compute integral sigma_infinity u_infinity (eta x (x - y)/ |x - y|^3) ds
+    // compute integral sigma_infinity * chi * u_infinity (eta x (x - y)/ |x - y|^3) ds over the domain boundary
     //////////////////////////////////////////////////
-    void fluxFromPatchBoundary(const std::vector<CoordinateType>& coils,
-                               const std::vector<std::vector<CoordinateType>>& projections,
-                               std::vector<typename V::field_type>& fluxes) const
+    void fluxFromDomainBoundary(const std::vector<CoordinateType>& coils,
+                                const std::vector<std::vector<CoordinateType>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const
     {
-      // iterate over all boundary patch boundary intersections
-      for(const auto& intersection : patchAssembler_.intersections()) {
+      LocalFunction chi_local = localFunction(*chiFunctionPtr_);
+
+      // iterate over all relevant domain boundary intersections
+      for(const auto& intersection : patchAssembler_.extendedDomainBoundaryIntersections()) {
         // get intersection geometry
         const auto& intersection_geo = intersection.geometry();
+
+        const auto& insideElement = intersection.inside();
+        chi_local.bind(insideElement);
 
         Tensor sigma_infinity = problem_->get_sigma_infty();
 
@@ -451,14 +470,15 @@ namespace duneuro
         // perform the integration
         for(const auto& quad_point : quad_rule) {
           auto local_position = quad_point.position();
+          auto position_in_inside = intersection.geometryInInside().global(local_position);
           auto global_position = intersection_geo.global(local_position);
           auto integration_factor = intersection_geo.integrationElement(local_position) * quad_point.weight();
           auto unitOuterNormal = intersection.unitOuterNormal(local_position);
 
-          // compute sigma_infinity_u_infinity
+          // compute sigma_infinity_chi_u_infinity
           // NOTE : assumes isotropic sigma_infinity
-          auto sigma_infinity_u_infinity = sigma_infinity[0][0] * problem_->get_u_infty(global_position);
-          sigma_infinity_u_infinity *= integration_factor;
+          auto sigma_infinity_chi_u_infinity = sigma_infinity[0][0] * chi_local(position_in_inside) * problem_->get_u_infty(global_position);
+          sigma_infinity_chi_u_infinity *= integration_factor;
 
           // loop over coils and projections
           size_t counter = 0;
@@ -472,7 +492,7 @@ namespace duneuro
               CoordinateType crossProduct;
               Dune::PDELab::CrossProduct<dim, dim>(crossProduct, unitOuterNormal, rhs);
 
-              fluxes[counter] += sigma_infinity_u_infinity * (crossProduct * projections[i][j]);
+              fluxes[counter] += sigma_infinity_chi_u_infinity * (crossProduct * projections[i][j]);
               ++counter;
             } // end loop over projections
           } // end loop over coils

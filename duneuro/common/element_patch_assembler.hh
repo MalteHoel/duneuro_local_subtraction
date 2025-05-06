@@ -63,6 +63,11 @@ namespace duneuro
       // if we use a conforming discretization, we have to extend the patch by another layer
       transitionElements_ = elementPatch->transitionElements();
       dataTree.set("transitionElements", transitionElements_.size());
+      
+      // for MEG postprocessing, we need to store the faces of the patch and transition region that
+      // are part of the domain boundary
+      extendedDomainBoundaryIntersections_ = elementPatch->extendedDomainBoundaryIntersections();
+      dataTree.set("extendedDomainBoundaryIntersections", extendedDomainBoundaryIntersections_.size());
     }
 
     template<typename Vector, typename LOP>
@@ -183,6 +188,10 @@ namespace duneuro
       return transitionElements_;
     }
     
+    const std::vector<Intersection>& extendedDomainBoundaryIntersections() const {
+      return extendedDomainBoundaryIntersections_;
+    }
+    
     size_t numberOfNonPatchElements() const {
       return volumeConductor_->gridView().size(0) - patchElements_.size();
     }
@@ -240,6 +249,7 @@ namespace duneuro
     std::set<std::size_t> patchElementIndices_;
     std::vector<Intersection> patchBoundaryIntersections_;
     std::vector<Element> transitionElements_;
+    std::vector<Intersection> extendedDomainBoundaryIntersections_;
   };
 
 }

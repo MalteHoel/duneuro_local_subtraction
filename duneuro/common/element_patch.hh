@@ -195,6 +195,52 @@ namespace duneuro
       return *transitionElements_;
     }
 
+    /*
+     * For the MEG postprocessing, we need to evaluate the integral
+     * \int_{F} <sigma_infinity * chi * u_infinity x (x - y) / |x - y|^3, v> dy
+     * on each boundary face F. This integral is only non-zero if chi is non-zero on the corresponding face F,
+     * which happens if, and only if, at least one vertex of F is contained in the patch. If at least one vertex
+     * of F is contained in the patch, than there exists a patch element or a transition element that has F
+     * as one of its faces. If we thus assemble the integral for each face that is
+     *    -1) a face of either a patch or a transition element
+     *    -2) a boundary face
+     * we assemble the above integral over the boundary of the volume conductor, as the contribution of the remaining faces is 0. 
+     * This function returns a vector containing the set of faces fulfilling 1) and 2).
+     * Note that this does some redundant work, as it can happen that
+     * chi is zero on such a face, but we still assemble the integral (e.g. if the fourth vertex of the 
+     * tetrahedron is contained in the patch, but the vertices of the boundary intersection are not). Thus, this function
+     * can still be optimized. We however expect that the vector returned by this function is almost always empty, and
+     * view this function more as an insurance against degenerate edge cases.
+     * Hence maybe TODO: only return those boundary faces that share a vertex with the patch
+     */
+    std::vector<Intersection> extendedDomainBoundaryIntersections()
+    {
+      std::vector<Intersection> boundaryAssemblyIntersections;
+      
+      // we need the transition elements for this function, so make sure they have been computed
+      std::vector<Element> transitionElementVector = this->transitionElements();
+      
+      // first run over patch elements
+      for(const auto& element : elements_) {
+        for (const auto& intersection : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
+          if (intersection.boundary()) {
+            boundaryAssemblyIntersections.push_back(intersection);
+          }
+        }
+      }
+      
+      // now run over transition elements
+      for(const auto& element : transitionElementVector) {
+        for (const auto& intersection : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
+          if (intersection.boundary()) {
+            boundaryAssemblyIntersections.push_back(intersection);
+          }
+        }
+      }
+      
+      return boundaryAssemblyIntersections;
+    }
+
 
   private:
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
