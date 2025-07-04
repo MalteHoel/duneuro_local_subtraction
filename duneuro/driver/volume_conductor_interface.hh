@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef VOLUME_CONDUCTOR_INTERFACE_HH
 #define VOLUME_CONDUCTOR_INTERFACE_HH
 
@@ -5,12 +7,16 @@
 #include <tbb/tbb.h>
 #endif
 
+#include <duneuro/common/matrix_utilities.hh>
 #include <duneuro/common/dense_matrix.hh>
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
 #include <duneuro/common/function.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/driver/feature_manager.hh>
+#include <duneuro/io/volume_conductor_vtk_writer.hh>
+
+#include <dune/pdelab/common/crossproduct.hh>
 
 #include <vector>
 
@@ -34,6 +40,18 @@ public:
    * driver which knows how to treat it.
    */
   virtual std::unique_ptr<Function> makeDomainFunction() const = 0;
+
+  /**
+   * This function creates a Function instance from a row of a DenseMatrix.
+   * A function is a type erasure object, which under the hood manages a DOF vector.
+   * In the tDCS interface e.g., the potentials are exported as the rows of a matrix,
+   * where each row contains the DOF-vector coefficients of a solution to the tDCS problem.
+   * In some cases it is convenient to interpret these coefficients as a function. This is
+   * done by this function.
+   */
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<FieldType>& denseMatrix,
+    size_t row) const = 0;
 
   /**
    * \brief solve the eeg forward problem for the given dipole
@@ -114,17 +132,11 @@ public:
       const std::vector<std::vector<CoordinateType>> &projections) = 0;
 
   /**
-   * \brief write the given solution to a file
+   * Return a writer, which can be used to visualize the volume conductor. FEM trial functions can be associated to the writer
+   * in various ways, see the interface class. By calling the write-method of the writer, a vtu file containing the volume conductor
+   * and all registered data is created.
    */
-  virtual void write(const Function &solution,
-                     const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const = 0;
-
-  /**
-   * \brief write the model without a solution to a file
-   */
-  virtual void write(const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const = 0;
+  virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const = 0;
 
   /**
    * \brief compute the EEG transfer matrix
@@ -162,7 +174,72 @@ public:
                    const std::vector<DipoleType> &dipole,
                    const Dune::ParameterTree &config,
                    DataTree dataTree = DataTree()) = 0;
+                   
+/**
+ * \brief create a source space inside the gray matter compartment
+ */
+  virtual std::vector<CoordinateType> 
+  createSourceSpace(const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief compute the primary B field for a given set of dipoles
+   */
+  virtual std::vector<std::vector<FieldType>>
+  computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const = 0;
+ 
+  /**
+   * \brief compute the tDCS forward solution matrix. Each row of the tDCS evaluation matrix is given by the coefficient vector 
+   *        of the solution to the tDCS problem for a electrode-reference_electrode pair.
+   *        Since (for point electrodes) the tDCS right hand side for an electrode-reference_electrode pair is given
+   *        by b = (b_i), where b_i = psi_i(electrode_pos) - \psi_i(reference_electrode_pos), which is exactly the same right hand side as for the
+   *        EEG transfer matrix, we can simply return the EEG transfer matrix.
+   */
+  std::unique_ptr<DenseMatrix<double>> solveTDCSForward(
+                            const Dune::ParameterTree& config,
+                            DataTree dataTree = DataTree())
+  {
+    return computeEEGTransferMatrix(config, dataTree);
+  }
 
+  /**
+   * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateFunctionAtPositions(const Function& function,
+                              const std::vector<CoordinateType>& positions,
+                              const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief evaluate multiple functions at predefined global positions.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(const DenseMatrix<double>& EvaluationMatrix,
+                                       const std::vector<CoordinateType>& positions,
+                                       const Dune::ParameterTree& config) const = 0;
+  
+  /**
+   * \brief evaluate multiple functions the centers of the mesh elements.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                            const Dune::ParameterTree& config) const = 0;
+
+   /**
+     * \brief return the center, volume and potentially label of all mesh elements.
+     * Note that the label is optional because for unfitted methods, one can not always assign
+     * a unique label to each element.
+   */      
+  virtual std::tuple<std::vector<CoordinateType>,
+                     std::vector<FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const = 0;
+          
   virtual std::vector<CoordinateType> getProjectedElectrodes() const = 0;
 
   /**
@@ -193,6 +270,8 @@ protected:
                             DataTree dataTree = DataTree()) {
     using DomainDOFVector = typename Solver::Traits::DomainDOFVector;
     featureManager_->check_feature(config);
+    std::string meg_postprocessing = config.get<std::string>("post_process_meg", "false");
+    config["source_model.post_process_meg"] = meg_postprocessing;
     eegForwardSolver.setSourceModel(config.sub("source_model"),
                                     config_complete.sub("solver"), dataTree);
     eegForwardSolver.bind(dipole, dataTree);
@@ -229,18 +308,15 @@ protected:
     using User = typename Traits::TransferMatrixUser;
 #if HAVE_TBB
     auto grainSize = config.get<int>("grainSize", 16);
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
-    tbb::parallel_for(
+    int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    tbb::task_arena arena(nr_threads);
+    arena.execute([&]{
+      tbb::parallel_for(
         tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
-        [&](const tbb::blocked_range<std::size_t> &range) {
+        [&](const tbb::blocked_range<std::size_t>& range) {
           User myUser(solver);
-          myUser.setSourceModel(config.sub("source_model"),
-                                config_complete.sub("solver"));
-          for (std::size_t index = range.begin(); index != range.end();
-               ++index) {
+          myUser.setSourceModel(config.sub("source_model"), config_complete.sub("solver"));
+          for (std::size_t index = range.begin(); index != range.end(); ++index) {
             auto dt = dataTree.sub("dipole_" + std::to_string(index));
             myUser.bind(dipoles[index], dt);
             auto current = myUser.solve(transferMatrix, dt);
@@ -252,7 +328,9 @@ protected:
             }
             result[index] = current;
           }
-        });
+        }
+      );
+    });
 #else
     User myUser(solver);
     myUser.setSourceModel(config.sub("source_model"),
@@ -273,14 +351,19 @@ protected:
     return result;
   }
 
-  template <class Traits>
+  template <class Traits, class CoordinateType>
   std::vector<std::vector<double>>
   applyMEGTransfer_impl(const DenseMatrix<double> &transferMatrix,
                         const std::vector<DipoleType> &dipoles,
                         Dune::ParameterTree cfg, DataTree dataTree,
                         const Dune::ParameterTree &config_complete,
-                        std::shared_ptr<typename Traits::Solver> solver) {
+                        std::shared_ptr<typename Traits::Solver> solver,
+                        const std::vector<CoordinateType>& coils,
+                        const std::vector<std::vector<CoordinateType>>& projections) {
     this->featureManager_->check_feature(cfg);
+    // set source model config for MEG prostprocessing
+    std::string meg_postprocessing = cfg.get<std::string>("post_process_meg", "false");
+    cfg["source_model.post_process_meg"] = meg_postprocessing;
     const Dune::ParameterTree& config = cfg; // necessary to ensure the following block is thread-safe
     std::vector<std::vector<double>> result(dipoles.size());
 
@@ -288,23 +371,26 @@ protected:
 
 #if HAVE_TBB
     auto grainSize = config.get<int>("grainSize", 16);
-    tbb::task_scheduler_init init(
-        config.hasKey("numberOfThreads")
-            ? config.get<std::size_t>("numberOfThreads")
-            : tbb::task_scheduler_init::automatic);
-    tbb::parallel_for(
+    int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    tbb::task_arena arena(nr_threads);
+    arena.execute([&]{
+      tbb::parallel_for(
         tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
-        [&](const tbb::blocked_range<std::size_t> &range) {
+        [&](const tbb::blocked_range<std::size_t>& range) {
           User myUser(solver);
-          myUser.setSourceModel(config.sub("source_model"),
-                                config_complete.sub("solver"));
-          for (std::size_t index = range.begin(); index != range.end();
-               ++index) {
+          myUser.setSourceModel(config.sub("source_model"), config_complete.sub("solver"));
+          for (std::size_t index = range.begin(); index != range.end(); ++index) {
             auto dt = dataTree.sub("dipole_" + std::to_string(index));
             myUser.bind(dipoles[index], dt);
-            result[index] = myUser.solve(transferMatrix, dt);
+            auto current = myUser.solve(transferMatrix, dt);
+            if(config.get<bool>("post_process_meg")) {
+              myUser.postProcessMEG(coils, projections, current);
+            }
+            result[index] = current;
           }
-        });
+        }
+      );
+    });
 #else
     User myUser(solver);
     myUser.setSourceModel(config.sub("source_model"),
@@ -312,11 +398,102 @@ protected:
     for (std::size_t index = 0; index < dipoles.size(); ++index) {
       auto dt = dataTree.sub("dipole_" + std::to_string(index));
       myUser.bind(dipoles[index], dt);
-      result[index] = myUser.solve(transferMatrix, dt);
+      auto current = myUser.solve(transferMatrix, dt);
+      if(config.get<bool>("post_process_meg")) {
+        myUser.postProcessMEG(coils, projections, current);
+      }
+      result[index] = current;
     }
 #endif
     return result;
   }
+  
+  std::vector<std::vector<double>>
+  computeMEGPrimaryField_impl(const std::vector<DipoleType> &dipoles,
+                              const std::vector<CoordinateType>& coils,
+                              const std::vector<std::vector<CoordinateType>>& projections,
+                              Dune::ParameterTree cfg) const
+  {
+    const Dune::ParameterTree& config = cfg;
+
+    // compute size of inner vectors
+    size_t nr_values = 0;
+    for(size_t i = 0; i < coils.size(); ++i) {
+      nr_values += projections[i].size();
+    }
+
+    // compute primary fields
+    std::vector<std::vector<double>> primaryFields(dipoles.size());
+
+#if HAVE_TBB
+    auto grainSize = config.get<int>("grainSize", 16);
+    int nr_threads = config.hasKey("numberOfThreads") ? config.get<int>("numberOfThreads") : tbb::task_arena::automatic;
+    tbb::task_arena arena(nr_threads);
+
+    arena.execute([&]{
+      tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, dipoles.size(), grainSize),
+        [&](const tbb::blocked_range<std::size_t>& range) {
+          CoordinateType crossProduct;
+          int current_pos = 0;
+          // loop over dipoles in this range
+          for(std::size_t k = range.begin(); k != range.end(); ++k) {
+            primaryFields[k].resize(nr_values);
+            current_pos = 0;
+            const CoordinateType dipole_position = dipoles[k].position();
+            const CoordinateType dipole_moment = dipoles[k].moment();
+
+            // loop over all coils and projections
+            for(int i = 0; i < coils.size(); ++i) {
+              // compute RHS
+              CoordinateType rhs = coils[i] - dipole_position;
+              auto diff_norm = rhs.two_norm();
+              auto norm_cubed = diff_norm * diff_norm * diff_norm;
+              rhs /= norm_cubed;
+
+              // compute cross product
+              Dune::PDELab::CrossProduct<dim,dim>(crossProduct, dipole_moment, rhs);
+
+              for(int j = 0; j < projections[i].size(); ++j) {
+                primaryFields[k][current_pos] = crossProduct * projections[i][j];
+                ++current_pos;
+              } // end loop over projections
+            } // end loop over coils
+          } // end loop over dipoles
+        }
+      );
+    });
+
+#else
+    CoordinateType crossProduct;
+    int current_pos = 0;
+    for(int k = 0; k < dipoles.size(); ++k) {
+      primaryFields[k].resize(nr_values);
+      current_pos = 0;
+      const CoordinateType dipole_position = dipoles[k].position();
+      const CoordinateType dipole_moment = dipoles[k].moment();
+
+      // loop over all coils and projections
+      for(int i = 0; i < coils.size(); ++i) {
+        // compute RHS
+        CoordinateType rhs = coils[i] - dipole_position;
+        auto diff_norm = rhs.two_norm();
+        auto norm_cubed = diff_norm * diff_norm * diff_norm;
+        rhs /= norm_cubed;
+
+        // compute cross product
+        Dune::PDELab::CrossProduct<dim,dim>(crossProduct, dipole_moment, rhs);
+
+        for(int j = 0; j < projections[i].size(); ++j) {
+          primaryFields[k][current_pos] = crossProduct * projections[i][j];
+          ++current_pos;
+        } // end loop over projections
+      } // end loop over coils
+    } // end loop over dipoles
+#endif
+
+    return primaryFields;
+  } // end computeMEGPrimaryField_impl
 
 private:
 };

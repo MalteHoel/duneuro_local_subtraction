@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_HDF5_DENSE_MATRIX_HH
 #define DUNEURO_HDF5_DENSE_MATRIX_HH
 
@@ -99,7 +101,7 @@ namespace duneuro
       hsize_t cols = matrix.cols();
 
       // note: Eigen stores entry column wise, hdf row wise, swap the entries,
-      // rember that the stored output is now transposed
+      // remember that the stored output is now transposed
       hsize_t dims[] = {cols, rows};
       H5::DataSpace dataSpace(2, dims);
 

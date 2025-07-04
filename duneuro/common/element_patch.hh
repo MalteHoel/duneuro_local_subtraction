@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_ELEMENT_PATCH_HH
 #define DUNEURO_ELEMENT_PATCH_HH
 
@@ -117,9 +119,14 @@ namespace duneuro
       extend(ex, repeatUntil);
     }
 
-    const std::vector<Element>& elements() const
+    const std::vector<Element> & elements() const
     {
       return elements_;
+    }
+    
+    const std::set<std::size_t>& elementIndices() const
+    {
+      return elementIndices_;
     }
 
     bool contains(const Element& element) const
@@ -132,7 +139,7 @@ namespace duneuro
     {
       for (const auto& element : elements_) {
         for (const auto& is : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
-          if (is.neighbor() && !contains(is.outside())) {
+          if (!is.neighbor() || !contains(is.outside())) {
             *out++ = is;
           }
         }
@@ -146,6 +153,95 @@ namespace duneuro
       return out;
     }
 
+    Element initialElement()
+    {
+      return element_of_start_position_;
+    }
+
+    // For the CG local subtraction source model, we need one additional vertex extension as a transitional region
+    // for chi to drop to zero. This function computes a vector containing the elements of this transitional region,
+    // where we assume that the inner region of the patch has already been computed
+    std::vector<Element> transitionElements()
+    {
+      // we perform a lazy evaluation
+      if (!transitionElements_)
+      {
+        transitionElements_ = std::make_shared<std::vector<Element>>();
+
+        // we essentially need to perform one additional vertex
+        // extension and simply store the new elements inside the
+        // array
+
+        // we first get all elements that share a vertex with one
+        // element in the current patch. Note that candidates get
+        // included multiple times
+        std::vector<Element> candidates;
+        for(const auto& element : elements_) {
+          elementNeighborhoodMap_->getVertexNeighbors(element, std::back_inserter(candidates));
+        }
+
+        // we now check all candidates to see if they are new additions
+        std::set<std::size_t> visitedTransitionElementIndices;
+        for(const auto& candidate : candidates) {
+          auto index = elementMapper_.index(candidate);
+          // check if candidate is not in inner region as was not already included earlier
+          if(elementIndices_.count(index) == 0 &&
+            visitedTransitionElementIndices.count(index) == 0) {
+            transitionElements_->push_back(candidate);
+            visitedTransitionElementIndices.insert(index);
+          }
+        }
+      }
+      return *transitionElements_;
+    }
+
+    /*
+     * For the MEG postprocessing, we need to evaluate the integral
+     * \int_{F} <sigma_infinity * chi * u_infinity x (x - y) / |x - y|^3, v> dy
+     * on each boundary face F. This integral is only non-zero if chi is non-zero on the corresponding face F,
+     * which happens if, and only if, at least one vertex of F is contained in the patch. If at least one vertex
+     * of F is contained in the patch, than there exists a patch element or a transition element that has F
+     * as one of its faces. If we thus assemble the integral for each face that is
+     *    -1) a face of either a patch or a transition element
+     *    -2) a boundary face
+     * we assemble the above integral over the boundary of the volume conductor, as the contribution of the remaining faces is 0. 
+     * This function returns a vector containing the set of faces fulfilling 1) and 2).
+     * Note that this does some redundant work, as it can happen that
+     * chi is zero on such a face, but we still assemble the integral (e.g. if the fourth vertex of the 
+     * tetrahedron is contained in the patch, but the vertices of the boundary intersection are not). Thus, this function
+     * can still be optimized. We however expect that the vector returned by this function is almost always empty, and
+     * view this function more as an insurance against degenerate edge cases.
+     * Hence maybe TODO: only return those boundary faces that share a vertex with the patch
+     */
+    std::vector<Intersection> extendedDomainBoundaryIntersections()
+    {
+      std::vector<Intersection> boundaryAssemblyIntersections;
+      
+      // we need the transition elements for this function, so make sure they have been computed
+      std::vector<Element> transitionElementVector = this->transitionElements();
+      
+      // first run over patch elements
+      for(const auto& element : elements_) {
+        for (const auto& intersection : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
+          if (intersection.boundary()) {
+            boundaryAssemblyIntersections.push_back(intersection);
+          }
+        }
+      }
+      
+      // now run over transition elements
+      for(const auto& element : transitionElementVector) {
+        for (const auto& intersection : Dune::intersections(elementNeighborhoodMap_->gridView(), element)) {
+          if (intersection.boundary()) {
+            boundaryAssemblyIntersections.push_back(intersection);
+          }
+        }
+      }
+      
+      return boundaryAssemblyIntersections;
+    }
+
+
   private:
     std::shared_ptr<ElementNeighborhoodMap<GV>> elementNeighborhoodMap_;
     std::function<bool(Element)> elementFilter_;
@@ -153,28 +249,39 @@ namespace duneuro
     ElementMapper elementMapper_;
     VertexMapper vertexMapper_;
 
+    Element element_of_start_position_;
     std::vector<Element> elements_;
     std::set<std::size_t> elementIndices_;
+    std::shared_ptr<std::vector<Element>> transitionElements_;
 
     template <typename ElementSearch>
     void initializeSingleElement(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      auto candidate = elementSearch.findEntity(position);
-      if (elementFilter_(candidate)) {
-        elements_.push_back(candidate);
-        elementIndices_.insert(elementMapper_.index(candidate));
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      element_of_start_position_ = search_result.value();
+      if (elementFilter_(element_of_start_position_)) {
+        elements_.push_back(element_of_start_position_);
+        elementIndices_.insert(elementMapper_.index(element_of_start_position_));
       }
     }
 
     template <typename ElementSearch>
     void initializeClosestVertex(const ElementSearch& elementSearch, const Coordinate& position)
     {
-      auto element = elementSearch.findEntity(position);
-      const auto& geo = element.geometry();
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      element_of_start_position_ = search_result.value();
+      const auto& geo = element_of_start_position_.geometry();
       // find closest corner
       unsigned int minCorner = 0;
       double minDistance = std::numeric_limits<double>::max();
-      for (unsigned int i = 0; i < geo.corners(); ++i) {
+      unsigned int corners = geo.corners();
+      for (unsigned int i = 0; i < corners; ++i) {
         Coordinate tmp = position;
         tmp -= geo.corner(i);
         double tn = tmp.two_norm();
@@ -186,7 +293,7 @@ namespace duneuro
       // retrieve elements belonging to that corner
       std::vector<Element> candidates;
       elementNeighborhoodMap_->getNeighborsOfVertex(
-          vertexMapper_.subIndex(element, minCorner, GV::dimension),
+          vertexMapper_.subIndex(element_of_start_position_, minCorner, GV::dimension),
           std::back_inserter(candidates));
       // filter them and push them to the list
       for (const auto& e : candidates) {
@@ -204,7 +311,11 @@ namespace duneuro
                       const Dune::FieldVector<typename VC::ctype, VC::dim>& position, bool restrict)
   {
     if (restrict) {
-      auto reference = volumeConductor->tensor(elementSearch.findEntity(position));
+      auto search_result = elementSearch.findEntity(position);
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      auto reference = volumeConductor->tensor(search_result.value());
       return [volumeConductor, reference](const typename VC::EntityType& e) {
         auto diff = volumeConductor->tensor(e);
         diff -= reference;

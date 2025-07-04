@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_DIPOLE_STATISTICS_HH
 #define DUNEURO_DIPOLE_STATISTICS_HH
 
@@ -44,7 +46,11 @@ namespace duneuro
 
     virtual TensorType conductivity(const DipoleType& x) const override
     {
-      return volumeConductorStorage_.get()->tensor(elementSearch_->findEntity(x.position()));
+      auto search_result = elementSearch_->findEntity(x.position());
+      if(!search_result.has_value()) {
+        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      return volumeConductorStorage_.get()->tensor(search_result.value());
     }
 
   private:

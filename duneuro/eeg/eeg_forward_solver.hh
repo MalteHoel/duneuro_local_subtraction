@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_EEG_FORWARD_SOLVER_HH
 #define DUNEURO_EEG_FORWARD_SOLVER_HH
 
@@ -46,6 +48,12 @@ namespace duneuro
           *solver_, config, solverConfig);
     }
 
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::CoordinateFieldType, Traits::dimension,
+                                         typename Traits::RangeDOFVector>> sourceModel() const
+    {
+      return denseSourceModel_;
+    }
+
     template <class SolverBackend>
     void solve(SolverBackend& solverBackend, typename Traits::DomainDOFVector& solution,
                const Dune::ParameterTree& config, DataTree dataTree = DataTree())
@@ -80,7 +88,7 @@ namespace duneuro
   private:
     std::shared_ptr<typename Traits::Solver> solver_;
     std::shared_ptr<typename Traits::RangeDOFVector> rightHandSideVector_;
-    std::shared_ptr<SourceModelInterface<typename Traits::CoordinateFieldType, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::CoordinateFieldType, Traits::dimension,
                                          typename Traits::RangeDOFVector>>
         denseSourceModel_;
 

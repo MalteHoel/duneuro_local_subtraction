@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #include <memory>
 
 #include <duneuro/driver/driver_interface.hh>
@@ -6,9 +8,12 @@
 #include <duneuro/driver/volume_conductor_factory_impl.hh>
 
 #include <duneuro/driver/fitted_volume_conductor.hh>
-#include <duneuro/driver/unfitted_volume_conductor.hh>
-#include <duneuro/driver/volume_conductor_interface.hh>
 
+#if HAVE_DUNE_UDG
+#include <duneuro/driver/unfitted_volume_conductor.hh>
+#endif
+
+#include <duneuro/driver/volume_conductor_interface.hh>
 namespace duneuro {
 
 template <>

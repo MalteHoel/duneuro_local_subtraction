@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_DRIVER_INTERFACE_HH
 #define DUNEURO_DRIVER_INTERFACE_HH
 
@@ -31,6 +33,21 @@ public:
    */
   std::unique_ptr<Function> makeDomainFunction() {
     return volumeConductor_->makeDomainFunction();
+  }
+  
+  /**
+   * This function creates a Function instance from a row of a DenseMatrix.
+   * A function is a type erasure object, which under the hood manages a DOF vector.
+   * In the tDCS interface, the potentials are exported as the rows of a matrix,
+   * where each row contains the DOF-vector coefficients of a solution to the tDCS problem.
+   * In some cases it is convenient to interpret these coefficients as a function. This can
+   * be achieved using this method
+   */
+  std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<FieldType>& denseMatrix,
+    size_t row)
+  {
+    return volumeConductor_->makeDomainFunctionFromMatrixRow(denseMatrix, row);
   }
 
   /**
@@ -118,20 +135,9 @@ public:
     volumeConductor_->setCoilsAndProjections(coils, projections);
   }
 
-  /**
-   * \brief write the given solution to a file
-   */
-  void write(const Function &solution, const Dune::ParameterTree &config,
-             DataTree dataTree = DataTree()) const {
-    volumeConductor_->write(solution, config, dataTree);
-  }
-
-  /**
-   * \brief write the model without a solution to a file
-   */
-  void write(const Dune::ParameterTree &config,
-             DataTree dataTree = DataTree()) const {
-    volumeConductor_->write(config, dataTree);
+  virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config)
+  {
+    return volumeConductor_->volumeConductorVTKWriter(config);
   }
 
   /**
@@ -180,7 +186,94 @@ public:
     return volumeConductor_->applyMEGTransfer(transferMatrix, dipole, config,
                                               dataTree);
   }
+  
+  /**
+   * \brief compute the primary B field for a given set of dipoles
+   */
+  std::vector<std::vector<FieldType>>
+  computeMEGPrimaryField(const std::vector<DipoleType>& dipoles, const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->computeMEGPrimaryField(dipoles, config);
+  }
 
+  /**
+ * \brief create a source space inside specified compartments
+ */
+  std::vector<CoordinateType> 
+  createSourceSpace(const Dune::ParameterTree& config) {
+    return volumeConductor_->createSourceSpace(config);
+  }
+
+  /**
+   * \brief Solve the tDCS forward problem.
+   * The tDCS forward problem is solved for each electrode specified via setElectrodes().
+   * Concretely, if the electrodes are are numbered e_0, ..., e_{N - 1}, then the output will be a N x nrDofs matrix,
+   * where the i-th row corresponds to the solution of the tDCS forward problem with a current injection pattern given by
+   * <j, n> = \delta_{x_0} - \delta_{x_i},
+   * where n is the unit outer normal. Thus, the i-th row describes a stimulation where current is flowing out of the head at the reference electrode
+   * and into the head at the i-th electrode with unit strength. 
+   * Concrete values of the tDCS solutions (resp. their gradients and currents) at positions of interest 
+   * can be obtained via evaluateMultipleFunctionsAtPositions() or evaluateMultipleFunctionsAtElementCenters().
+   * Note that for the 0-th row, we have j = 0, and hence the corresponding row in the output will be 0.0 in every entry.
+   */
+
+  std::unique_ptr<DenseMatrix<double>>
+  solveTDCSForward(const Dune::ParameterTree& config, DataTree dataTree = DataTree())
+  {
+    return volumeConductor_->solveTDCSForward(config, dataTree);
+  }
+
+  /**
+   * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
+   */
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateFunctionAtPositions(const Function& function,
+                              const std::vector<CoordinateType>& positions,
+                              const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->evaluateFunctionAtPositions(function, positions, config);
+  }
+  
+  /**
+   * \brief evaluate multiple functions at predefined global positions.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(const DenseMatrix<double>& EvaluationMatrix,
+                                       const std::vector<CoordinateType>& positions,
+                                       const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->evaluateMultipleFunctionsAtPositions(EvaluationMatrix, positions, config);
+  }
+  
+  /**
+   * \brief evaluate multiple functions the centers of the mesh elements.
+   * We support evaluating the function itself, its gradient, or - sigma * its gradient.
+   * Each row of the evaluation matrix is supposed to specify the DOF coefficients of a function
+   * to be evaluated.
+   */
+  std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(const DenseMatrix<double>& EvaluationMatrix,
+                                            const Dune::ParameterTree& config) const
+  {
+    return volumeConductor_->evaluateMultipleFunctionsAtElementCenters(EvaluationMatrix, config);
+  }
+
+  /**
+   * \brief return the center, volume, and potentially label of all mesh elements
+   * Note that the label is optional because for unfitted methods, one can not always assign
+   * a unique label to each element.
+   */
+  std::tuple<std::vector<CoordinateType>,
+             std::vector<FieldType>,
+             std::optional<std::vector<std::size_t>>>
+  elementStatistics() const
+  {
+    return volumeConductor_->elementStatistics();
+  }
+  
   std::vector<CoordinateType> getProjectedElectrodes() const {
     return volumeConductor_->getProjectedElectrodes();
   }

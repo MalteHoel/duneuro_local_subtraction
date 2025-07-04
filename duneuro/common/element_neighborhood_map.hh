@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_ELEMENT_NEIGHBORHOOD_MAP_HH
 #define DUNEURO_ELEMENT_NEIGHBORHOOD_MAP_HH
 
@@ -54,7 +56,8 @@ namespace duneuro
     {
       const auto& geo = element.geometry();
       std::set<typename GV::IndexSet::IndexType> usedElements;
-      for (unsigned int i = 0; i < geo.corners(); ++i) {
+      unsigned int corners = geo.corners();
+      for (unsigned int i = 0; i < corners; ++i) {
         auto vertexIndex = vertexMapper_.subIndex(element, i, GV::dimension);
         for (const auto& es : vertexToElements_[vertexIndex]) {
           const auto& candidate = gridView_.grid().entity(es);
@@ -78,6 +81,11 @@ namespace duneuro
     const GV& gridView() const
     {
       return gridView_;
+    }
+    
+    const std::vector<std::vector<EntitySeed>>& vertexToElements() const
+    {
+      return vertexToElements_;
     }
 
   private:

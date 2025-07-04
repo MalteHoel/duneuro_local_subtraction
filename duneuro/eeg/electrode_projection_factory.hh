@@ -1,9 +1,13 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_ELECTRODE_PROJECTION_FACTORY_HH
 #define DUNEURO_ELECTRODE_PROJECTION_FACTORY_HH
 
 #include <memory>
 
 #include <dune/common/parametertree.hh>
+
+#include <duneuro/common/kdtree.hh>
 
 #include <duneuro/eeg/closest_subentity_center_electrode_projection.hh>
 #include <duneuro/eeg/electrode_projection_interface.hh>
@@ -15,13 +19,14 @@ namespace duneuro
   struct ElectrodeProjectionFactory {
     template <class GV>
     static std::unique_ptr<ElectrodeProjectionInterface<GV>>
-    make_electrode_projection(const Dune::ParameterTree& config, const GV& gridView,
+    make_electrode_projection(const Dune::ParameterTree& config, const GV& gridView, std::shared_ptr<KDTreeElementSearch<GV>> elementSearch = nullptr,
                               DataTree dataTree = DataTree())
     {
       auto type = config.get<std::string>("type");
       if (type == "closest_subentity_center") {
+      	bool forceProjection = config.get<bool>("forceProjection", true);
         return std::make_unique<ClosestSubEntityCenterElectrodeProjection<GV>>(
-            gridView, config.get<std::vector<unsigned int>>("codims"));
+            gridView, config.get<std::vector<unsigned int>>("codims"), forceProjection, elementSearch);
       } else if (type == "normal") {
         return std::make_unique<NormalElectrodeProjection<GV>>(gridView);
       } else {

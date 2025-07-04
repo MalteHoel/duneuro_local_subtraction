@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UDG_SUBTRACTION_SOURCE_MODEL_HH
 #define DUNEURO_UDG_SUBTRACTION_SOURCE_MODEL_HH
 
@@ -28,8 +30,7 @@ namespace duneuro
     using Problem = SubtractionUDGDefaultParameter<GV, RF>;
     using EdgeNormProvider = MultiEdgeNormProvider;
     using PenaltyFluxWeighting = UnfittedDynamicPenaltyFluxWeights;
-    using LOP = SubtractionDG<Problem, EdgeNormProvider, PenaltyFluxWeighting,
-                              SubtractionContinuityType::discontinuous>;
+    using LOP = SubtractionDG<FS, Problem, EdgeNormProvider, PenaltyFluxWeighting, ContinuityType::discontinuous>;
     using WLOP = Dune::UDG::MultiPhaseLocalOperatorWrapper<LOP>;
     using DOF = typename FS::DOF;
     using UnfittedSubTriangulation = Dune::PDELab::UnfittedSubTriangulation<GV>;
@@ -83,13 +84,13 @@ namespace duneuro
     }
 
     virtual void
-    postProcessSolution(const std::vector<CoordinateType>& electrodes,
+    postProcessSolution(const std::vector<ProjectedElectrode<GV>>& electrodes,
                         std::vector<typename VectorType::field_type>& vector) const override
     {
       assert(electrodes.size() == vector.size());
       Dune::FieldVector<typename Problem::Traits::RangeFieldType, 1> result;
       for (unsigned int i = 0; i < electrodes.size(); ++i) {
-        problem_.get_u_infty().evaluateGlobal(electrodes[i], result);
+        problem_.get_u_infty().evaluateGlobal(electrodes[i].element.geometry().global(electrodes[i].localPosition), result);
         vector[i] += result;
       }
     }

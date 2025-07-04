@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_PATCH_BASED_VENANT_SOURCE_MODEL_HH
 #define DUNEURO_PATCH_BASED_VENANT_SOURCE_MODEL_HH
 
@@ -40,8 +42,7 @@ namespace duneuro
                                 const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
-        , elementNeighborhoodMap_(
-              std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
+        , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
         , gfs_(gfs)
         , monopolarVenant_(params)
         , quadratureRuleOrder_(params.get<unsigned int>("quadratureRuleOrder"))

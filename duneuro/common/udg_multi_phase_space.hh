@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 #define DUNEURO_UDG_MULTI_PHASE_SPACE_HH
 
@@ -22,6 +24,7 @@ namespace duneuro
   public:
     typedef TGV GV;
     enum { dim = GV::dimension };
+    enum { dimworld = GV::dimensionworld};
     typedef typename GV::ctype ctype;
     typedef N NT;
     typedef Dune::OPBLocalFiniteElement<ctype, NT, degree, dim, Dune::GeometryType::cube,

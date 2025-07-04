@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_FLAGS_HH
 #define DUNEURO_FLAGS_HH
 
@@ -32,6 +34,7 @@ namespace duneuro
 
   enum class FittedSolverType { cg, dg };
   enum class UnfittedSolverType { cutfem, udg};
+  enum class ContinuityType {continuous, discontinuous};
 }
 
 #endif // DUNEURO_FLAGS_HH

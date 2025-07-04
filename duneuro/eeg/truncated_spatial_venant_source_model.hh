@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_TRUNCATED_SPATIAL_VENANT_SOURCE_MODEL_HH
 #define DUNEURO_TRUNCATED_SPATIAL_VENANT_SOURCE_MODEL_HH
 
@@ -50,8 +52,7 @@ namespace duneuro
                                       const Dune::ParameterTree& params)
         : BaseT(search)
         , volumeConductor_(volumeConductor)
-        , elementNeighborhoodMap_(
-              std::make_shared<ElementNeighborhoodMap<GV>>(volumeConductor_->gridView()))
+        , elementNeighborhoodMap_(volumeConductor_->elementNeighborhoodMap())
         , gfs_(gfs)
         , vertexMapper_(gfs_.gridView())
         , numberOfMoments_(params.get<unsigned int>("numberOfMoments"))
@@ -77,7 +78,7 @@ namespace duneuro
       interpolatedDOFs_ = solveMomentSystem(dipole);
     }
 
-    virtual void assembleRightHandSide(VectorType& vector) const
+    virtual void assembleRightHandSide(VectorType& vector) const override
     {
       LFS lfs(gfs_);
       Cache cache(lfs);
@@ -141,7 +142,7 @@ namespace duneuro
     }
 
     /**
-     * \brief commpute the moment vector of the source term
+     * \brief compute the moment vector of the source term
      */
     Eigen::VectorXd
     assembleMomentVector(const std::vector<std::array<unsigned int, dim>>& multiIndices,

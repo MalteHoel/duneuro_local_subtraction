@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_SPARSEVECTORCONTAINER_HH
 #define DUNEURO_SPARSEVECTORCONTAINER_HH
 
@@ -71,6 +73,7 @@ namespace duneuro
       return it->second;
     }
   private:
+    // an index not contained in the keys of the map below is interpreted as having an entry of 0.0
     using storage = std::unordered_map<size_type, block_type>;
     storage values_;
     std::size_t n_;
@@ -94,18 +97,25 @@ namespace duneuro
     {
       return n_;
     }
-    void resize(std::size_t n, bool copy_values)
+    
+    std::size_t size() const
+    {
+      return n_;
+    }
+    
+    // our goal here is to mimic the behaviour of Dune::BlockVector, i.e. values for indices >= n are deleted
+    // and values with index < n are kept
+    void resize(std::size_t n)
     {
       n_ = n;
-      if (! copy_values)
-        clear();
-      #warning need to check range of previous values
-      // else
-      //   for (auto && values_)
+      
+      std::erase_if(values_, [n](const auto& item) {return item.first >= n;});
     }
-
-    // template <class J, class U>
-    // friend std::ostream& operator<<(std::ostream&, const SparseVectorContainer<J, U>&);
+    
+    std::size_t nrContainedValues() const
+    {
+      return values_.size();
+    }
   };
 
   //! \brief retrieve the sparse vector type for a given dense vector type
@@ -165,6 +175,44 @@ namespace duneuro
     printSparseHelper(stream, {}, Dune::PDELab::Backend::native(v));
     return stream;
   }
+  
+  // initialize a vector to represent a zero vector
+  // For sparse vectors, we interpret the absence of an index in the underlying managed map
+  // as that the corresponding entry of the vector is zero. Since, for this function, we have only one layer of 
+  // nested SparseBlockVector, we only look up how many block entries the vector should have
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<Dune::FieldVector<T, blockSize>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto topLevelPrefix = typename SizeProvider::SizePrefix();
+    topLevelPrefix.resize(0);
+    auto topLevelSize = sizeProvider.size(topLevelPrefix);
+    vector.resize(topLevelSize);
+    return;
+  }
+  
+  // initialize a vector to represent a zero vector
+  // The principle is similar to the function defined above. The difference is that
+  // we assume that the outer SparseBlockVector has all entries set, while the inner SparseBlockVectors are allowed
+  // to be sparse
+  // This implementation is based on the one in dune/functions/backends/istlvectorbackend.hh
+  template <class T, int blockSize, class SizeProvider>
+  void initialize_sparse_vector(SparseBlockVector<SparseBlockVector<Dune::FieldVector<T, blockSize>>>& vector, const SizeProvider& sizeProvider)
+  {
+    vector.clear();
+    auto prefix = typename SizeProvider::SizePrefix();
+    prefix.resize(0);
+    auto topLevelSize = sizeProvider.size(prefix);
+    vector.resize(topLevelSize);
+    
+    prefix.push_back(0);
+    for(std::size_t i = 0; i < topLevelSize; ++i) {
+      prefix.back() = i;
+      auto currentSecondLevelSize = sizeProvider.size(prefix);
+      vector[i] = SparseBlockVector<Dune::FieldVector<T, blockSize>>(currentSecondLevelSize);
+    }
+    return;
+  }
 
   template <class T, int blockSize>
   std::vector<T>
@@ -192,10 +240,10 @@ namespace duneuro
     for (std::size_t k = 0; k < matrix.rows(); ++k) {
       unsigned int offset = 0;
       for (std::size_t co = 0; co < vector.N(); ++co) { // the outer vector must have all entries...
-        for (auto && b : vector) {
+        for (auto && b : vector[co]) {
           unsigned int cb = b.first;
           for (std::size_t bi = 0; bi < blockSize; ++bi) {
-            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[cb][bi];
+            output[k] += matrix(k, offset + cb * blockSize + bi) * vector[co][cb][bi];
           }
         }
         // offset += vector[co].dim();

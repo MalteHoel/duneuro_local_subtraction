@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_MULTIPOLAR_VENANT
 #define DUNEURO_MULTIPOLAR_VENANT
 
@@ -55,7 +57,6 @@ namespace duneuro
       Eigen::VectorXd systemRHS = momentMatrix.transpose() * rightHandSide;
       Eigen::VectorXd solution = systemMatrix.colPivHouseholderQr().solve(systemRHS);
       std::vector<T> result;
-      unsigned int count = 0;
       for (unsigned int i = 0; i < solution.size(); ++i) {
         result.push_back(solution[i]);
       }

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_VOLUME_CONDUCTOR_READER_HH
 #define DUNEURO_VOLUME_CONDUCTOR_READER_HH
 
@@ -13,7 +15,7 @@
 #include <duneuro/io/cauchy_tensor_reader.hh>
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/gmsh_tensor_reader.hh>
-
+#include <dune/geometry/utility/typefromvertexcount.hh>
 namespace duneuro
 {
   template <class G>
@@ -58,10 +60,25 @@ namespace duneuro
       grid->globalRefine(refinements);
       timer.stop();
       dataTree.set("time_creating_grid", timer.lastElapsed());
+      if(refinements > 0) {
+        std::cout << "vertices after refinement : " << grid->leafGridView().size(dim) << "\n";
+        std::cout << "elements after refinement : " << grid->leafGridView().size(0) << "\n";
+      }
       timer.start();
       using Mapper = Dune::SingleCodimSingleGeomTypeMapper<GV, 0>;
       GV gv = grid->leafGridView();
       Mapper mapper(gv);
+      
+      std::vector<size_t> elementInsertionIndices(gv.size(0));
+      
+      using VertexMapper = Dune::SingleCodimSingleGeomTypeMapper<GV, dim>;
+      VertexMapper vertexMapper(gv);
+      std::vector<size_t> vertexInsertionIndices(gv.size(dim));
+      for(const auto& vertex : Dune::vertices(gv)) {
+        vertexInsertionIndices[vertexMapper.index(vertex)] = factory.insertionIndex(vertex);
+      }
+      
+      
       if (data.tensors.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -84,12 +101,13 @@ namespace duneuro
                                                  << data.tensors.size() << ")");
           }
           reordered_labels[mapper.index(element)] = label;
+          elementInsertionIndices[mapper.index(element)] = index;
         }
         timer.stop();
         dataTree.set("time_reordering_labels", timer.lastElapsed());
         dataTree.set("time", timer.elapsed());
         return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels,
-                                                    data.tensors);
+                                                    data.tensors, elementInsertionIndices, vertexInsertionIndices);
       } else if (data.labels.size() > 0) {
         std::vector<std::size_t> reordered_labels(gv.size(0));
         if (std::size_t(mapper.size()) != reordered_labels.size()) {
@@ -112,6 +130,7 @@ namespace duneuro
                                                  << data.conductivities.size() << ")");
           }
           reordered_labels[mapper.index(element)] = label;
+          elementInsertionIndices[mapper.index(element)] = index;
         }
         timer.stop();
         dataTree.set("time_reordering_labels", timer.lastElapsed());
@@ -127,7 +146,7 @@ namespace duneuro
           tensors.push_back(t);
         }
         dataTree.set("time", timer.elapsed());
-        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors);
+        return std::make_shared<VolumeConductor<G>>(std::move(grid), reordered_labels, tensors, elementInsertionIndices, vertexInsertionIndices);
       } else {
         DUNE_THROW(Dune::Exception, "you have to provide labels or tensors");
       }
@@ -148,12 +167,21 @@ namespace duneuro
         Dune::GmshReader<G>::read(factory, gridFilename, boundaryIdToPhysicalEntity,
                                   elementIndexToPhysicalEntity);
         std::unique_ptr<G> grid(factory.createGrid());
+        if(refinements > 0) {
+          std::cout << "vertices before refinement : " << grid->leafGridView().size(dim) << "\n";
+          std::cout << "elements before refinement : " << grid->leafGridView().size(0) << "\n";
+        }
+        dataTree.set("gridRefinements", refinements);
         grid->globalRefine(refinements);
         typedef Dune::SingleCodimSingleGeomTypeMapper<GV, 0> Mapper;
         GV gv = grid->leafGridView();
         Mapper mapper(gv);
         timer.stop();
         dataTree.set("time_reading_gmsh", timer.lastElapsed());
+        if(refinements > 0) {
+          std::cout << "vertices after refinement : " << grid->leafGridView().size(dim) << "\n";
+          std::cout << "elements after refinement : " << grid->leafGridView().size(0) << "\n";
+        }
         timer.start();
         std::vector<TensorType> tensors;
         GmshTensorReader<G>::read(tensorFilename, tensors);
@@ -168,7 +196,7 @@ namespace duneuro
             root = root.father();
           auto pe = elementIndexToPhysicalEntity[factory.insertionIndex(root)];
           if (pe - offset >= tensors.size()) {
-            DUNE_THROW(Dune::Exception, "physical entitiy of element "
+            DUNE_THROW(Dune::Exception, "physical entity of element "
                                             << factory.insertionIndex(root) << " is " << pe
                                             << " but only " << tensors.size()
                                             << " tensors have been read");

@@ -1,13 +1,16 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_SOURCE_MODEL_INTERFACE_HH
 #define DUNEURO_SOURCE_MODEL_INTERFACE_HH
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/kdtree.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/eeg/electrode_projection_interface.hh>
 
 namespace duneuro
 {
-  template <class ctype, int dim, class V>
+  template <class GV, class ctype, int dim, class V>
   struct SourceModelInterface {
   public:
     using DipoleType = Dipole<ctype, dim>;
@@ -19,8 +22,12 @@ namespace duneuro
 
     virtual void postProcessSolution(VectorType& vector) const = 0;
 
-    virtual void postProcessSolution(const std::vector<Dune::FieldVector<ctype, dim>>& electrodes,
+    virtual void postProcessSolution(const std::vector<ProjectedElectrode<GV>>& electrodes,
                                      std::vector<typename V::field_type>& vector) const = 0;
+                                     
+    virtual void postProcessMEG(const std::vector<Dune::FieldVector<ctype, dim>>& coils,
+                                const std::vector<std::vector<Dune::FieldVector<ctype, dim>>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const = 0;
 
     virtual ~SourceModelInterface()
     {
@@ -28,9 +35,9 @@ namespace duneuro
   };
 
   template <class GV, class V>
-  struct SourceModelBase : public SourceModelInterface<typename GV::ctype, GV::dimension, V> {
+  struct SourceModelBase : public SourceModelInterface<GV, typename GV::ctype, GV::dimension, V> {
   public:
-    using BaseType = SourceModelInterface<typename GV::ctype, GV::dimension, V>;
+    using BaseType = SourceModelInterface<GV, typename GV::ctype, GV::dimension, V>;
     using DipoleType = typename BaseType::DipoleType;
     using CoordinateType = Dune::FieldVector<typename GV::ctype, GV::dimension>;
     using VectorType = typename BaseType::VectorType;
@@ -44,7 +51,11 @@ namespace duneuro
     virtual void bind(const DipoleType& dipole, DataTree dataTree = DataTree()) override
     {
       dipole_ = std::make_shared<DipoleType>(dipole);
-      dipoleElement_ = search_->findEntity(dipole_->position());
+      auto search_result = search_->findEntity(dipole_->position());
+      if(!search_result.has_value()) {
+          DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      dipoleElement_ = search_result.value();
       localDipolePosition_ = dipoleElement_.geometry().local(dipole_->position());
     }
 
@@ -53,8 +64,15 @@ namespace duneuro
       // as a default: no post processing
     }
 
-    virtual void postProcessSolution(const std::vector<CoordinateType>& electrodes,
+    virtual void postProcessSolution(const std::vector<ProjectedElectrode<GV>>& electrodes,
                                      std::vector<typename V::field_type>& vector) const override
+    {
+      // as a default: no post processing
+    }
+
+    virtual void postProcessMEG(const std::vector<CoordinateType>& coils,
+                                const std::vector<std::vector<CoordinateType>>& projections,
+                                std::vector<typename V::field_type>& fluxes) const override
     {
       // as a default: no post processing
     }

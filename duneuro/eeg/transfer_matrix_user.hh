@@ -1,8 +1,15 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_TRANSFER_MATRIX_USER_HH
 #define DUNEURO_TRANSFER_MATRIX_USER_HH
 
+#include <limits>
+
 #include <dune/common/parametertree.hh>
 #include <dune/common/timer.hh>
+
+#include <dune/pdelab/backend/common/tags.hh>
+#include <dune/pdelab/ordering/utility.hh>
 
 #include <duneuro/common/dipole.hh>
 #include <duneuro/common/flags.hh>
@@ -11,6 +18,7 @@
 #include <duneuro/common/sparse_vector_container.hh>
 #include <duneuro/common/vector_density.hh>
 #include <duneuro/io/data_tree.hh>
+#include <duneuro/eeg/electrode_projection_interface.hh>
 
 namespace duneuro
 {
@@ -20,6 +28,7 @@ namespace duneuro
     static const unsigned int dimension = S::Traits::dimension;
     using DenseRHSVector = typename Solver::Traits::RangeDOFVector;
     using SparseRHSVector = typename SparseVectorTraits<DenseRHSVector>::Vector;
+    using SparseRHSContainer = typename SparseVectorTraits<DenseRHSVector>::Container;
     using CoordinateFieldType = typename S::Traits::CoordinateFieldType;
     using Coordinate = Dune::FieldVector<CoordinateFieldType, dimension>;
     using DipoleType = Dipole<CoordinateFieldType, dimension>;
@@ -67,13 +76,25 @@ namespace duneuro
       }
     }
 
-    void postProcessPotential(const std::vector<typename Traits::Coordinate>& projectedElectrodes,
+    void postProcessPotential(const std::vector<ProjectedElectrode<typename S::Traits::GridView>>& projectedElectrodes,
                               std::vector<typename Traits::DomainField>& potential)
     {
       if (density_ == VectorDensity::sparse) {
         sparseSourceModel_->postProcessSolution(projectedElectrodes, potential);
       } else {
         denseSourceModel_->postProcessSolution(projectedElectrodes, potential);
+      }
+    }
+
+    void postProcessMEG(const std::vector<typename Traits::Coordinate>& coils,
+                        const std::vector<std::vector<typename Traits::Coordinate>>& projections,
+                        std::vector<typename Traits::DomainField>& fluxes)
+    {
+      if(density_ == VectorDensity::sparse) {
+        sparseSourceModel_->postProcessMEG(coils, projections, fluxes);
+      }
+      else {
+        denseSourceModel_->postProcessMEG(coils, projections, fluxes);
       }
     }
 
@@ -97,8 +118,18 @@ namespace duneuro
     template <class M>
     std::vector<typename Traits::DomainField> solveSparse(const M& transferMatrix) const
     {
+      // initialize vector with no managed container
       using SVC = typename Traits::SparseRHSVector;
-      SVC rhs(solver_->functionSpace().getGFS());
+      using SVCContainer = typename Traits::SparseRHSContainer;
+      SVC rhs(solver_->functionSpace().getGFS(), Dune::PDELab::Backend::unattached_container());
+      
+      // create and attach container of correct size
+      Dune::PDELab::SizeProviderAdapter sizeProvider{solver_->functionSpace().getGFS().orderingStorage()};
+      static_assert(decltype(sizeProvider)::ContainerIndexOrder == Dune::PDELab::MultiIndexOrder::Outer2Inner);
+      std::shared_ptr<SVCContainer> sparseContainerPtr = std::make_shared<SVCContainer>();
+      initialize_sparse_vector(*sparseContainerPtr, sizeProvider);
+      rhs.attach(sparseContainerPtr);
+      
       sparseSourceModel_->assembleRightHandSide(rhs);
 
       std::vector<typename Traits::DomainField> output;
@@ -123,10 +154,10 @@ namespace duneuro
   private:
     std::shared_ptr<const typename Traits::Solver> solver_;
     VectorDensity density_;
-    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::DomainField, Traits::dimension,
                                          typename Traits::SparseRHSVector>>
         sparseSourceModel_;
-    std::shared_ptr<SourceModelInterface<typename Traits::DomainField, Traits::dimension,
+    std::shared_ptr<SourceModelInterface<typename S::Traits::GridView, typename Traits::DomainField, Traits::dimension,
                                          typename Traits::DenseRHSVector>>
         denseSourceModel_;
     mutable std::shared_ptr<typename Traits::DenseRHSVector> denseRHSVector_;

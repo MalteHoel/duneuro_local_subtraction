@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UDG_SOURCE_MODEL_FACTORY_HH
 #define DUNEURO_UDG_SOURCE_MODEL_FACTORY_HH
 
@@ -16,7 +18,7 @@ namespace duneuro
 {
   struct UDGSourceModelFactory {
     template <class Vector, class Solver>
-    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
@@ -45,7 +47,7 @@ namespace duneuro
     }
 
     template <class Vector, class Solver>
-    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::RangeField,
+    static std::unique_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::RangeField,
                                                 Solver::Traits::dimension, Vector>>
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_VOLUME_CONDUCTOR_STORAGE_HH
 #define DUNEURO_VOLUME_CONDUCTOR_STORAGE_HH
 
@@ -11,8 +13,17 @@
 #include <duneuro/io/data_tree.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
 
+#include <dune/common/timer.hh>
+
 namespace duneuro
 {
+  /*
+   * Note: "geometryAdaption" below does not mean whether a given hexahedral mesh is geometry adapted or not,
+   *       but instead is used to signal that a geometry adapted hexahedral mesh should be created inside DUNEuro
+   *       from a labeled voxel image. This option is currently not exposed in the driver interface.
+   *       In particular, if the volume conductor storage is supposed to contain an externally generated geometry adapted
+   *       hexahedral mesh, the parameter "geometryAdaption" must be "false".
+   */
   template <int d, ElementType elementType, bool geometryAdaption>
   class VolumeConductorStorage;
 
@@ -28,6 +39,13 @@ namespace duneuro
         : volumeConductor_(
               VolumeConductorReader<typename Type::GridType>::read(data, config, dataTree))
     {
+      if(config.get<bool>("computeElementNeighborhoodMap", true)) {
+        Dune::Timer timer(false);
+        timer.start();
+        volumeConductor_->computeElementNeighborhoodMap();
+        timer.stop();
+        std::cout << "time_element_neighborhood_map " << timer.lastElapsed() << " s\n";
+      }
     }
 
     std::shared_ptr<Type> get() const

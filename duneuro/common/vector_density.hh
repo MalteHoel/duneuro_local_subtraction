@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_VECTOR_DENSITY_HH
 #define DUNEURO_VECTOR_DENSITY_HH
 
@@ -13,7 +15,7 @@ namespace duneuro
     if (t == "partial_integration") {
       return VectorDensity::sparse;
     }
-    if (t == "localized_subtraction") {
+    if (t == "local_subtraction") {
       return VectorDensity::sparse;
     }
     if (t == "whitney") {

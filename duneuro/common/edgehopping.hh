@@ -1,7 +1,10 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_EDGEHOPPING_HH
 #define DUNEURO_EDGEHOPPING_HH
 
 #include <set>
+#include <optional>
 
 #include <dune/common/float_cmp.hh>
 #include <dune/common/fvector.hh>
@@ -41,18 +44,42 @@ namespace duneuro
     {
     }
 
-    Entity findEntity(const GlobalCoordinate& global) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global) const
     {
       return findEntityImpl(global, *(gridView_.template begin<0>()));
     }
 
-    Entity findEntity(const GlobalCoordinate& global, const Entity& start) const
+    std::optional<Entity> findEntity(const GlobalCoordinate& global, const Entity& start) const
     {
       return findEntityImpl(global, start);
     }
+    
+    // if edgehopping fails, we fall back to scanning all elements
+    std::optional<Entity> scanElementsForPosition(const GlobalCoordinate& global) const
+    {
+      for(const auto& element : elements(gridView_)) {
+        // check if dipole is inside element
+        bool isContained = true;
+        
+        for(const auto& intersection : Dune::intersections(gridView_, element)) {
+          if(EdgeHoppingDetail::isOutside(intersection, global)) {
+            // position is not inside this element
+            isContained = false;
+            break;
+          }
+        }
+        
+        if(isContained) {
+          return element;
+        }
+      } // end loop over elements
+      
+      // no element contains the positions
+      return {};
+    }
 
   private:
-    Entity findEntityImpl(const GlobalCoordinate& global, const Entity& start) const
+    std::optional<Entity> findEntityImpl(const GlobalCoordinate& global, const Entity& start) const
     {
       using ElementIndex = typename GV::IndexSet::IndexType;
       std::set<ElementIndex> visited = {gridView_.indexSet().index(start)};
@@ -80,9 +107,13 @@ namespace duneuro
           }
         }
       }
-      if (boundaryIntersectionFound)
-        DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
-      return current;
+      if (boundaryIntersectionFound) {
+        return {};
+        //DUNE_THROW(Dune::Exception, "coordinate is outside of the grid, or grid is not convex");
+      }
+      else {
+        return current;
+      }
     }
 
     GV gridView_;

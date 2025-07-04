@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_MEG_SOLVER_INTERFACE_HH
 #define DUNEURO_MEG_SOLVER_INTERFACE_HH
 
@@ -22,7 +24,7 @@ namespace duneuro
     solve(std::size_t coil, std::size_t projection) const = 0;
     virtual void assembleTransferMatrixRHS(std::size_t coil, std::size_t projection,
                                            V& rhs) const = 0;
-    virtual void addFluxToVTKWriter(VTKWriter<VC>& writer) const = 0;
+    virtual void addFluxToVTKWriter(VTKWriter<typename VC::GridView>& writer) const = 0;
     virtual std::size_t numberOfCoils() const = 0;
     virtual std::size_t numberOfProjections(std::size_t coil) const = 0;
     virtual ~MEGSolverInterface()

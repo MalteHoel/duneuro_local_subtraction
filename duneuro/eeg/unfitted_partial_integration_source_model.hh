@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_UNFITTED_PARTIAL_INTEGRATION_SOURCE_MODEL_HH
 #define DUNEURO_UNFITTED_PARTIAL_INTEGRATION_SOURCE_MODEL_HH
 
@@ -84,7 +86,7 @@ namespace duneuro
                     this->dipoleElement().geometry().global(this->localDipolePosition())) :
                 this->localDipolePosition();
 
-        // evaluate gradiant in local bounding box coordinates
+        // evaluate gradient in local bounding box coordinates
         std::vector<Dune::FieldMatrix<Real, 1, dim>> gradpsi(childLfs.size());
         FESwitch::basis(childLfs.finiteElement()).evaluateJacobian(boundingBoxLocal, gradpsi);
 
@@ -94,7 +96,7 @@ namespace duneuro
         const auto& entityJacobian =
             ep.entity().geometry().jacobianInverseTransposed(CoordinateType(.5));
 
-        // multiply local gradiant with bounding box transformation
+        // multiply local gradient with bounding box transformation
         Dune::FieldMatrix<Real, 1, dim> tmp;
         for (unsigned int i = 0; i < gradpsi.size(); i++) {
           if (scaleToBBox_)

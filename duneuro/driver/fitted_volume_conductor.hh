@@ -1,9 +1,16 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef FITTED_VOLUME_CONDUCTOR_HH
 #define FITTED_VOLUME_CONDUCTOR_HH
 
 #if HAVE_TBB
 #include <tbb/tbb.h>
 #endif
+
+#include <set>
+#include <limits>
+#include <cmath>
+#include <array>
 
 #include <duneuro/common/cg_solver.hh>
 #include <duneuro/common/cg_solver_backend.hh>
@@ -30,12 +37,23 @@
 #include <duneuro/eeg/transfer_matrix_user.hh>
 #include <duneuro/io/fitted_tensor_vtk_functor.hh>
 #include <duneuro/io/volume_conductor_reader.hh>
+#include <duneuro/io/volume_conductor_vtk_writer.hh>
 #include <duneuro/io/vtk_writer.hh>
 #include <duneuro/meg/fitted_meg_transfer_matrix_solver.hh>
 #include <duneuro/meg/meg_solver_factory.hh>
 #include <duneuro/meg/meg_solver_interface.hh>
+#include <duneuro/common/kdtree.hh>
+#include <duneuro/common/source_space_factory.hh>
+#include <duneuro/common/dof_vector_evaluator.hh>
+#include <duneuro/common/bounding_volume_hierarchy.hh>
 
 #include <duneuro/driver/volume_conductor_interface.hh>
+
+#include <tuple>
+
+#include <dune/functions/gridfunctions/gridviewfunction.hh>
+#include <dune/pdelab/function/discretegridviewfunction.hh>
+
 namespace duneuro {
 template <FittedSolverType solverType, class VC, ElementType et, int degree>
 struct SelectFittedSolver;
@@ -71,6 +89,7 @@ struct FittedMEEGDriverTraits {
   using ElementSearch = KDTreeElementSearch<typename VC::GridView>;
   using TransferMatrixUser =
       duneuro::TransferMatrixUser<Solver, SourceModelFactory>;
+
 };
 
 template <int dim, ElementType elementType, FittedSolverType solverType,
@@ -114,7 +133,9 @@ public:
                                               ? config.sub("solver")
                                               : Dune::ParameterTree()),
         megTransferMatrixSolver_(solver_, megSolver_),
-        eegForwardSolver_(solver_) {}
+        eegForwardSolver_(solver_)
+  {
+  }
 
   virtual void solveEEGForward(
       const typename VolumeConductorInterface<dim>::DipoleType &dipole,
@@ -123,6 +144,7 @@ public:
     this->solveEEGForward_impl(dipole, solution, config, config_,
                                eegForwardSolver_, *solver_, solverBackend_,
                                dataTree);
+    sourceModelPtr_ = eegForwardSolver_.sourceModel();
     if (config.get<bool>("subtract_mean")) {
       subtract_mean(*solver_,
                     solution.cast<typename Traits::DomainDOFVector>());
@@ -153,6 +175,15 @@ public:
         dataTree.set(name.str() + ".time_solve", time_solve);
       }
     }
+    
+    if(config.get<bool>("post_process_meg")) {
+      if(!sourceModelPtr_) {
+        DUNE_THROW(Dune::Exception, "source model not set, but is needed for MEG post processing");
+      }
+
+      sourceModelPtr_->postProcessMEG(coils_, projections_, output);
+    }
+    
     return output;
   }
 
@@ -161,20 +192,25 @@ public:
         make_domain_dof_vector(*solver_, 0.0));
   }
 
+  virtual std::unique_ptr<Function> makeDomainFunctionFromMatrixRow(
+    const DenseMatrix<double>& denseMatrix,
+    size_t row) const override
+  {
+    std::unique_ptr<Function> wrapped_function = std::make_unique<Function>(make_domain_dof_vector(*solver_, 0.0));
+    extract_matrix_row(denseMatrix, row, Dune::PDELab::Backend::native(wrapped_function->cast<typename Traits::DomainDOFVector>()));
+    return wrapped_function;
+  }
+
   virtual void setElectrodes(
       const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
           &electrodes,
       const Dune::ParameterTree &config) override {
     assert(electrodes.size() > 0);
-    electrodeProjection_ =
-        ElectrodeProjectionFactory::make_electrode_projection(
-            config, volumeConductorStorage_.get()->gridView());
+    electrodeProjection_ = ElectrodeProjectionFactory::make_electrode_projection(config, volumeConductorStorage_.get()->gridView(), elementSearch_);
     electrodeProjection_->setElectrodes(electrodes);
     projectedGlobalElectrodes_.clear();
     for (unsigned int i = 0; i < electrodeProjection_->size(); ++i) {
-      const auto &proj = electrodeProjection_->getProjection(i);
-      projectedGlobalElectrodes_.push_back(
-          proj.element.geometry().global(proj.localPosition));
+      projectedGlobalElectrodes_.push_back(electrodeProjection_->getProjection(i));
     }
   }
 
@@ -195,6 +231,8 @@ public:
       DUNE_THROW(Dune::Exception, "no meg solver created");
     }
     megSolver_->bind(coils, projections);
+    coils_ = coils;
+    projections_ = projections;
   }
 
   virtual std::vector<double>
@@ -218,90 +256,10 @@ public:
     return result;
   }
 
-  virtual void write(const Function &function,
-                     const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const override {
-    auto format = config.get<std::string>("format");
-    if (format == "vtk") {
-      VTKWriter<typename Traits::VC> writer(
-          volumeConductorStorage_.get(),
-          config.get<unsigned int>("subsampling", degree - 1));
-      auto gradient_type = config.get<std::string>("gradient.type", "vertex");
-      auto potential_type = config.get<std::string>("potential.type", "vertex");
-
-      if (gradient_type == "vertex") {
-        writer.addVertexDataGradient(
-            *solver_,
-            Dune::stackobject_to_shared_ptr(
-                function.cast<typename Traits::DomainDOFVector>()),
-            "gradient_potential");
-      } else {
-        writer.addCellDataGradient(
-            *solver_,
-            Dune::stackobject_to_shared_ptr(
-                function.cast<typename Traits::DomainDOFVector>()),
-            "gradient_potential");
-      }
-      if (potential_type == "vertex") {
-        writer.addVertexData(
-            *solver_,
-            Dune::stackobject_to_shared_ptr(
-                function.cast<typename Traits::DomainDOFVector>()),
-            "potential");
-      } else {
-        writer.addCellData(
-            *solver_,
-            Dune::stackobject_to_shared_ptr(
-                function.cast<typename Traits::DomainDOFVector>()),
-            "potential");
-      }
-      writer.addCellData(std::make_shared<
-                         duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
-          volumeConductorStorage_.get()));
-#if HAVE_EIGEN
-      if (config.get("anisotropy.enable", false)) {
-        for (unsigned int i = 0; i < dim; ++i) {
-          writer.addCellData(std::make_shared<
-                             duneuro::FittedTensorFunctor<typename Traits::VC>>(
-              volumeConductorStorage_.get(), i));
-        }
-      }
-#endif
-
-      if (megSolver_) {
-        megSolver_->bind(function.cast<typename Traits::DomainDOFVector>());
-        megSolver_->addFluxToVTKWriter(writer);
-      }
-
-      writer.write(config.get<std::string>("filename"), dataTree);
-    } else {
-      DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-    }
-  }
-
-  virtual void write(const Dune::ParameterTree &config,
-                     DataTree dataTree = DataTree()) const override {
-    auto format = config.get<std::string>("format");
-    if (format == "vtk") {
-      VTKWriter<typename Traits::VC> writer(
-          volumeConductorStorage_.get(),
-          config.get<unsigned int>("subsampling", degree - 1));
-      writer.addCellData(std::make_shared<
-                         duneuro::FittedTensorNormFunctor<typename Traits::VC>>(
-          volumeConductorStorage_.get()));
-#if HAVE_EIGEN
-      if (config.get("anisotropy.enable", false)) {
-        for (unsigned int i = 0; i < dim; ++i) {
-          writer.addCellData(std::make_shared<
-                             duneuro::FittedTensorFunctor<typename Traits::VC>>(
-              volumeConductorStorage_.get(), i));
-        }
-      }
-#endif
-      writer.write(config.get<std::string>("filename"), dataTree);
-    } else {
-      DUNE_THROW(Dune::Exception, "Unknown format \"" << format << "\"");
-    }
+  virtual std::unique_ptr<VolumeConductorVTKWriterInterface> volumeConductorVTKWriter(const Dune::ParameterTree& config) const override
+  {
+    bool visualizeAnisotropy = config.get<bool>("anisotropy.enable", false);
+    return std::make_unique<VolumeConductorVTKWriter<typename Traits::Solver>>(*solver_, visualizeAnisotropy);
   }
 
   virtual std::unique_ptr<DenseMatrix<double>>
@@ -340,13 +298,99 @@ public:
           &dipoles,
       const Dune::ParameterTree &config,
       DataTree dataTree = DataTree()) override {
+    
+    // validate that coils and projections have been set
+    if(coils_.size() == 0) {
+      DUNE_THROW(Dune::Exception, "please set coils and projections via 'setCoilsAndProjections()' before calling 'applyMEGTransfer()'");
+    }
+    
+    // check if transfer matrix dimensions match number of coils and projections
+    std::size_t nr_sensors = 0;
+    for(std::size_t i = 0; i < coils_.size(); ++i) {
+      nr_sensors += projections_[i].size();
+    }
+    if(nr_sensors != transferMatrix.rows()) {
+      DUNE_THROW(Dune::Exception, "number of MEG sensors (" << nr_sensors << ") does not match number of transfer matrix rows (" << transferMatrix.rows() << ")");
+    }
+      
     return this->template applyMEGTransfer_impl<Traits>(
-        transferMatrix, dipoles, config, dataTree, config_, solver_);
+        transferMatrix, dipoles, config, dataTree, config_, solver_, coils_, projections_);
+  }
+  
+  virtual std::vector<std::vector<double>> computeMEGPrimaryField(
+    const std::vector<typename VolumeConductorInterface<dim>::DipoleType>& dipoles,
+    const Dune::ParameterTree& config) const override
+  {
+    if(coils_.size() == 0) {
+      DUNE_THROW(Dune::Exception, "coils and projections not set");
+    }
+    return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
 
+  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+    const Function& function,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, function.cast<typename Traits::DomainDOFVector>());
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtPositions(
+    const DenseMatrix<double>& EvaluationMatrix,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& config) const override 
+  {
+    DOFVectorEvaluator<typename Traits::Solver> dofVectorEvaluator(*solver_, EvaluationMatrix);
+    dofVectorEvaluator.bindPositions(positions);
+    return dofVectorEvaluator.evaluate(config);  
+  }
+
+  virtual std::unique_ptr<DenseMatrix<double>> 
+  evaluateMultipleFunctionsAtElementCenters(
+    const DenseMatrix<double>& EvaluationMatrix, 
+    const Dune::ParameterTree& config) const override 
+  {
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters;
+    
+    for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+      elementCenters.push_back(element.geometry().center());
+    }
+    
+    return evaluateMultipleFunctionsAtPositions(EvaluationMatrix, elementCenters, config);
+  }
+  
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<typename VolumeConductorInterface<dim>::FieldType>,
+                     std::optional<std::vector<std::size_t>>>
+  elementStatistics() const override
+  {
+  std::size_t nrElements = solver_->volumeConductor()->gridView().size(0);
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> elementCenters(nrElements);
+  std::vector<typename VolumeConductorInterface<dim>::FieldType> elementVolumes(nrElements);
+  std::vector<std::size_t> elementLabels(nrElements);
+  
+  std::size_t counter = 0;
+  for (const auto& element : Dune::elements(solver_->volumeConductor()->gridView())) {
+    elementCenters[counter] = element.geometry().center();
+    elementVolumes[counter] = element.geometry().volume();
+    elementLabels[counter] = volumeConductorStorage_.get()->label(element);
+    ++counter;
+  }
+  
+  return {elementCenters, elementVolumes, elementLabels};
+  }
+  
   virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
   getProjectedElectrodes() const override {
-    return projectedGlobalElectrodes_;
+    std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coordinates;
+    for(size_t i = 0; i < projectedGlobalElectrodes_.size(); ++i) {
+      coordinates.push_back(projectedGlobalElectrodes_[i].element.geometry().global(projectedGlobalElectrodes_[i].localPosition));
+    }
+    return coordinates;
   }
 
   virtual void statistics(DataTree dataTree) const override {
@@ -361,6 +405,18 @@ public:
                   std::to_string(itv.first.second),
               itv.second);
     }
+  }
+  
+  // construct a volumetric source space by first constructing a regular grid of a given step size, 
+  // and then removing all positions that are not contained in the specified source compartments
+  // If the corresponding flag in the config is set, the Venant condition is enforced
+  virtual std::vector<typename VolumeConductorInterface<dim>::CoordinateType>
+  createSourceSpace(const Dune::ParameterTree& config) const override
+  {
+    return std::get<0>(SourceSpaceFactory::placePositionsOnRegularGrid(
+      *(volumeConductorStorage_.get()),
+      *elementSearch_,
+      config));
   }
 
 private:
@@ -387,9 +443,11 @@ private:
   std::unique_ptr<
       duneuro::ElectrodeProjectionInterface<typename Traits::VC::GridView>>
       electrodeProjection_;
-  std::vector<typename duneuro::ElectrodeProjectionInterface<
-      typename Traits::VC::GridView>::GlobalCoordinate>
+  std::vector<typename duneuro::ProjectedElectrode<typename Traits::VC::GridView>>
       projectedGlobalElectrodes_;
+  std::vector<typename VolumeConductorInterface<dim>::CoordinateType> coils_;
+  std::vector<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>> projections_;
+  std::shared_ptr<SourceModelInterface<typename Traits::VC::GridView, double, dim, typename Traits::DomainDOFVector>> sourceModelPtr_;
 };
 
 } // namespace duneuro

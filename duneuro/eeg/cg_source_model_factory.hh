@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_CG_SOURCE_MODEL_FACTORY_HH
 #define DUNEURO_CG_SOURCE_MODEL_FACTORY_HH
 
@@ -12,14 +14,16 @@
 #include <duneuro/eeg/truncated_spatial_venant_source_model.hh>
 #include <duneuro/eeg/vertex_based_venant_source_model.hh>
 #include <duneuro/eeg/whitney_source_model.hh>
+#include <duneuro/eeg/local_subtraction_source_model.hh>
 #include <duneuro/driver/feature_manager.hh>
+#include <duneuro/common/flags.hh>
 
 
 namespace duneuro
 {
   struct CGSourceModelFactory {
     template <class Vector, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::VolumeConductor::ctype,
                                                 Solver::Traits::VolumeConductor::dim, Vector>>
     createDense(const Solver& solver, const Dune::ParameterTree& config,
                 const Dune::ParameterTree& solverConfig)
@@ -60,7 +64,7 @@ namespace duneuro
       } else if (type == "subtraction") {
         return std::make_shared<FittedSubtractionSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace,
-            Vector, SubtractionContinuityType::continuous>>(
+            Vector, ContinuityType::continuous>>(
             solver.volumeConductor(), solver.functionSpace(), solver.elementSearch(), config,
             solverConfig);
       } else if (type == "whitney") {
@@ -69,13 +73,24 @@ namespace duneuro
                                                    Vector>>(solver.volumeConductor(),
                                                             solver.functionSpace().getGFS(),
                                                             solver.elementSearch(), config);
+      } else if (type == "local_subtraction") {
+        return std::make_shared<LocalSubtractionSourceModel<
+          typename Solver::Traits::VolumeConductor,
+          typename Solver::Traits::FunctionSpace,
+          Vector,
+          ContinuityType::continuous>>(
+            solver.volumeConductor(),
+            Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(),
+            config,
+            solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }
     }
 
     template <class Vector, class Solver>
-    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::VolumeConductor::ctype,
+    static std::shared_ptr<SourceModelInterface<typename Solver::Traits::GridView, typename Solver::Traits::VolumeConductor::ctype,
                                                 Solver::Traits::VolumeConductor::dim, Vector>>
     createSparse(const Solver& solver, const Dune::ParameterTree& config,
                  const Dune::ParameterTree& solverConfig)
@@ -116,6 +131,17 @@ namespace duneuro
                                                    Vector>>(solver.volumeConductor(),
                                                             solver.functionSpace().getGFS(),
                                                             solver.elementSearch(), config);
+      } else if (type == "local_subtraction") {
+        return std::make_shared<LocalSubtractionSourceModel<
+          typename Solver::Traits::VolumeConductor,
+          typename Solver::Traits::FunctionSpace,
+          Vector,
+          ContinuityType::continuous>>(
+            solver.volumeConductor(),
+            Dune::stackobject_to_shared_ptr(solver.functionSpace()),
+            solver.elementSearch(),
+            config,
+            solverConfig);
       } else {
         DUNE_THROW(duneuro::SourceModelException, "unknown source model \"" << FeatureManager::strip_prefix(type) << "\"");
       }

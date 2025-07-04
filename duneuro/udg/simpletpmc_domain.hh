@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: Copyright © duneuro contributors, see file LICENSE.md in module root
+// SPDX-License-Identifier: LicenseRef-GPL-2.0-only-with-duneuro-exception OR LGPL-3.0-or-later
 #ifndef DUNEURO_SIMPLETPMC_DOMAIN_HH
 #define DUNEURO_SIMPLETPMC_DOMAIN_HH
+
+#include <optional>
 
 #include <dune/common/parametertree.hh>
 
@@ -15,6 +19,8 @@ namespace duneuro
   {
   public:
     using DC = Dune::UDG::DomainConfiguration<GV, LGV>;
+    using Element = typename GV::template Codim<0>::Entity;
+    using GlobalCoordinate = typename Element::Geometry::GlobalCoordinate;
 
     explicit SimpleTPMCDomain(const LGV& gridView, const Dune::ParameterTree& config)
     {
@@ -52,6 +58,38 @@ namespace duneuro
     {
       return domainConfiguration_;
     }
+
+    std::vector<Dune::UDG::InterfaceRelativePosition> getInterfaceRelativePosition(const GlobalCoordinate& globalPos) const
+    {
+      std::vector<Dune::UDG::InterfaceRelativePosition> relativePosition;
+      
+      for(const auto& interface : domainConfiguration_.interfaces()) {
+        auto levelsetFunctionValue = (interface.function())(globalPos);
+        if(levelsetFunctionValue > 0) {
+          relativePosition.push_back(Dune::UDG::InterfaceRelativePosition::exterior);
+        }
+        else if (levelsetFunctionValue <= 0) {
+          relativePosition.push_back(Dune::UDG::InterfaceRelativePosition::interior);
+        }
+        else {
+          relativePosition.push_back(Dune::UDG::InterfaceRelativePosition::any);
+        }
+      }
+      
+      return relativePosition;
+    }
+
+  std::optional<std::size_t> domainIndex(const GlobalCoordinate& globalPos) const
+  {
+    std::vector<Dune::UDG::InterfaceRelativePosition> relativePosition = getInterfaceRelativePosition(globalPos);
+    typename DC::const_domain_iterator domainIterator = domainConfiguration_.findDomain(relativePosition);
+    
+    if(domainIterator == domainConfiguration_.domainsEnd()) {
+      return {};
+    }
+    
+    return (*domainIterator).index();
+  }
 
   private:
     DC domainConfiguration_;
