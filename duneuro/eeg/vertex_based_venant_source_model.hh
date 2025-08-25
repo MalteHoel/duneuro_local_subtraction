@@ -17,6 +17,7 @@
 #include <duneuro/common/element_patch.hh>
 #include <duneuro/eeg/monopolar_venant.hh>
 #include <duneuro/eeg/multipolar_venant.hh>
+#include <duneuro/eeg/stable_venant.hh>
 #include <duneuro/eeg/source_model_interface.hh>
 #include <duneuro/eeg/venant_utilities.hh>
 

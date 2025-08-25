@@ -27,6 +27,9 @@ namespace duneuro
     if (t == "multipolar_venant"){
       return VectorDensity::sparse;
     }
+    if (t == "stable_venant"){
+      return VectorDensity::sparse;
+    }
     if (t == "patch_based_venant") {
       return VectorDensity::sparse;
     }

@@ -45,6 +45,12 @@ namespace duneuro
             Vector, MultipolarVenant>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
                      solver.elementSearch(), config);
 
+      } else if (type == "stable_venant") {
+        return std::make_shared<VertexBasedVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            Vector, StableVenant>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
+                     solver.elementSearch(), config);
+
       } else if (type == "patch_based_venant") {
         return std::make_shared<PatchBasedVenantSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
@@ -110,6 +116,12 @@ namespace duneuro
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
             Vector, MultipolarVenant>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
                      solver.elementSearch(), config);
+      } else if (type == "stable_venant") {
+        return std::make_shared<VertexBasedVenantSourceModel<
+            typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
+            Vector, StableVenant>>(solver.volumeConductor(), solver.functionSpace().getGFS(),
+                     solver.elementSearch(), config);
+      
       } else if (type == "patch_based_venant") {
         return std::make_shared<PatchBasedVenantSourceModel<
             typename Solver::Traits::VolumeConductor, typename Solver::Traits::FunctionSpace::GFS,
