@@ -4,7 +4,7 @@
 #define DUNEURO_STABLE_VENANT_HH
 
 /*
- * Implementation of multipolar Venant approach which explicitely enforces monopole and dipole constraints, and only uses least squares
+ * Implementation of multipolar Venant approach which explicitly enforces monopole and dipole constraints, and only uses least squares
  * fitting for multipolar constraints
  */
 
