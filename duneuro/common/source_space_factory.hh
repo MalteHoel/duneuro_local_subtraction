@@ -316,6 +316,93 @@ public:
     
     return {std::get<0>(placedPositions), std::get<1>(placedPositions), lowerLeft, upperRight};
   }
+  
+  /*
+   * Place positions on a Z-slice of the volume conductor. Positions are only rejected if they are outside of the grid.
+   */
+  template<class VC, class CoordinateType, class ElementSearch, int dim>
+  static std::tuple<std::vector<CoordinateType>,
+                    std::vector<std::array<std::size_t, dim-1>>,
+                    CoordinateType,
+                    CoordinateType,
+                    std::array<typename VC::ctype, dim-1>>
+  placePositionsOnZSlice(
+    const VC& volumeConductor,
+    const std::array<typename VC::ctype, dim-1>& stepSizes,
+    typename VC::ctype zHeight,
+    const ElementSearch& elementSearch)
+  {
+    using Scalar = typename VC::ctype;
+
+    const auto& gridView = volumeConductor.gridView();  
+    std::array<Scalar, dim-1> lowerLeft;
+    std::array<Scalar, dim-1> upperRight;
+    for(std::size_t i = 0; i < dim -1; ++i) {
+      lowerLeft[i] = std::numeric_limits<Scalar>::max();
+      upperRight[i] = std::numeric_limits<Scalar>::lowest();
+    }
+    
+    // compute bounding box
+    for(const auto& element : elements(gridView)) {
+      for(int i = 0; i < element.geometry().corners(); ++i) {
+        CoordinateType  corner = element.geometry().corner(i);
+        for(int j = 0; j < dim - 1; ++j) {
+          if(corner[j] < lowerLeft[j]) {
+            lowerLeft[j] = corner[j];
+          }
+          if(corner[j] > upperRight[j]) {
+            upperRight[j] = corner[j];
+          }
+        }
+      } // loop over corners
+    } // loop over elements
+    
+    // create filter
+    std::function<bool(CoordinateType)> volumeConductorFilter([&elementSearch](const CoordinateType& position){ 
+      auto search_result = elementSearch.findEntity(position, false);
+      return !search_result.has_value(); 
+    });
+    
+    
+    CoordinateType lowerLeftCorner;
+    CoordinateType upperRightCorner;
+    
+    for(int i = 0; i < dim - 1; ++i) {
+      lowerLeftCorner[i] = lowerLeft[i];
+      upperRightCorner[i] = upperRight[i];
+    }
+    lowerLeftCorner[dim - 1] = zHeight;
+    upperRightCorner[dim - 1] = zHeight;
+    
+    std::cout << "Lower left corner: " << lowerLeftCorner << std::endl;
+    std::cout << "Upper right corner: " << upperRightCorner << std::endl; 
+    
+    std::array<typename VC::ctype, dim> augmentedStepSizes;
+    for(int i = 0; i < dim - 1; ++i) {
+      augmentedStepSizes[i] = stepSizes[i];
+    }
+    augmentedStepSizes[dim - 1] = 1.0;
+    
+    std::pair<std::vector<CoordinateType>, std::vector<std::array<std::size_t, dim>>> placed_positions = 
+     placePositionsOnRegularGridWithFilter<CoordinateType, Scalar, dim>
+      (lowerLeftCorner, 
+       upperRightCorner, 
+       augmentedStepSizes, 
+       volumeConductorFilter);
+    std::vector<CoordinateType>& placed_positions_coordinates = std::get<0>(placed_positions);
+    size_t nr_sources = placed_positions_coordinates.size();
+    std::vector<std::array<std::size_t, dim>>& fullIndices = std::get<1>(placed_positions);
+    
+    // postprocess placed sources
+    std::vector<std::array<std::size_t, dim-1>> gridIndices(nr_sources);
+    for(size_t i = 0; i < nr_sources; ++i) {
+      for(size_t j = 0; j < dim - 1; ++j) {
+        gridIndices[i][j] = fullIndices[i][j];
+      }
+    }
+    
+    return {placed_positions_coordinates, gridIndices, lowerLeftCorner, upperRightCorner, stepSizes};
+  }
 
 #if HAVE_DUNE_UDG
   template<class GFS, class ST>

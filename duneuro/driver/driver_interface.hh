@@ -226,7 +226,7 @@ public:
   /**
    * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
    */
-  std::unique_ptr<DenseMatrix<double>> 
+  std::vector<double>
   evaluateFunctionAtPositions(const Function& function,
                               const std::vector<CoordinateType>& positions,
                               const Dune::ParameterTree& config) const
@@ -292,6 +292,52 @@ public:
   void print_citations()
   {
     volumeConductor_->print_citations();
+  }
+  
+  /*
+   * Place regularly spaced positions on a z slice of the head model. Positions not contained in the 
+   * volume conductor grid are rejected.
+   */
+  std::tuple<std::vector<CoordinateType>,
+             std::vector<std::array<std::size_t, dim-1>>,
+             CoordinateType,
+             CoordinateType,
+             std::array<FieldType, dim-1>>
+  placePositionsZ(const FieldType resolution,
+                  const FieldType zHeight) const
+  {
+    return volumeConductor_->placePositionsZ(resolution, zHeight);
+  }
+
+  /*
+   * evaluate infinity potential of a dipole at predefined positions
+   */
+  std::vector<FieldType>
+  evaluateUInfinityAtPositions(const DipoleType& dipole,
+                               const std::vector<CoordinateType>& positions) const
+  {
+    return volumeConductor_->evaluateUInfinityAtPositions(dipole, positions);
+  }
+
+  /*
+   * In the local subtraction approach, we construct a cutoff function chi. This function samples chi at predefined positions.
+   */
+  std::vector<FieldType>
+  evaluateChiAtPositions(const DipoleType& dipole,
+                         const std::vector<CoordinateType>& positions,
+                         const Dune::ParameterTree& configSourceModel,
+                         const Dune::ParameterTree& configSolver) const
+  {
+    return volumeConductor_->evaluateChiAtPositions(dipole, positions, configSourceModel, configSolver);
+  }
+  
+  /*
+   * At each position, samples the conductivity tensor sigma and returns the value sigma[0][0]
+   */
+  std::vector<FieldType>
+  evaluateSigmaAtPositions(const std::vector<CoordinateType>& positions) const
+  {
+    return volumeConductor_->evaluateSigmaAtPositions(positions);
   }
 
   ~DriverInterface() {}

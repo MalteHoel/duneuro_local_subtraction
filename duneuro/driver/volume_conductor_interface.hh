@@ -204,7 +204,7 @@ public:
   /**
    * \brief evaluate a function itself, its gradient, or - sigma * its gradient at predefined global positions
    */
-  virtual std::unique_ptr<DenseMatrix<double>> 
+  virtual std::vector<double> 
   evaluateFunctionAtPositions(const Function& function,
                               const std::vector<CoordinateType>& positions,
                               const Dune::ParameterTree& config) const = 0;
@@ -255,6 +255,44 @@ public:
   {
     featureManager_->print_citations();
   }
+
+ /*
+  * Place regularly spaced positions on a z slice of the head model. Positions not contained in the 
+  * volume conductor grid are rejected.
+  */             
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, dim-1>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, dim-1>>
+  placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight) const = 0;
+
+ /*
+  * evaluate infinity potential of a dipole at predefined positions
+  */
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateUInfinityAtPositions(const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+                               const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
+
+
+ /*
+  * In the local subtraction approach, we construct a cutoff function chi. This function samples chi at predefined positions.
+  */
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const = 0;
+
+      
+ /*
+  * At each position, samples the conductivity tensor sigma and returns the value sigma[0][0]
+  */
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateSigmaAtPositions(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const = 0;
+
 
   virtual ~VolumeConductorInterface() {}
 

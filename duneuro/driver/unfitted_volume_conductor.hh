@@ -252,7 +252,7 @@ public:
     return SourceSpaceFactory::placePositionsInUnfittedMesh(solver_->functionSpace().getGFS(), *subTriangulation_, config);
   }
 
-  virtual std::unique_ptr<DenseMatrix<double>> evaluateFunctionAtPositions(
+  virtual std::vector<double> evaluateFunctionAtPositions(
     const Function& function,
     const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
     const Dune::ParameterTree& config) const override
@@ -353,6 +353,48 @@ public:
   {
     return this->computeMEGPrimaryField_impl(dipoles, coils_, projections_, config);
   }
+
+  
+  virtual std::tuple<std::vector<typename VolumeConductorInterface<dim>::CoordinateType>,
+                     std::vector<std::array<std::size_t, dim-1>>,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     typename VolumeConductorInterface<dim>::CoordinateType,
+                     std::array<typename VolumeConductorInterface<dim>::FieldType, dim-1>>
+  placePositionsZ(const typename VolumeConductorInterface<dim>::FieldType resolution,
+                  const typename VolumeConductorInterface<dim>::FieldType zHeight) const override
+  {
+    DUNE_THROW(Dune::Exception, "position placement is only implemented for fitted volume conductors");
+  }
+
+
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateUInfinityAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation is currently only implemented for fitted volume conductors");
+  }
+
+
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateChiAtPositions(
+    const typename VolumeConductorInterface<dim>::DipoleType& dipole,
+    const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions,
+    const Dune::ParameterTree& configSourceModel,
+    const Dune::ParameterTree& configSolver) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
+
+
+  
+  virtual std::vector<typename VolumeConductorInterface<dim>::FieldType> 
+  evaluateSigmaAtPositions(const std::vector<typename VolumeConductorInterface<dim>::CoordinateType>& positions) const override
+  {
+    DUNE_THROW(Dune::Exception, "evaluation of chi is currently only implemented for fitted volume conductors");
+  }
+
 
 private:
   void checkElectrodes() const {
